@@ -4,45 +4,31 @@ import React_RCTAppDelegate
 import ReactAppDependencyProvider
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
-  var window: UIWindow?
+class AppDelegate: RCTAppDelegate {
 
-  var reactNativeDelegate: ReactNativeDelegate?
-  var reactNativeFactory: RCTReactNativeFactory?
-
-  func application(
+  override func application(
     _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    let delegate = ReactNativeDelegate()
-    let factory = RCTReactNativeFactory(delegate: delegate)
-    delegate.dependencyProvider = RCTAppDependencyProvider()
 
-    reactNativeDelegate = delegate
-    reactNativeFactory = factory
+    self.moduleName = "DrSmokeApp"
+    self.dependencyProvider = RCTAppDependencyProvider()
+    self.initialProps = [:]
 
-    window = UIWindow(frame: UIScreen.main.bounds)
-
-    factory.startReactNative(
-      withModuleName: "DrSmokeApp",
-      in: window,
-      launchOptions: launchOptions
-    )
-
-    return true
-  }
-}
-
-class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
-  override func sourceURL(for bridge: RCTBridge) -> URL? {
-    self.bundleURL()
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  override func bundleURL() -> URL? {
+  // RN просит sourceURL -> отдаём bundleURL()
+  override func sourceURL(for bridge: RCTBridge!) -> URL! {
+    return self.bundleURL()
+  }
+
+  // Вот это и есть “getBundleURL” по смыслу (без этого и падает)
+  override func bundleURL() -> URL! {
 #if DEBUG
-    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 #else
-    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
 }
