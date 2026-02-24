@@ -31,12 +31,5 @@ target 'DrSmokeApp' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
-
-    # 🔧 Фикс ошибки non-modular-include-in-framework-module (Xcode/Pods)
-    installer.pods_project.targets.each do |t|
-      t.build_configurations.each do |c|
-        c.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      end
-    end
   end
 end
