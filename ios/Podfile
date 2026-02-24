@@ -5,8 +5,8 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-# 🔧 ВАЖНО: выключаем New Architecture (иначе часто SIGABRT и/или сборка ломается)
-ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+# Reanimated in this setup requires New Architecture enabled.
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
