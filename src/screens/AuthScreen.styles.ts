@@ -5,10 +5,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
     justifyContent: 'center',
-<<<<<<< HEAD
-    alignItems: 'center',
-=======
->>>>>>> c0cd9f4 (Initial commit)
     paddingHorizontal: 30,
   },
 
@@ -17,13 +13,6 @@ export const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '800',
     letterSpacing: 1.2,
-<<<<<<< HEAD
-    marginBottom: 70,
-  },
-
-  buttonsContainer: {
-    width: '100%',
-=======
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -111,7 +100,6 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
->>>>>>> c0cd9f4 (Initial commit)
   },
 
   button: {
@@ -128,21 +116,14 @@ export const styles = StyleSheet.create({
     elevation: 6,
   },
 
-<<<<<<< HEAD
-=======
   buttonDisabled: {
     opacity: 0.7,
   },
 
->>>>>>> c0cd9f4 (Initial commit)
   buttonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-<<<<<<< HEAD
 })
-=======
-})
->>>>>>> c0cd9f4 (Initial commit)

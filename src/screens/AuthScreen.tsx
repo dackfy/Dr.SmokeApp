@@ -1,10 +1,4 @@
 import React from 'react'
-<<<<<<< HEAD
-import { View, Text, TouchableOpacity, StatusBar } from 'react-native'
-import { styles } from './AuthScreen.styles'
-
-export default function AuthScreen() {
-=======
 import {
   View,
   Text,
@@ -30,22 +24,12 @@ export default function AuthScreen() {
     resetSession,
   } = useAuth()
 
->>>>>>> c0cd9f4 (Initial commit)
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <Text style={styles.title}>Dr. Smoke</Text>
 
-<<<<<<< HEAD
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Войти</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Зарегистрироваться</Text>
-=======
       <View style={styles.modeSwitch}>
         <TouchableOpacity
           style={[styles.modeButton, mode === 'login' && styles.modeButtonActive]}
@@ -168,7 +152,6 @@ export default function AuthScreen() {
               {isRegisterMode ? 'Создать аккаунт' : 'Войти'}
             </Text>
           )}
->>>>>>> c0cd9f4 (Initial commit)
         </TouchableOpacity>
       </View>
     </View>
