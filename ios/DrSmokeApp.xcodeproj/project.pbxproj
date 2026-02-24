@@ -8,10 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-<<<<<<< HEAD
 		578969DE22E9D5BE8CB7377B /* libPods-DrSmokeApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */; };
-=======
->>>>>>> c0cd9f4 (Initial commit)
 		6E2546952F4B42D900410FB4 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6E2546942F4B42D900410FB4 /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
@@ -26,14 +23,10 @@
 		6E2546942F4B42D900410FB4 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DrSmokeApp/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DrSmokeApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
-<<<<<<< HEAD
 		98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DrSmokeApp.debug.xcconfig"; path = "Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp.debug.xcconfig"; sourceTree = "<group>"; };
 		D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DrSmokeApp.release.xcconfig"; path = "Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DrSmokeApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-=======
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
->>>>>>> c0cd9f4 (Initial commit)
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,10 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-<<<<<<< HEAD
 				578969DE22E9D5BE8CB7377B /* libPods-DrSmokeApp.a in Frameworks */,
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,10 +58,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-<<<<<<< HEAD
 				EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */,
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -108,11 +95,8 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-<<<<<<< HEAD
 				98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */,
 				D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */,
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -124,19 +108,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "DrSmokeApp" */;
 			buildPhases = (
-<<<<<<< HEAD
 				91D3D2E0922F3E78679059F7 /* [CP] Check Pods Manifest.lock */,
-=======
->>>>>>> c0cd9f4 (Initial commit)
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-<<<<<<< HEAD
 				F4EC165AE1DFACB0C8ED9293 /* [CP] Embed Pods Frameworks */,
 				A1F0BDF2066AD14CADC1F87D /* [CP] Copy Pods Resources */,
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			);
 			buildRules = (
 			);
@@ -209,7 +187,6 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n";
 		};
-<<<<<<< HEAD
 		91D3D2E0922F3E78679059F7 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -266,8 +243,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-=======
->>>>>>> c0cd9f4 (Initial commit)
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -284,10 +259,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-<<<<<<< HEAD
 			baseConfigurationReference = 98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */;
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
@@ -318,10 +290,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-<<<<<<< HEAD
 			baseConfigurationReference = D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */;
-=======
->>>>>>> c0cd9f4 (Initial commit)
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
