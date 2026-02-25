@@ -25,7 +25,7 @@ export function validateAuthForm(mode: AuthMode, values: AuthFormValues): string
     return 'Введите корректный email'
   }
 
-  if (password.length < 6) {
+  if (mode === 'register' && password.length < 6) {
     return 'Пароль должен быть не короче 6 символов'
   }
 
