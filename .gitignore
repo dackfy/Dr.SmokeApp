@@ -73,3 +73,6 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Local app config (do not commit machine-specific API endpoints)
+src/config/api.local.ts
