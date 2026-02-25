@@ -17,6 +17,31 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  welcomeCard: {
+    width: '100%',
+    backgroundColor: '#111111',
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1E1E1E',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  welcomeTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
+  welcomeSubtitle: {
+    color: '#B3B3B3',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
   modeSwitch: {
     flexDirection: 'row',
     backgroundColor: '#151515',
@@ -65,6 +90,32 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     marginBottom: 12,
+  },
+
+  passwordField: {
+    position: 'relative',
+  },
+
+  passwordInput: {
+    paddingRight: 48,
+  },
+
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 28,
+  },
+
+  eyeImage: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+    tintColor: '#FFFFFF',
+    opacity: 0.9,
   },
 
   errorText: {

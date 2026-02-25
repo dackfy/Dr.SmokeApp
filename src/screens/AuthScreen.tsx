@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   View,
   Text,
@@ -6,11 +6,18 @@ import {
   StatusBar,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native'
 import { styles } from './AuthScreen.styles'
 import { useAuth } from '../features/auth/useAuth'
 
+const eyeOpenIcon = require('../assets/icons/eye-open.png')
+const eyeClosedIcon = require('../assets/icons/eye-closed.png')
+
 export default function AuthScreen() {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false)
+
   const {
     mode,
     form,
@@ -24,11 +31,29 @@ export default function AuthScreen() {
     resetSession,
   } = useAuth()
 
+  if (session) {
+    const fullName = [session.user.name, session.user.lastName].filter(Boolean).join(' ')
+    const displayName = fullName || session.user.email
+
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+
+        <View style={styles.welcomeCard}>
+          <Text style={styles.welcomeTitle}>Привет, {displayName}</Text>
+          <Text style={styles.welcomeSubtitle}>Вы успешно вошли в приложение</Text>
+
+          <TouchableOpacity style={styles.button} onPress={resetSession}>
+            <Text style={styles.buttonText}>Выйти</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      <Text style={styles.title}>Dr. Smoke</Text>
 
       <View style={styles.modeSwitch}>
         <TouchableOpacity
@@ -98,48 +123,59 @@ export default function AuthScreen() {
           editable={!isSubmitting}
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Пароль"
-          placeholderTextColor="#7A7A7A"
-          secureTextEntry
-          autoCapitalize="none"
-          value={form.password}
-          onChangeText={text => updateField('password', text)}
-          editable={!isSubmitting}
-        />
-
-        {isRegisterMode ? (
+        <View style={styles.passwordField}>
           <TextInput
-            style={styles.input}
-            placeholder="Повторите пароль"
+            style={[styles.input, styles.passwordInput]}
+            placeholder="Пароль"
             placeholderTextColor="#7A7A7A"
-            secureTextEntry
+            secureTextEntry={!isPasswordVisible}
             autoCapitalize="none"
-            value={form.confirmPassword}
-            onChangeText={text => updateField('confirmPassword', text)}
+            value={form.password}
+            onChangeText={text => updateField('password', text)}
             editable={!isSubmitting}
           />
-        ) : null}
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setIsPasswordVisible(prev => !prev)}
+            disabled={isSubmitting}
+            accessibilityRole="button"
+            accessibilityLabel={isPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'}>
+            <Image
+              source={isPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
+              style={styles.eyeImage}
+            />
+          </TouchableOpacity>
+        </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {session ? (
-          <View style={styles.successBox}>
-            <Text style={styles.successText}>
-              Успех: {session.user.email}
-              {session.user.name
-                ? ` (${session.user.name}${session.user.lastName ? ` ${session.user.lastName}` : ''})`
-                : ''}
-            </Text>
-            {session.user.city ? (
-              <Text style={styles.successText}>Город: {session.user.city}</Text>
-            ) : null}
-            <TouchableOpacity style={styles.secondaryButton} onPress={resetSession}>
-              <Text style={styles.secondaryButtonText}>Сбросить сессию</Text>
+        {isRegisterMode ? (
+          <View style={styles.passwordField}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Повторите пароль"
+              placeholderTextColor="#7A7A7A"
+              secureTextEntry={!isConfirmPasswordVisible}
+              autoCapitalize="none"
+              value={form.confirmPassword}
+              onChangeText={text => updateField('confirmPassword', text)}
+              editable={!isSubmitting}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setIsConfirmPasswordVisible(prev => !prev)}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isConfirmPasswordVisible ? 'Скрыть подтверждение пароля' : 'Показать пароль'
+              }>
+              <Image
+                source={isConfirmPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
+                style={styles.eyeImage}
+              />
             </TouchableOpacity>
           </View>
         ) : null}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TouchableOpacity
           style={[styles.button, isSubmitting && styles.buttonDisabled]}

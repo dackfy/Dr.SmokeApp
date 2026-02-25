@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { mockAuthApi, type AuthApi } from './authApi'
+import { authApi, type AuthApi } from './authApi'
 import type { AuthFormValues, AuthMode, AuthSession } from './types'
 import { validateAuthForm } from './validators'
 
@@ -17,7 +17,7 @@ type UseAuthOptions = {
 }
 
 export function useAuth(options: UseAuthOptions = {}) {
-  const api = options.api ?? mockAuthApi
+  const api = options.api ?? authApi
 
   const [mode, setMode] = useState<AuthMode>('login')
   const [form, setForm] = useState<AuthFormValues>(initialForm)
