@@ -1,5 +1,3 @@
-export type AuthMode = 'login' | 'register'
-
 export type AuthUser = {
   id: string
   email: string
@@ -15,7 +13,7 @@ export type AuthSession = {
 }
 
 export type LoginRequest = {
-  email: string
+  identifier: string
   password: string
 }
 
@@ -28,10 +26,6 @@ export type RegisterRequest = {
 }
 
 export type AuthFormValues = {
-  name: string
-  lastName: string
-  city: string
-  email: string
+  identifier: string
   password: string
-  confirmPassword: string
 }

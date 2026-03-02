@@ -1,6 +1,18 @@
 import { StyleSheet } from 'react-native'
 
 export const styles = StyleSheet.create({
+  authenticatedScreen: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+
+  authContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#000000',
@@ -167,6 +179,11 @@ export const styles = StyleSheet.create({
     elevation: 6,
   },
 
+  logoutButton: {
+    width: '100%',
+    marginBottom: 0,
+  },
+
   buttonDisabled: {
     opacity: 0.7,
   },
@@ -176,5 +193,35 @@ export const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+
+  bottomNav: {
+    height: 84,
+    borderTopWidth: 1,
+    borderTopColor: '#1E1E1E',
+    backgroundColor: '#0B0B0B',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+
+  navButton: {
+    width: 64,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  navIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+    tintColor: '#8F8F8F',
+  },
+
+  navIconActive: {
+    tintColor: '#FFFFFF',
   },
 })
