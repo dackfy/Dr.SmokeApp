@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import { authApi, type AuthApi } from './authApi'
-import type { AuthFormValues, AuthMode, AuthSession } from './types'
+import type { AuthFormValues, AuthSession } from './types'
 import { validateAuthForm } from './validators'
 
 const initialForm: AuthFormValues = {
-  name: '',
-  lastName: '',
-  city: '',
-  email: '',
+  identifier: '',
   password: '',
-  confirmPassword: '',
 }
 
 type UseAuthOptions = {
@@ -19,23 +15,10 @@ type UseAuthOptions = {
 export function useAuth(options: UseAuthOptions = {}) {
   const api = options.api ?? authApi
 
-  const [mode, setMode] = useState<AuthMode>('login')
   const [form, setForm] = useState<AuthFormValues>(initialForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [session, setSession] = useState<AuthSession | null>(null)
-
-  const isRegisterMode = mode === 'register'
-
-  function switchMode(nextMode: AuthMode) {
-    setMode(nextMode)
-    setError(null)
-    setForm(prev => ({
-      ...prev,
-      password: '',
-      confirmPassword: '',
-    }))
-  }
 
   function updateField<K extends keyof AuthFormValues>(field: K, value: AuthFormValues[K]) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -45,7 +28,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   }
 
   async function submit() {
-    const validationError = validateAuthForm(mode, form)
+    const validationError = validateAuthForm(form)
     if (validationError) {
       setError(validationError)
       return
@@ -55,18 +38,10 @@ export function useAuth(options: UseAuthOptions = {}) {
     setError(null)
 
     try {
-      const nextSession = isRegisterMode
-        ? await api.register({
-            name: form.name.trim(),
-            lastName: form.lastName.trim(),
-            city: form.city.trim(),
-            email: form.email.trim(),
-            password: form.password,
-          })
-        : await api.login({
-            email: form.email.trim(),
-            password: form.password,
-          })
+      const nextSession = await api.login({
+        identifier: form.identifier.trim(),
+        password: form.password,
+      })
 
       setSession(nextSession)
     } catch (requestError) {
@@ -83,13 +58,10 @@ export function useAuth(options: UseAuthOptions = {}) {
   }
 
   return {
-    mode,
     form,
-    isRegisterMode,
     isSubmitting,
     error,
     session,
-    switchMode,
     updateField,
     submit,
     resetSession,

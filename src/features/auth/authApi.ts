@@ -36,11 +36,11 @@ export const mockAuthApi: AuthApi = {
   async login(payload) {
     await wait(700)
 
-    if (payload.email.toLowerCase() === 'error@test.com') {
+    if (payload.identifier.toLowerCase() === 'error@test.com') {
       throw new Error('Тестовая ошибка логина (mock)')
     }
 
-    return createSession(payload.email)
+    return createSession(payload.identifier)
   },
 
   async register(payload) {
@@ -84,11 +84,16 @@ class AuthError extends Error {
 
 export const realAuthApi: AuthApi = {
   async login(payload) {
+    const identifier = payload.identifier.trim()
+    const isEmailLike = identifier.includes('@')
+
     const res = await fetch(buildApiUrl('/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: payload.email.trim().toLowerCase(),
+        email: isEmailLike ? identifier.toLowerCase() : identifier,
+        login: identifier,
+        identifier,
         password: payload.password,
       }),
     })
@@ -103,7 +108,7 @@ export const realAuthApi: AuthApi = {
     if (!res.ok) {
       const code = (data as { error?: string } | null)?.error
 
-      if (res.status === 401) throw new AuthError('Неверный email или пароль', 401, code)
+      if (res.status === 401) throw new AuthError('Неверный логин или пароль', 401, code)
       if (res.status === 403) throw new AuthError('Аккаунт не активен', 403, code)
       if (res.status === 400) throw new AuthError('Введите email и пароль', 400, code)
 
@@ -112,7 +117,7 @@ export const realAuthApi: AuthApi = {
 
     const ok = data as LoginResponse
     return createSession(
-      ok.email ?? payload.email,
+      ok.email ?? payload.identifier,
       ok.name ?? extractNameFromGreeting(ok.message),
       ok.lastName,
       ok.city,
