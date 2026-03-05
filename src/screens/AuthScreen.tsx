@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
+import ShiftScreen from './ShiftScreen';
 
 const eyeOpenIcon = require('../assets/icons/eye-open.png');
 const eyeClosedIcon = require('../assets/icons/eye-closed.png');
@@ -21,6 +22,7 @@ type AuthTab = 'home' | 'profile';
 export default function AuthScreen() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
+  const [isShiftScreenOpen, setIsShiftScreenOpen] = useState(false);
 
   const {
     form,
@@ -33,18 +35,49 @@ export default function AuthScreen() {
   } = useAuth();
 
   if (session) {
+    if (isShiftScreenOpen) {
+      return (
+        <ShiftScreen
+          session={session}
+          onLogout={() => {
+            setIsShiftScreenOpen(false);
+            setActiveTab('home');
+            resetSession();
+          }}
+          onBack={() => setIsShiftScreenOpen(false)}
+        />
+      );
+    }
+
     const fullName = [session.user.name, session.user.lastName]
       .filter(Boolean)
       .join(' ');
     const displayName = fullName || session.user.email;
 
     const showProfile = activeTab === 'profile';
+    const showHome = activeTab === 'home';
 
     return (
       <View style={styles.authenticatedScreen}>
         <StatusBar barStyle="light-content" />
 
         <View style={styles.authContent}>
+          {showHome ? (
+            <View style={styles.welcomeCard}>
+              <Text style={styles.welcomeTitle}>Главная</Text>
+              <Text style={styles.welcomeSubtitle}>
+                Перейдите в раздел смены, чтобы открыть или закрыть смену.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.button, styles.logoutButton]}
+                onPress={() => setIsShiftScreenOpen(true)}
+              >
+                <Text style={styles.buttonText}>Работа со сменой</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {showProfile ? (
             <View style={styles.welcomeCard}>
               <Text style={styles.welcomeTitle}>Привет, {displayName}</Text>
