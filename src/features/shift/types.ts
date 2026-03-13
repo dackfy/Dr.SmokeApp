@@ -1,4 +1,5 @@
 export type OpenedShift = {
+  shopId?: number
   shopName: string
   openedAt: string
   cashAtOpening: number
@@ -9,10 +10,16 @@ export type ShiftStatus = {
 }
 
 export type OpenShiftPayload = {
+  shopId: number
   shopName: string
   openingReceiptPhotoId: string
   uniformPhotoId: string
   cashAtOpening: number
+}
+
+export type ShopOption = {
+  id: number
+  name: string
 }
 
 export type CloseShiftPayload = {
@@ -35,6 +42,7 @@ export type CloseFlowStep =
   | 'review'
 
 export type ShiftOpenDraft = {
+  shopId: number | null
   shopName: string | null
   openingReceiptPhotoId: string
   uniformPhotoId: string

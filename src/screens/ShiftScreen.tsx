@@ -2,8 +2,13 @@ import React from 'react'
 import {
   Alert,
   ActivityIndicator,
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
   Image,
+  Modal,
   PermissionsAndroid,
+  Pressable,
   Platform,
   ScrollView,
   StatusBar,
@@ -12,24 +17,53 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { launchCamera } from 'react-native-image-picker'
 import type { AuthSession } from '../features/auth/types'
 import { useShiftFlow } from '../features/shift/useShiftFlow'
 import { styles } from './ShiftScreen.styles'
+import LiquidTabBar from '../components/LiquidTabBar'
+import type { TabKey } from '../components/LiquidTabBar'
 
 type ShiftScreenProps = {
   session: AuthSession
   onLogout: () => void
   onBack?: () => void
+  onGoHome?: () => void
+  onGoMail?: () => void
+  onGoTrash?: () => void
+  onGoProfile?: () => void
+  activeTab?: TabKey
+  showHeaderActions?: boolean
+  showTabBar?: boolean
 }
+
+const homeIcon = require('../assets/icons/home.png')
+const profileIcon = require('../assets/icons/profile.png')
+const mailIcon = require('../assets/icons/mail.png')
+const trashIcon = require('../assets/icons/trash.png')
 
 function formatDateTime(value?: string) {
   if (!value) return '-'
+
+  const mysqlDateTimeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(:\d{2})?$/)
+  if (mysqlDateTimeMatch) {
+    const [, year, month, day, hour, minute] = mysqlDateTimeMatch
+    return `${day}.${month}.${year}, ${hour}:${minute}`
+  }
 
   return new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function formatTodayLabel(timezone?: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone || undefined,
+  }).format(new Date())
 }
 
 async function ensureCameraPermission() {
@@ -41,7 +75,10 @@ async function ensureCameraPermission() {
   return granted === PermissionsAndroid.RESULTS.GRANTED
 }
 
-async function takePhoto(onSuccess: (uri: string) => void) {
+async function takePhoto(
+  onSuccess: (uri: string) => void,
+  cameraType: 'back' | 'front' = 'back',
+) {
   try {
     const hasPermission = await ensureCameraPermission()
     if (!hasPermission) {
@@ -51,7 +88,7 @@ async function takePhoto(onSuccess: (uri: string) => void) {
 
     const result = await launchCamera({
       mediaType: 'photo',
-      cameraType: 'back',
+      cameraType,
       quality: 0.7,
       saveToPhotos: false,
     })
@@ -81,7 +118,21 @@ async function takePhoto(onSuccess: (uri: string) => void) {
   }
 }
 
-export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenProps) {
+export default function ShiftScreen({
+  session,
+  onLogout,
+  onBack,
+  onGoHome,
+  onGoMail,
+  onGoTrash,
+  onGoProfile,
+  activeTab = 'home',
+  showHeaderActions = true,
+  showTabBar = true,
+}: ShiftScreenProps) {
+  const [isShopDropdownOpen, setIsShopDropdownOpen] = React.useState(false)
+  const cashAccessoryId = 'shift-cash-accessory'
+
   const {
     mode,
     openStep,
@@ -101,37 +152,87 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
 
   const fullName = [session.user.name, session.user.lastName].filter(Boolean).join(' ')
   const displayName = fullName || session.user.email
+  const todayLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`
+  const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase()
+  const shiftShopDisplay = status.openedShift?.shopName
+  const shiftOpenedAtDisplay = status.openedShift
+    ? formatDateTime(status.openedShift.openedAt)
+    : null
+
+  const switchTab = React.useCallback(
+    (nextTab: TabKey) => {
+      if (nextTab === 'home') {
+        onGoHome?.()
+        return
+      }
+      if (nextTab === 'mail') {
+        onGoMail?.()
+        return
+      }
+      if (nextTab === 'trash') {
+        onGoTrash?.()
+        return
+      }
+      onGoProfile?.()
+    },
+    [onGoHome, onGoMail, onGoProfile, onGoTrash],
+  )
+
+  React.useEffect(() => {
+    if (openStep !== 'shop') {
+      setIsShopDropdownOpen(false)
+    }
+  }, [openStep])
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.title}>Привет, {displayName}</Text>
-          <Text style={styles.subtitle}>
-            После входа здесь повторяется основной flow бота: открытие и закрытие смены.
-          </Text>
-
-          {onBack ? (
-            <TouchableOpacity
-              style={[styles.button, styles.buttonSecondary]}
-              onPress={onBack}
-              disabled={isSubmitting || isLoading}>
-              <Text style={styles.buttonText}>Назад</Text>
-            </TouchableOpacity>
-          ) : null}
+      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          onScrollBeginDrag={Keyboard.dismiss}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>{todayLabel}</Text>
 
           <TouchableOpacity
-            style={[styles.button, styles.buttonSecondary]}
-            onPress={onLogout}
-            disabled={isSubmitting || isLoading}>
-            <Text style={styles.buttonText}>Выйти</Text>
+            style={styles.headerAvatarButton}
+            onPress={onGoProfile ?? onBack}
+            accessibilityRole="button"
+            accessibilityLabel="Открыть профиль">
+            <Text style={styles.headerAvatarText}>{profileLetter}</Text>
           </TouchableOpacity>
         </View>
 
+        {showHeaderActions ? (
+          <View style={styles.greetingBlock}>
+            <Text style={styles.subtitle}>Сотрудник: {displayName}</Text>
+            {onBack ? (
+              <TouchableOpacity
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={onBack}
+                disabled={isSubmitting || isLoading}>
+                <Text style={styles.buttonText}>Назад</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary]}
+              onPress={onLogout}
+              disabled={isSubmitting || isLoading}>
+              <Text style={styles.buttonText}>Выйти</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Статус смены</Text>
+          <Text style={styles.sectionTitle}>Информация о сменах</Text>
 
           <View style={status.openedShift ? styles.badgeOpen : styles.badgeClosed}>
             <Text style={styles.badgeText}>
@@ -139,12 +240,25 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
             </Text>
           </View>
 
-          <Text style={styles.subtitle}>Магазин: {status.openedShift?.shopName ?? '-'}</Text>
-          <Text style={styles.subtitle}>Открыта: {formatDateTime(status.openedShift?.openedAt)}</Text>
+          {status.openedShift ? (
+            <>
+              <Text style={styles.subtitle}>Магазин: {shiftShopDisplay}</Text>
+              <Text style={styles.subtitle}>Открытие: {shiftOpenedAtDisplay}</Text>
+            </>
+          ) : null}
+
+          {!status.openedShift ? (
+            <Text style={styles.smallText}>Сейчас смена закрыта. Нажмите «Открыть смену» для старта.</Text>
+          ) : null}
 
           <View style={styles.row}>
             <TouchableOpacity
-              style={[styles.button, !canStartOpening && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                styles.rowButton,
+                !canStartOpening && styles.buttonSecondary,
+                !canStartOpening && styles.buttonDisabled,
+              ]}
               onPress={actions.startOpening}
               disabled={!canStartOpening || isSubmitting || isLoading}>
               <Text style={styles.buttonText}>Открыть смену</Text>
@@ -153,7 +267,8 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
             <TouchableOpacity
               style={[
                 styles.button,
-                styles.buttonSecondary,
+                styles.rowButton,
+                !canStartClosing && styles.buttonSecondary,
                 !canStartClosing && styles.buttonDisabled,
               ]}
               onPress={actions.startClosing}
@@ -162,12 +277,6 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, styles.buttonSecondary]}
-            onPress={actions.refresh}
-            disabled={isSubmitting || isLoading}>
-            <Text style={styles.buttonText}>Обновить данные</Text>
-          </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -193,19 +302,25 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
             <Text style={styles.sectionTitle}>Открытие смены</Text>
 
             {openStep === 'shop' ? (
-              <View style={styles.stack}>
+              <View style={[styles.stack, styles.shopStepContainer]}>
                 <Text style={styles.subtitle}>С какого магазина отчёт?</Text>
-                {availableShops.map(shop => (
-                  <TouchableOpacity
-                    key={shop}
+                <TouchableOpacity
+                  style={[
+                    styles.shopSelectTrigger,
+                    isShopDropdownOpen && styles.shopSelectTriggerActive,
+                  ]}
+                  onPress={() => setIsShopDropdownOpen(prev => !prev)}
+                  disabled={isSubmitting}>
+                  <Text
                     style={[
-                      styles.shopButton,
-                      openDraft.shopName === shop && styles.shopButtonActive,
-                    ]}
-                    onPress={() => actions.selectShop(shop)}>
-                    <Text style={styles.shopButtonText}>{shop}</Text>
-                  </TouchableOpacity>
-                ))}
+                      styles.shopSelectTriggerText,
+                      openDraft.shopId ? styles.shopSelectTriggerTextActive : null,
+                    ]}>
+                    {openDraft.shopName || 'Выберите магазин'}
+                  </Text>
+                  <Text style={styles.shopSelectChevron}>{isShopDropdownOpen ? '▴' : '▾'}</Text>
+                </TouchableOpacity>
+
               </View>
             ) : null}
 
@@ -214,22 +329,13 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
                 <Text style={styles.subtitle}>Сфотографируйте чек открытия.</Text>
                 <TouchableOpacity
                   style={styles.button}
-                  onPress={() => takePhoto(actions.setOpeningReceiptPhotoId)}
+                  onPress={() =>
+                    takePhoto(uri => {
+                      actions.setOpeningReceiptAndGoToUniform(uri)
+                    })
+                  }
                   disabled={isSubmitting}>
-                  <Text style={styles.buttonText}>
-                    {openDraft.openingReceiptPhotoId ? 'Переснять чек' : 'Сфотографировать чек'}
-                  </Text>
-                </TouchableOpacity>
-                {openDraft.openingReceiptPhotoId ? (
-                  <Image
-                    source={{ uri: openDraft.openingReceiptPhotoId }}
-                    style={styles.photoPreview}
-                  />
-                ) : (
-                  <Text style={styles.smallText}>Фото пока не добавлено.</Text>
-                )}
-                <TouchableOpacity style={styles.button} onPress={actions.toUniformStep}>
-                  <Text style={styles.buttonText}>Дальше</Text>
+                  <Text style={styles.buttonText}>Сфотографировать чек</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -239,37 +345,40 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
                 <Text style={styles.subtitle}>Сфотографируйте форму.</Text>
                 <TouchableOpacity
                   style={styles.button}
-                  onPress={() => takePhoto(actions.setUniformPhotoId)}
+                  onPress={() =>
+                    takePhoto(uri => {
+                      actions.setUniformPhotoAndGoToCash(uri)
+                    }, 'front')
+                  }
                   disabled={isSubmitting}>
-                  <Text style={styles.buttonText}>
-                    {openDraft.uniformPhotoId ? 'Переснять фото формы' : 'Сфотографировать форму'}
-                  </Text>
-                </TouchableOpacity>
-                {openDraft.uniformPhotoId ? (
-                  <Image source={{ uri: openDraft.uniformPhotoId }} style={styles.photoPreview} />
-                ) : (
-                  <Text style={styles.smallText}>Фото пока не добавлено.</Text>
-                )}
-                <TouchableOpacity style={styles.button} onPress={actions.toCashStep}>
-                  <Text style={styles.buttonText}>Дальше</Text>
+                  <Text style={styles.buttonText}>Сфотографировать форму</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
 
             {openStep === 'cash' ? (
               <View style={styles.stack}>
-                <Text style={styles.subtitle}>Введите сумму размена на открытии.</Text>
+                <Text style={styles.subtitle}>Введите сумму размена в кассе.</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="0"
                   placeholderTextColor="#7A7A7A"
                   keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={Keyboard.dismiss}
+                  inputAccessoryViewID={Platform.OS === 'ios' ? cashAccessoryId : undefined}
                   value={openDraft.cashAtOpening}
                   onChangeText={actions.setCashAtOpening}
                   editable={!isSubmitting}
                 />
-                <TouchableOpacity style={styles.button} onPress={actions.toOpenReview}>
-                  <Text style={styles.buttonText}>Проверить отчёт</Text>
+                <TouchableOpacity
+                  style={[styles.button, isSubmitting && styles.buttonDisabled]}
+                  onPress={actions.submitOpenShift}
+                  disabled={isSubmitting}>
+                  <Text style={styles.buttonText}>
+                    {isSubmitting ? 'Отправка...' : 'Отправить отчёт'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -423,7 +532,67 @@ export default function ShiftScreen({ session, onLogout, onBack }: ShiftScreenPr
             </TouchableOpacity>
           </View>
         ) : null}
-      </ScrollView>
-    </View>
+        </ScrollView>
+
+        <Modal
+          visible={isShopDropdownOpen}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setIsShopDropdownOpen(false)}>
+          <Pressable style={styles.shopModalOverlay} onPress={() => setIsShopDropdownOpen(false)}>
+            <Pressable style={styles.shopModalCard} onPress={() => {}}>
+              <Text style={styles.shopModalTitle}>Выберите магазин</Text>
+              <ScrollView
+                style={styles.shopDropdownScroll}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator>
+                {availableShops.map(shop => (
+                  <TouchableOpacity
+                    key={shop.id}
+                    style={[
+                      styles.shopOptionRow,
+                      openDraft.shopId === shop.id && styles.shopOptionRowActive,
+                    ]}
+                    onPress={() => {
+                      actions.selectShop(shop.id, shop.name)
+                      setIsShopDropdownOpen(false)
+                    }}>
+                    <Text
+                      style={[
+                        styles.shopOptionText,
+                        openDraft.shopId === shop.id && styles.shopOptionTextActive,
+                      ]}>
+                      {shop.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={cashAccessoryId}>
+            <View style={styles.keyboardAccessory}>
+              <TouchableOpacity onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
+                <Text style={styles.keyboardAccessoryText}>Готово</Text>
+              </TouchableOpacity>
+            </View>
+          </InputAccessoryView>
+        ) : null}
+      </KeyboardAvoidingView>
+
+      {showTabBar ? (
+        <LiquidTabBar
+          activeTab={activeTab}
+          onTabChange={switchTab}
+          homeIcon={homeIcon}
+          profileIcon={profileIcon}
+          mailIcon={mailIcon}
+          trashIcon={trashIcon}
+        />
+      ) : null}
+      </View>
+    </SafeAreaView>
   )
 }

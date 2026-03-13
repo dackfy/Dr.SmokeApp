@@ -4,6 +4,7 @@ import { shiftApi, type ShiftApi } from './shiftApi'
 import type {
   CloseFlowStep,
   OpenFlowStep,
+  ShopOption,
   ShiftCloseDraft,
   ShiftFlowMode,
   ShiftOpenDraft,
@@ -11,6 +12,7 @@ import type {
 } from './types'
 
 const initialOpenDraft: ShiftOpenDraft = {
+  shopId: null,
   shopName: null,
   openingReceiptPhotoId: '',
   uniformPhotoId: '',
@@ -28,11 +30,15 @@ type UseShiftFlowOptions = {
   api?: ShiftApi
 }
 
+type RefreshOptions = {
+  silent?: boolean
+}
+
 export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) {
   const api = options.api ?? shiftApi
 
   const [status, setStatus] = useState<ShiftStatus>({ openedShift: null })
-  const [availableShops, setAvailableShops] = useState<string[]>([])
+  const [availableShops, setAvailableShops] = useState<ShopOption[]>([])
   const [mode, setMode] = useState<ShiftFlowMode>('idle')
   const [openStep, setOpenStep] = useState<OpenFlowStep>('shop')
   const [closeStep, setCloseStep] = useState<CloseFlowStep>('confirmShop')
@@ -64,8 +70,12 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
     setNotice('Действие отменено.')
   }, [resetCloseFlow, resetOpenFlow])
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true)
+  const refresh = useCallback(async (options: RefreshOptions = {}) => {
+    const { silent = false } = options
+
+    if (!silent) {
+      setIsLoading(true)
+    }
     setError(null)
 
     try {
@@ -81,7 +91,9 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
         requestError instanceof Error ? requestError.message : 'Не удалось обновить данные смены'
       setError(message)
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
   }, [api, user.id])
 
@@ -109,14 +121,25 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
         setError(null)
       },
 
-      selectShop(shopName: string) {
-        setOpenDraft(prev => ({ ...prev, shopName }))
+      selectShop(shopId: number, shopName: string) {
+        setOpenDraft(prev => ({ ...prev, shopId, shopName }))
         setOpenStep('openingReceipt')
         setError(null)
       },
 
       setOpeningReceiptPhotoId(value: string) {
         setOpenDraft(prev => ({ ...prev, openingReceiptPhotoId: value }))
+      },
+
+      setOpeningReceiptAndGoToUniform(value: string) {
+        if (!value.trim()) {
+          setError('Добавьте фото чека открытия.')
+          return
+        }
+
+        setOpenDraft(prev => ({ ...prev, openingReceiptPhotoId: value }))
+        setOpenStep('uniformPhoto')
+        setError(null)
       },
 
       toUniformStep() {
@@ -131,6 +154,17 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
 
       setUniformPhotoId(value: string) {
         setOpenDraft(prev => ({ ...prev, uniformPhotoId: value }))
+      },
+
+      setUniformPhotoAndGoToCash(value: string) {
+        if (!value.trim()) {
+          setError('Добавьте фото формы.')
+          return
+        }
+
+        setOpenDraft(prev => ({ ...prev, uniformPhotoId: value }))
+        setOpenStep('cash')
+        setError(null)
       },
 
       toCashStep() {
@@ -160,7 +194,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
       },
 
       async submitOpenShift() {
-        if (!openDraft.shopName) {
+        if (!openDraft.shopId || !openDraft.shopName) {
           setError('Сначала выберите магазин.')
           return
         }
@@ -176,6 +210,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
 
         try {
           const nextStatus = await api.openShift(user.id, {
+            shopId: openDraft.shopId,
             shopName: openDraft.shopName,
             openingReceiptPhotoId: openDraft.openingReceiptPhotoId.trim(),
             uniformPhotoId: openDraft.uniformPhotoId.trim(),
@@ -340,6 +375,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
       closeDraft.revenueTotal,
       openDraft.cashAtOpening,
       openDraft.openingReceiptPhotoId,
+      openDraft.shopId,
       openDraft.shopName,
       openDraft.uniformPhotoId,
       refresh,

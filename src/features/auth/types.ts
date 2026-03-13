@@ -4,6 +4,7 @@ export type AuthUser = {
   name?: string
   lastName?: string
   city?: string
+  timezone?: string
 }
 
 export type AuthSession = {
@@ -15,6 +16,22 @@ export type AuthSession = {
 export type LoginRequest = {
   identifier: string
   password: string
+}
+
+export type ChangePasswordRequest = {
+  employee_id: string
+  oldPassword: string
+  newPassword: string
+}
+
+export type ForgotPasswordRequest = {
+  identity: string
+}
+
+export type ResetPasswordRequest = {
+  identity: string
+  code: string
+  newPassword: string
 }
 
 export type RegisterRequest = {
