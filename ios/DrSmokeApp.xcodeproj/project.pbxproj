@@ -8,25 +8,27 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		578969DE22E9D5BE8CB7377B /* libPods-DrSmokeApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */; };
 		6E2546952F4B42D900410FB4 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6E2546942F4B42D900410FB4 /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		800B7285E12345E21391A616 /* libPods-asst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B722686D3B707728D416437 /* libPods-asst.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		E5DAE29F09B73E6FBFA7937E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* DrSmokeApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrSmokeApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07F961A680F5B00A75B9A /* asst.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = asst.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = DrSmokeApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = DrSmokeApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = DrSmokeApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4B722686D3B707728D416437 /* libPods-asst.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-asst.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E2546942F4B42D900410FB4 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DrSmokeApp/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DrSmokeApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DrSmokeApp.debug.xcconfig"; path = "Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp.debug.xcconfig"; sourceTree = "<group>"; };
 		D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DrSmokeApp.release.xcconfig"; path = "Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp.release.xcconfig"; sourceTree = "<group>"; };
+		D33D89E3CD5BDDB08916D3B2 /* Pods-asst.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-asst.release.xcconfig"; path = "Target Support Files/Pods-asst/Pods-asst.release.xcconfig"; sourceTree = "<group>"; };
+		D958DF6B2F9CC207670483C4 /* Pods-asst.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-asst.debug.xcconfig"; path = "Target Support Files/Pods-asst/Pods-asst.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DrSmokeApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,7 +36,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				578969DE22E9D5BE8CB7377B /* libPods-DrSmokeApp.a in Frameworks */,
+				800B7285E12345E21391A616 /* libPods-asst.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,7 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				EE3AB87C4AC05A1E5C63EB60 /* libPods-DrSmokeApp.a */,
+				4B722686D3B707728D416437 /* libPods-asst.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -87,7 +89,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* DrSmokeApp.app */,
+				13B07F961A680F5B00A75B9A /* asst.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +99,8 @@
 			children = (
 				98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */,
 				D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */,
+				D958DF6B2F9CC207670483C4 /* Pods-asst.debug.xcconfig */,
+				D33D89E3CD5BDDB08916D3B2 /* Pods-asst.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -104,9 +108,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* DrSmokeApp */ = {
+		13B07F861A680F5B00A75B9A /* asst */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "DrSmokeApp" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "asst" */;
 			buildPhases = (
 				91D3D2E0922F3E78679059F7 /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
@@ -120,9 +124,9 @@
 			);
 			dependencies = (
 			);
-			name = DrSmokeApp;
+			name = asst;
 			productName = DrSmokeApp;
-			productReference = 13B07F961A680F5B00A75B9A /* DrSmokeApp.app */;
+			productReference = 13B07F961A680F5B00A75B9A /* asst.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -151,7 +155,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* DrSmokeApp */,
+				13B07F861A680F5B00A75B9A /* asst */,
 			);
 		};
 /* End PBXProject section */
@@ -202,7 +206,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-DrSmokeApp-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-asst-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -215,15 +219,15 @@
 			files = (
 			);
 			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-resources-${CONFIGURATION}-input-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-resources-${CONFIGURATION}-output-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-resources-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		F4EC165AE1DFACB0C8ED9293 /* [CP] Embed Pods Frameworks */ = {
@@ -232,15 +236,15 @@
 			files = (
 			);
 			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-frameworks-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DrSmokeApp/Pods-DrSmokeApp-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-asst/Pods-asst-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -259,12 +263,13 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 98F73533B40CF89080F10BCD /* Pods-DrSmokeApp.debug.xcconfig */;
+			baseConfigurationReference = D958DF6B2F9CC207670483C4 /* Pods-asst.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Y3RX65ZA7;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = DrSmokeApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -278,8 +283,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
-				PRODUCT_NAME = DrSmokeApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.drsmoke.app;
+				PRODUCT_NAME = asst;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -290,12 +295,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D1FA09DBDA2F3AF7EFA4B9D4 /* Pods-DrSmokeApp.release.xcconfig */;
+			baseConfigurationReference = D33D89E3CD5BDDB08916D3B2 /* Pods-asst.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Y3RX65ZA7;
 				INFOPLIST_FILE = DrSmokeApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -308,8 +314,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
-				PRODUCT_NAME = DrSmokeApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.drsmoke.app;
+				PRODUCT_NAME = asst;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -476,7 +482,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "DrSmokeApp" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "asst" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,

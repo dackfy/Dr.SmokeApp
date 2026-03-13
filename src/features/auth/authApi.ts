@@ -1,9 +1,19 @@
 import { buildApiUrl } from '../../config/api'
-import type { AuthSession, LoginRequest, RegisterRequest } from './types'
+import type {
+  AuthSession,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+} from './types'
 
 export interface AuthApi {
   login(payload: LoginRequest): Promise<AuthSession>
   register(payload: RegisterRequest): Promise<AuthSession>
+  changePassword(payload: ChangePasswordRequest): Promise<void>
+  forgotPassword(payload: ForgotPasswordRequest): Promise<void>
+  resetPassword(payload: ResetPasswordRequest): Promise<void>
 }
 
 function wait(ms: number) {
@@ -17,7 +27,8 @@ function createSession(
   name?: string,
   lastName?: string,
   city?: string,
-  userId?: string
+  userId?: string,
+  timezone?: string
 ): AuthSession {
   return {
     accessToken: `mock-access-token-${Date.now()}`,
@@ -28,6 +39,7 @@ function createSession(
       name,
       lastName,
       city,
+      timezone,
     },
   }
 }
@@ -52,6 +64,25 @@ export const mockAuthApi: AuthApi = {
 
     return createSession(payload.email, payload.name, payload.lastName, payload.city)
   },
+
+  async changePassword(payload) {
+    await wait(600)
+
+    if (payload.newPassword.length < 6) {
+      throw new Error('Новый пароль должен быть не короче 6 символов')
+    }
+  },
+
+  async forgotPassword(_payload) {
+    await wait(700)
+  },
+
+  async resetPassword(payload) {
+    await wait(700)
+    if (payload.newPassword.length < 6) {
+      throw new Error('Новый пароль должен быть не короче 6 символов')
+    }
+  },
 }
 
 type LoginResponse = {
@@ -62,6 +93,7 @@ type LoginResponse = {
   lastName?: string
   city?: string
   email?: string
+  timezone?: string
 }
 
 function extractNameFromGreeting(message?: string) {
@@ -110,7 +142,7 @@ export const realAuthApi: AuthApi = {
 
       if (res.status === 401) throw new AuthError('Неверный логин или пароль', 401, code)
       if (res.status === 403) throw new AuthError('Аккаунт не активен', 403, code)
-      if (res.status === 400) throw new AuthError('Введите email и пароль', 400, code)
+      if (res.status === 400) throw new AuthError('Введите логин (или email) и пароль', 400, code)
 
       throw new AuthError('Ошибка сервера. Попробуйте позже.', res.status, code)
     }
@@ -121,12 +153,125 @@ export const realAuthApi: AuthApi = {
       ok.name ?? extractNameFromGreeting(ok.message),
       ok.lastName,
       ok.city,
-      String(ok.employee_id)
+      String(ok.employee_id),
+      ok.timezone
     )
   },
 
   async register(_payload) {
     throw new AuthError('Регистрация пока не подключена к серверу')
+  },
+
+  async changePassword(payload) {
+    const res = await fetch(buildApiUrl('/auth/change-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employee_id: payload.employee_id,
+        oldPassword: payload.oldPassword,
+        newPassword: payload.newPassword,
+      }),
+    })
+
+    let data: unknown = null
+    try {
+      data = await res.json()
+    } catch {
+      // ignore non-JSON response
+    }
+
+    if (!res.ok) {
+      const code = (data as { error?: string } | null)?.error
+
+      if (code === 'password_too_short') {
+        throw new AuthError('Новый пароль должен быть не короче 6 символов', 400, code)
+      }
+      if (code === 'invalid_old_password') {
+        throw new AuthError('Старый пароль введён неверно', 401, code)
+      }
+      if (code === 'employee_not_found') {
+        throw new AuthError('Сотрудник не найден', 404, code)
+      }
+      if (code === 'password_not_set') {
+        throw new AuthError('Текущий пароль не установлен', 403, code)
+      }
+      if (code === 'employee_id_old_new_required') {
+        throw new AuthError('Заполните старый и новый пароль', 400, code)
+      }
+
+      throw new AuthError('Не удалось изменить пароль. Попробуйте позже.', res.status, code)
+    }
+  },
+
+  async forgotPassword(payload) {
+    const res = await fetch(buildApiUrl('/auth/forgot-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identity: payload.identity.trim(),
+      }),
+    })
+
+    let data: unknown = null
+    try {
+      data = await res.json()
+    } catch {
+      // ignore non-JSON response
+    }
+
+    if (!res.ok) {
+      const code = (data as { error?: string } | null)?.error
+
+      if (code === 'identity_required') {
+        throw new AuthError('Введите логин или email', 400, code)
+      }
+      if (code === 'identity_not_found') {
+        throw new AuthError('Пользователь с таким логином или email не найден', 404, code)
+      }
+      if (code === 'email_not_set') {
+        throw new AuthError('Для этого пользователя не указана почта', 400, code)
+      }
+
+      throw new AuthError('Не удалось отправить код. Попробуйте позже.', res.status, code)
+    }
+  },
+
+  async resetPassword(payload) {
+    const res = await fetch(buildApiUrl('/auth/reset-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identity: payload.identity.trim(),
+        code: payload.code.trim(),
+        newPassword: payload.newPassword,
+      }),
+    })
+
+    let data: unknown = null
+    try {
+      data = await res.json()
+    } catch {
+      // ignore non-JSON response
+    }
+
+    if (!res.ok) {
+      const code = (data as { error?: string } | null)?.error
+
+      if (code === 'identity_code_new_required') {
+        throw new AuthError('Заполните логин/email, код и новый пароль', 400, code)
+      }
+      if (code === 'password_too_short') {
+        throw new AuthError('Новый пароль должен быть не короче 6 символов', 400, code)
+      }
+      if (code === 'invalid_code') {
+        throw new AuthError('Неверный или просроченный код', 400, code)
+      }
+      if (code === 'identity_not_found') {
+        throw new AuthError('Пользователь с таким логином или email не найден', 404, code)
+      }
+
+      throw new AuthError('Не удалось сбросить пароль. Попробуйте позже.', res.status, code)
+    }
   },
 }
 
