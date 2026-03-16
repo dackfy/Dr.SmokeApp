@@ -24,7 +24,10 @@ export type ShopOption = {
 
 export type CloseShiftPayload = {
   revenueTotal: number
-  averageCheck: number
+  checksCount: number
+  cashlessPayment: number
+  sealNumber: string
+  cashDenomination: number
   comment?: string
   closingReceiptPhotoId: string
 }
@@ -36,7 +39,10 @@ export type OpenFlowStep = 'shop' | 'openingReceipt' | 'uniformPhoto' | 'cash' |
 export type CloseFlowStep =
   | 'confirmShop'
   | 'revenue'
-  | 'averageCheck'
+  | 'checksCount'
+  | 'cashlessPayment'
+  | 'sealNumber'
+  | 'cashDenomination'
   | 'comment'
   | 'closingReceipt'
   | 'review'
@@ -51,7 +57,10 @@ export type ShiftOpenDraft = {
 
 export type ShiftCloseDraft = {
   revenueTotal: string
-  averageCheck: string
+  checksCount: string
+  cashlessPayment: string
+  sealNumber: string
+  cashDenomination: string
   comment: string
   closingReceiptPhotoId: string
 }

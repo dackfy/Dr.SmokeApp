@@ -1,6 +1,7 @@
 export type AuthUser = {
   id: string
   email: string
+  telegramId?: number
   name?: string
   lastName?: string
   city?: string

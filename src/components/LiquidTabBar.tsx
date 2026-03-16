@@ -34,6 +34,7 @@ type LiquidTabBarProps = {
   trashIcon?: ImageSourcePropType;
   homeLabel?: string;
   profileLabel?: string;
+  themeMode?: 'dark' | 'light';
 };
 
 const BAR_HORIZONTAL_PADDING = 46;
@@ -61,8 +62,11 @@ export default function LiquidTabBar({
   trashIcon,
   homeLabel = 'Главная',
   profileLabel = 'Профиль',
+  themeMode = 'dark',
 }: LiquidTabBarProps) {
+  void themeMode;
   const hasExtraTabs = Boolean(mailIcon && trashIcon);
+
   const tabs = React.useMemo<TabConfig[]>(
     () =>
       hasExtraTabs
@@ -85,7 +89,6 @@ export default function LiquidTabBar({
 
   const insets = useSafeAreaInsets();
   const [barWidth, setBarWidth] = React.useState(0);
-  const [visualSlotIndex, setVisualSlotIndex] = React.useState(activeSlotIndex);
 
   const indicatorX = React.useRef(new Animated.Value(0)).current;
   const dragStretch = React.useRef(new Animated.Value(0)).current;
@@ -98,12 +101,16 @@ export default function LiquidTabBar({
   const dragStartX = React.useRef(0);
   const prevVxRef = React.useRef(0);
   const isDragging = React.useRef(false);
-  const visualSlotRef = React.useRef(activeSlotIndex);
+  const isTapAnimating = React.useRef(false);
 
   const itemWidth =
     barWidth > 0
       ? (barWidth - INNER_PADDING * 2 - TAB_GAP * (slotCount - 1)) / slotCount
       : 0;
+
+  const trackWidth =
+    itemWidth > 0 ? itemWidth * slotCount + TAB_GAP * (slotCount - 1) : 0;
+
   const slotUnit = itemWidth + TAB_GAP;
   const maxX = itemWidth > 0 ? maxSlotIndex * slotUnit : 0;
 
@@ -114,6 +121,7 @@ export default function LiquidTabBar({
   const moveIndicatorTo = React.useCallback(
     (nextX: number, withAnimation: boolean) => {
       const clampedX = clamp(nextX, 0, maxX);
+
       if (withAnimation) {
         Animated.spring(indicatorX, {
           toValue: clampedX,
@@ -123,12 +131,8 @@ export default function LiquidTabBar({
         }).start();
         return;
       }
-      Animated.timing(indicatorX, {
-        toValue: clampedX,
-        duration: 44,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start();
+
+      indicatorX.setValue(clampedX);
     },
     [indicatorX, maxX],
   );
@@ -138,24 +142,30 @@ export default function LiquidTabBar({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onStartShouldSetPanResponderCapture: () => true,
+
         onMoveShouldSetPanResponder: (_, gestureState) => {
           const absDx = Math.abs(gestureState.dx);
           const absDy = Math.abs(gestureState.dy);
           return absDx > 2 && absDx >= absDy;
         },
+
         onMoveShouldSetPanResponderCapture: (_, gestureState) => {
           const absDx = Math.abs(gestureState.dx);
           const absDy = Math.abs(gestureState.dy);
           return absDx > 2 && absDx >= absDy;
         },
+
         onPanResponderGrant: () => {
           isDragging.current = true;
           prevVxRef.current = 0;
+          dragDirection.setValue(0);
           edgeOverdrag.setValue(0);
           squashPulse.setValue(0);
+
           indicatorX.stopAnimation(currentValue => {
             dragStartX.current = currentValue;
           });
+
           Animated.spring(pressGrow, {
             toValue: 1.05,
             useNativeDriver: false,
@@ -163,6 +173,7 @@ export default function LiquidTabBar({
             bounciness: 10,
           }).start();
         },
+
         onPanResponderMove: (_, gestureState) => {
           const nextX = dragStartX.current + gestureState.dx;
           moveIndicatorTo(nextX, false);
@@ -171,87 +182,204 @@ export default function LiquidTabBar({
             Math.abs(gestureState.dx) * 0.9 + Math.abs(gestureState.vx) * 18,
             42,
           );
+
           dragStretch.setValue(stretchTarget);
           dragVelocity.setValue(Math.min(Math.abs(gestureState.vx) * 1.2, 2.6));
-          const directionSource = Math.abs(gestureState.dx) > 1 ? gestureState.dx : gestureState.vx;
-          dragDirection.setValue(directionSource === 0 ? 0 : directionSource > 0 ? 1 : -1);
+
+          const directionSource =
+            Math.abs(gestureState.dx) > 2
+              ? gestureState.dx
+              : Math.abs(gestureState.vx) > 0.12
+                ? gestureState.vx
+                : 0;
+
+          if (directionSource !== 0) {
+            dragDirection.setValue(directionSource > 0 ? 1 : -1);
+          }
+
           const currentVx = gestureState.vx;
           const previousVx = prevVxRef.current;
           const directionFlipBoost = currentVx * previousVx < 0 ? 0.5 : 0;
           const jerk = Math.abs(currentVx - previousVx);
+
           const pulse = Math.min(
             1,
             Math.abs(currentVx) * 0.32 + jerk * 0.95 + directionFlipBoost,
           );
+
           prevVxRef.current = currentVx;
           squashPulse.setValue(pulse);
 
           const overdrag = nextX < 0 ? nextX : nextX > maxX ? nextX - maxX : 0;
-          edgeOverdrag.setValue(Math.min(Math.max(overdrag, -15), 5));
-
-          const clampedX = clamp(nextX, 0, maxX);
-          const hoveredSlot = slotUnit > 0 ? clamp(Math.round(clampedX / slotUnit), 0, maxSlotIndex) : 0;
-          if (hoveredSlot !== visualSlotRef.current) {
-            visualSlotRef.current = hoveredSlot;
-            setVisualSlotIndex(hoveredSlot);
-          }
+          edgeOverdrag.setValue(Math.min(Math.max(overdrag, -12), 8));
         },
+
         onPanResponderRelease: (event, gestureState) => {
           const absDx = Math.abs(gestureState.dx);
           const isTap = absDx < 6;
-          const releasePx = isTap
-            ? event.nativeEvent.locationX - INNER_PADDING
-            : dragStartX.current + gestureState.dx;
-          const nextSlot = slotUnit > 0 ? clamp(Math.round(releasePx / slotUnit), 0, maxSlotIndex) : 0;
+          let nextSlot = 0;
+
+          if (isTap) {
+            const touchX = clamp(event.nativeEvent.locationX - INNER_PADDING, 0, trackWidth);
+            const rawSlot = slotUnit > 0 ? Math.floor(touchX / slotUnit) : 0;
+            const candidateSlot = clamp(rawSlot, 0, maxSlotIndex);
+            const xInsideSlot = touchX - candidateSlot * slotUnit;
+            const isInsideItem = xInsideSlot <= itemWidth;
+            nextSlot = isInsideItem ? candidateSlot : activeSlotIndex;
+          } else {
+            const releasePx = dragStartX.current + gestureState.dx;
+            nextSlot =
+              slotUnit > 0 ? clamp(Math.round(releasePx / slotUnit), 0, maxSlotIndex) : 0;
+          }
+
           const nextTab = tabs[nextSlot]?.key ?? 'home';
+          const targetX = nextSlot * slotUnit;
 
-          moveIndicatorTo(nextSlot * slotUnit, true);
+          const slotDistance = Math.abs(nextSlot - activeSlotIndex);
+          const travelDuration = 230 + slotDistance * 120;
+          const deformDuration = 120 + slotDistance * 30;
 
-          Animated.spring(dragStretch, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 24,
-            bounciness: 6,
-          }).start();
-          Animated.spring(dragVelocity, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 22,
-            bounciness: 6,
-          }).start();
-          Animated.spring(dragDirection, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 22,
-            bounciness: 6,
-          }).start();
-          Animated.spring(edgeOverdrag, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 20,
-            bounciness: 5,
-          }).start();
-          Animated.spring(squashPulse, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 22,
-            bounciness: 6,
-          }).start();
-          Animated.spring(pressGrow, {
-            toValue: 0,
-            useNativeDriver: false,
-            speed: 24,
-            bounciness: 6,
-          }).start();
+          if (isTap && nextSlot !== activeSlotIndex) {
+            const tapDirection = nextSlot > activeSlotIndex ? 1 : -1;
+            isTapAnimating.current = true;
+            onTabChange(nextTab);
+
+            indicatorX.stopAnimation(() => {
+              dragDirection.setValue(tapDirection);
+
+              Animated.parallel([
+                Animated.timing(indicatorX, {
+                  toValue: targetX,
+                  duration: travelDuration,
+                  easing: Easing.out(Easing.cubic),
+                  useNativeDriver: false,
+                }),
+                Animated.sequence([
+                  Animated.timing(dragStretch, {
+                    toValue: 24,
+                    duration: deformDuration,
+                    useNativeDriver: false,
+                  }),
+                  Animated.spring(dragStretch, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    speed: 18,
+                    bounciness: 5,
+                  }),
+                ]),
+                Animated.sequence([
+                  Animated.timing(dragVelocity, {
+                    toValue: 1.25,
+                    duration: deformDuration,
+                    useNativeDriver: false,
+                  }),
+                  Animated.spring(dragVelocity, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    speed: 18,
+                    bounciness: 5,
+                  }),
+                ]),
+                Animated.sequence([
+                  Animated.timing(squashPulse, {
+                    toValue: 0.48,
+                    duration: deformDuration - 4,
+                    useNativeDriver: false,
+                  }),
+                  Animated.spring(squashPulse, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    speed: 18,
+                    bounciness: 5,
+                  }),
+                ]),
+                Animated.sequence([
+                  Animated.timing(pressGrow, {
+                    toValue: 0.34,
+                    duration: deformDuration - 4,
+                    useNativeDriver: false,
+                  }),
+                  Animated.spring(pressGrow, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    speed: 19,
+                    bounciness: 5,
+                  }),
+                ]),
+                Animated.spring(edgeOverdrag, {
+                  toValue: 0,
+                  useNativeDriver: false,
+                  speed: 20,
+                  bounciness: 5,
+                }),
+              ]).start(() => {
+                isTapAnimating.current = false;
+                Animated.spring(dragDirection, {
+                  toValue: 0,
+                  useNativeDriver: false,
+                  speed: 22,
+                  bounciness: 6,
+                }).start();
+              });
+            });
+          } else {
+            isTapAnimating.current = false;
+
+            moveIndicatorTo(targetX, true);
+
+            Animated.spring(dragStretch, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 24,
+              bounciness: 6,
+            }).start();
+
+            Animated.spring(dragVelocity, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 22,
+              bounciness: 6,
+            }).start();
+
+            Animated.spring(dragDirection, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 22,
+              bounciness: 6,
+            }).start();
+
+            Animated.spring(edgeOverdrag, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 20,
+              bounciness: 5,
+            }).start();
+
+            Animated.spring(squashPulse, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 22,
+              bounciness: 6,
+            }).start();
+
+            Animated.spring(pressGrow, {
+              toValue: 0,
+              useNativeDriver: false,
+              speed: 24,
+              bounciness: 6,
+            }).start();
+
+            onTabChange(nextTab);
+          }
 
           isDragging.current = false;
-          visualSlotRef.current = nextSlot;
-          setVisualSlotIndex(nextSlot);
-          onTabChange(nextTab);
         },
+
         onPanResponderTerminate: (_, gestureState) => {
           const finalX = dragStartX.current + gestureState.dx;
-          const nextSlot = slotUnit > 0 ? clamp(Math.round(finalX / slotUnit), 0, maxSlotIndex) : 0;
+          const nextSlot =
+            slotUnit > 0 ? clamp(Math.round(finalX / slotUnit), 0, maxSlotIndex) : 0;
+
           moveIndicatorTo(nextSlot * slotUnit, true);
 
           Animated.spring(dragStretch, {
@@ -260,30 +388,35 @@ export default function LiquidTabBar({
             speed: 24,
             bounciness: 6,
           }).start();
+
           Animated.spring(dragVelocity, {
             toValue: 0,
             useNativeDriver: false,
             speed: 22,
             bounciness: 6,
           }).start();
+
           Animated.spring(dragDirection, {
             toValue: 0,
             useNativeDriver: false,
             speed: 22,
             bounciness: 6,
           }).start();
+
           Animated.spring(edgeOverdrag, {
             toValue: 0,
             useNativeDriver: false,
             speed: 20,
             bounciness: 5,
           }).start();
+
           Animated.spring(squashPulse, {
             toValue: 0,
             useNativeDriver: false,
             speed: 22,
             bounciness: 6,
           }).start();
+
           Animated.spring(pressGrow, {
             toValue: 0,
             useNativeDriver: false,
@@ -292,8 +425,6 @@ export default function LiquidTabBar({
           }).start();
 
           isDragging.current = false;
-          visualSlotRef.current = nextSlot;
-          setVisualSlotIndex(nextSlot);
         },
       }).panHandlers,
     [
@@ -310,60 +441,59 @@ export default function LiquidTabBar({
       slotUnit,
       squashPulse,
       tabs,
+      activeSlotIndex,
+      itemWidth,
+      trackWidth,
     ],
   );
 
   React.useEffect(() => {
-    if (itemWidth <= 0 || isDragging.current) {
+    if (itemWidth <= 0 || isDragging.current || isTapAnimating.current) {
       return;
     }
     moveIndicatorTo(activeSlotIndex * slotUnit, true);
   }, [activeSlotIndex, itemWidth, moveIndicatorTo, slotUnit]);
-
-  React.useEffect(() => {
-    if (isDragging.current) {
-      return;
-    }
-    if (visualSlotRef.current !== activeSlotIndex) {
-      visualSlotRef.current = activeSlotIndex;
-      setVisualSlotIndex(activeSlotIndex);
-    }
-  }, [activeSlotIndex]);
 
   const stretchShiftX = dragStretch.interpolate({
     inputRange: [0, 42],
     outputRange: [0, 10],
     extrapolate: 'clamp',
   });
+
   const velocityShiftX = dragVelocity.interpolate({
     inputRange: [0, 2.6],
     outputRange: [0, 5],
     extrapolate: 'clamp',
   });
+
   const trailingShiftX = Animated.multiply(
     dragDirection,
     Animated.add(stretchShiftX, velocityShiftX),
   );
+
   const trailingTranslateX = Animated.multiply(trailingShiftX, -0.7);
 
   const edgeTranslateX = edgeOverdrag.interpolate({
-    inputRange: [-18, 0, 18],
-    outputRange: [-12.2, 0, 1.2],
+    inputRange: [-12, 0, 12],
+    outputRange: [-9.2, 0, 3.8],
     extrapolate: 'clamp',
   });
+
   const edgeWidthExtra = edgeOverdrag.interpolate({
-    inputRange: [-18, 0, 18],
-    outputRange: [8.2, 0, 1.1],
+    inputRange: [-12, 0, 12],
+    outputRange: [6.4, 0, 3.9],
     extrapolate: 'clamp',
   });
+
   const edgeCenterShift = edgeOverdrag.interpolate({
-    inputRange: [-18, 0, 18],
-    outputRange: [-6.2, 0, 0.6],
+    inputRange: [-12, 0, 12],
+    outputRange: [-4.8, 0, 1.9],
     extrapolate: 'clamp',
   });
-  const leftEdgeStretchDampen = edgeOverdrag.interpolate({
-    inputRange: [-18, 0, 18],
-    outputRange: [0.72, 1, 1],
+
+  const edgeStretchDampen = edgeOverdrag.interpolate({
+    inputRange: [-12, 0, 12],
+    outputRange: [0.78, 1, 0.84],
     extrapolate: 'clamp',
   });
 
@@ -372,26 +502,31 @@ export default function LiquidTabBar({
     outputRange: [1, 1.09],
     extrapolate: 'clamp',
   });
+
   const velocityScaleX = dragVelocity.interpolate({
     inputRange: [0, 2.6],
     outputRange: [1, 1.07],
     extrapolate: 'clamp',
   });
+
   const dragScaleY = dragStretch.interpolate({
     inputRange: [0, 42],
     outputRange: [1, 0.88],
     extrapolate: 'clamp',
   });
+
   const velocityScaleY = dragVelocity.interpolate({
     inputRange: [0, 2.6],
     outputRange: [1, 0.82],
     extrapolate: 'clamp',
   });
+
   const pulseScaleX = squashPulse.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 1.14],
     extrapolate: 'clamp',
   });
+
   const pulseScaleY = squashPulse.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.8],
@@ -423,6 +558,7 @@ export default function LiquidTabBar({
     outputRange: [1, 1.2],
     extrapolate: 'clamp',
   });
+
   const pressScaleY = pressGrow.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 1.2],
@@ -434,23 +570,25 @@ export default function LiquidTabBar({
     outputRange: [0.1, 0.2],
     extrapolate: 'clamp',
   });
+
   const barRimOpacity = pressGrow.interpolate({
     inputRange: [0, 1],
     outputRange: [0.12, 0.36],
     extrapolate: 'clamp',
   });
+
   const bubbleDynamicWidth = Animated.add(
     Animated.add(
       Animated.add(
         Animated.add(bubbleBaseWidth, edgeWidthExtra),
         Animated.multiply(
           Animated.multiply(dragStretch, 0.3),
-          leftEdgeStretchDampen,
+          edgeStretchDampen,
         ),
       ),
       Animated.multiply(
         Animated.multiply(dragVelocity, 3.2),
-        leftEdgeStretchDampen,
+        edgeStretchDampen,
       ),
     ),
     Animated.add(
@@ -458,19 +596,27 @@ export default function LiquidTabBar({
       Animated.multiply(squashPulse, 7),
     ),
   );
+
   const bubbleScaleXCombined = Animated.multiply(
     Animated.multiply(pressScaleX, dragScaleX),
     Animated.multiply(velocityScaleX, pulseScaleX),
   );
-  const bubbleVisualWidth = Animated.multiply(bubbleDynamicWidth, bubbleScaleXCombined);
+
+  const bubbleVisualWidth = Animated.multiply(
+    bubbleDynamicWidth,
+    bubbleScaleXCombined,
+  );
+
   const bubbleTrackX = Animated.add(
     Animated.add(indicatorX, trailingTranslateX),
     Animated.add(edgeTranslateX, edgeCenterShift),
   );
+
   const bubbleCenterX = Animated.add(
     Animated.add(bubbleBaseLeft, bubbleTrackX),
     Animated.multiply(bubbleDynamicWidth, 0.5),
   );
+
   const highlightMaskLeft = Animated.subtract(
     bubbleCenterX,
     Animated.multiply(bubbleVisualWidth, 0.5),
@@ -498,11 +644,14 @@ export default function LiquidTabBar({
           tintColor="rgba(255,255,255,0.01)"
           colorScheme="system"
         />
+
         <Animated.View pointerEvents="none" style={[styles.barRim, { opacity: barRimOpacity }]} />
 
         {itemWidth > 0 ? (
           <Animated.View
             pointerEvents="none"
+            renderToHardwareTextureAndroid
+            shouldRasterizeIOS
             style={[
               styles.activePill,
               {
@@ -543,10 +692,7 @@ export default function LiquidTabBar({
         <View style={styles.tabsRow} {...panHandlers}>
           {tabs.map((tab, index) => (
             <View key={tab.key} style={styles.tabButton} pointerEvents="none">
-              <Image
-                source={tab.icon}
-                style={styles.icon}
-              />
+              <Image source={tab.icon} style={styles.icon} />
               <Text
                 style={[
                   styles.tabLabel,
@@ -557,16 +703,23 @@ export default function LiquidTabBar({
             </View>
           ))}
         </View>
-        <View style={styles.tabsOverlayContainer} pointerEvents="none">
+
+        <View
+          style={styles.tabsOverlayContainer}
+          pointerEvents="none"
+          renderToHardwareTextureAndroid
+          shouldRasterizeIOS>
           <Animated.View
             style={[
               styles.tabsOverlayMask,
               {
-                left: highlightMaskLeft,
                 width: bubbleVisualWidth,
+                transform: [{ translateX: highlightMaskLeft }],
               },
             ]}>
             <Animated.View
+              renderToHardwareTextureAndroid
+              shouldRasterizeIOS
               style={[
                 styles.tabsOverlayContent,
                 {
@@ -593,6 +746,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: BAR_HORIZONTAL_PADDING,
     right: BAR_HORIZONTAL_PADDING,
+    zIndex: 50,
+    elevation: 50,
   },
 
   container: {

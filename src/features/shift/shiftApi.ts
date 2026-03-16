@@ -45,6 +45,63 @@ type OpenShiftResponse = {
   open_time?: string
 }
 
+type CloseShiftResponse = {
+  message?: string
+  error?: string
+}
+
+function normalizeReportDate(value?: string | null) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (!raw) return ''
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw
+  }
+
+  const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})T/)
+  if (isoMatch) {
+    return isoMatch[1]
+  }
+
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function normalizeOpenTime(value?: string | null) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (!raw) return ''
+
+  const hhmmss = raw.match(/^(\d{2}:\d{2}:\d{2})/)
+  if (hhmmss) {
+    return hhmmss[1]
+  }
+
+  const hhmm = raw.match(/^(\d{2}:\d{2})$/)
+  if (hhmm) {
+    return `${hhmm[1]}:00`
+  }
+
+  return ''
+}
+
+function composeOpenedAt(reportDate?: string | null, openTime?: string | null) {
+  const datePart = normalizeReportDate(reportDate)
+  const timePart = normalizeOpenTime(openTime)
+  if (!datePart || !timePart) {
+    return ''
+  }
+  return `${datePart} ${timePart}`
+}
+
 function wait(ms: number) {
   return new Promise<void>(resolve => {
     setTimeout(resolve, ms)
@@ -91,8 +148,14 @@ export const mockShiftApi: ShiftApi = {
       throw new Error('Открытая смена не найдена.')
     }
 
-    if (payload.revenueTotal <= 0 || payload.averageCheck <= 0) {
-      throw new Error('Проверьте выручку и средний чек перед отправкой отчета.')
+    if (
+      payload.revenueTotal <= 0 ||
+      payload.checksCount <= 0 ||
+      payload.cashlessPayment < 0 ||
+      payload.cashDenomination < 0 ||
+      !/^\d{9}$/.test(payload.sealNumber)
+    ) {
+      throw new Error('Проверьте данные закрытия перед отправкой отчета.')
     }
 
     openShiftByUser.delete(userId)
@@ -125,13 +188,13 @@ export const shiftApi: ShiftApi = {
     const isOpen = String(data.shift_status ?? '').toLowerCase() === 'open'
 
     if (!isOpen) {
+      openShiftByUser.delete(userId)
       return { openedShift: null }
     }
 
-    const openedAt =
-      data.report_date && data.open_time
-        ? `${data.report_date} ${data.open_time}`
-        : new Date().toISOString()
+    const openedAtFromServer = composeOpenedAt(data.report_date, data.open_time) || null
+    const openedAtFromCache = openShiftByUser.get(userId)?.openedAt ?? ''
+    const openedAt = openedAtFromServer ?? openedAtFromCache
 
     const openedShift: OpenedShift = {
       shopId: data.shop_id ?? undefined,
@@ -140,6 +203,7 @@ export const shiftApi: ShiftApi = {
       cashAtOpening: Number(data.cash_at_opening ?? 0),
     }
 
+    openShiftByUser.set(userId, openedShift)
     return { openedShift }
   },
   async getAvailableShops(userId) {
@@ -216,10 +280,9 @@ export const shiftApi: ShiftApi = {
       throw new Error('Не удалось открыть смену.')
     }
 
-    const openedAt =
-      data?.report_date && data?.open_time
-        ? `${data.report_date} ${data.open_time}`
-        : new Date().toISOString()
+    const openedAt = composeOpenedAt(data?.report_date, data?.open_time)
+      || openShiftByUser.get(userId)?.openedAt
+      || ''
 
     const openedShift: OpenedShift = {
       shopId: data?.shop_id ?? payload.shopId,
@@ -231,5 +294,122 @@ export const shiftApi: ShiftApi = {
     openShiftByUser.set(userId, openedShift)
 
     return { openedShift }
+  },
+  async closeShift(userId, payload) {
+    const employeeId = Number(userId)
+    if (!Number.isFinite(employeeId) || employeeId <= 0) {
+      throw new Error('Некорректный employee_id.')
+    }
+
+    const formData = new FormData()
+    formData.append('employee_id', String(employeeId))
+    formData.append('revenue', String(payload.revenueTotal))
+    formData.append('cashless_payment', String(payload.cashlessPayment))
+    formData.append('invoices', String(payload.checksCount))
+    formData.append('seal_number', payload.sealNumber)
+    formData.append('cash_denomination', String(payload.cashDenomination))
+    formData.append('comment', payload.comment?.trim() ? payload.comment.trim() : '')
+
+    const photoValue = payload.closingReceiptPhotoId
+    const isLocalPhoto =
+      photoValue.startsWith('file://') || photoValue.startsWith('content://')
+
+    if (isLocalPhoto) {
+      formData.append('closing_receipt_photo', {
+        uri: photoValue,
+        type: 'image/jpeg',
+        name: `close-${Date.now()}.jpg`,
+      } as unknown as Blob)
+    } else {
+      formData.append('closing_receipt_photo_path', photoValue)
+    }
+
+    const res = await fetch(buildApiUrl('/shifts/close'), {
+      method: 'POST',
+      body: formData,
+    })
+
+    let data: CloseShiftResponse | null = null
+    try {
+      data = (await res.json()) as CloseShiftResponse
+    } catch {
+      // ignore non-JSON response
+    }
+
+    if (!res.ok) {
+      const code = data?.error
+      if (res.status === 404 && code === 'employee_not_found') {
+        throw new Error('Сотрудник не найден.')
+      }
+      if (res.status === 409 && code === 'shift_not_open') {
+        throw new Error('Открытая смена не найдена.')
+      }
+      if (res.status === 404 && code === 'opening_report_not_found') {
+        throw new Error('Не найден отчёт открытия смены для закрытия.')
+      }
+      if (res.status === 400 && code === 'invalid_payload') {
+        throw new Error('Проверьте заполнение отчета перед отправкой.')
+      }
+      if (res.status === 400 && code === 'closing_photo_required') {
+        throw new Error('Добавьте фото чека закрытия.')
+      }
+      if (res.status === 400 && code === 'cashless_gt_revenue') {
+        throw new Error('Сумма безналичного расчета не может быть больше суммы выручки.')
+      }
+      if (res.status === 400 && code === 'invalid_seal_number') {
+        throw new Error('Некорректный номер пломбы.')
+      }
+      if (res.status === 400 && code === 'invalid_cash_denomination') {
+        throw new Error('Введите корректную сумму размена в кассе.')
+      }
+      if (res.status === 409 && code === 'seal_number_not_unique') {
+        throw new Error('Номер пломбы уже использован. Попробуйте закрыть смену заново.')
+      }
+      if (typeof data?.message === 'string' && data.message.trim()) {
+        throw new Error(data.message.trim())
+      }
+      if (typeof data?.error === 'string' && data.error.trim()) {
+        throw new Error(`Ошибка сервера: ${data.error.trim()}`)
+      }
+      throw new Error('Не удалось закрыть смену.')
+    }
+
+    openShiftByUser.delete(userId)
+    return { openedShift: null }
+  },
+  async resetOpenedShift(userId) {
+    const employeeId = Number(userId)
+    if (!Number.isFinite(employeeId) || employeeId <= 0) {
+      throw new Error('Не удалось сбросить смену: некорректный employee_id.')
+    }
+
+    const res = await fetch(buildApiUrl('/shifts/reset-opened'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employee_id: employeeId,
+      }),
+    })
+
+    let data: { error?: string } | null = null
+    try {
+      data = (await res.json()) as { error?: string }
+    } catch {
+      // ignore non-JSON response
+    }
+
+    if (!res.ok) {
+      const code = data?.error
+      if (res.status === 404 && code === 'employee_not_found') {
+        throw new Error('Сотрудник не найден. Сброс смены невозможен.')
+      }
+      if (res.status === 400 && code === 'invalid_employee_id') {
+        throw new Error('Некорректный employee_id. Сброс смены невозможен.')
+      }
+      throw new Error('Не удалось сбросить открытую смену.')
+    }
+
+    openShiftByUser.delete(userId)
+    return { openedShift: null }
   },
 }
