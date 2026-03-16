@@ -5,7 +5,7 @@ import type { AuthFormValues, AuthSession } from './types'
 import { validateAuthForm } from './validators'
 
 const initialForm: AuthFormValues = {
-  identifier: '',
+  identifier: '+7',
   password: '',
 }
 
@@ -22,7 +22,13 @@ export function useAuth(options: UseAuthOptions = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isHydrating, setIsHydrating] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorVersion, setErrorVersion] = useState(0)
   const [session, setSession] = useState<AuthSession | null>(null)
+
+  function showError(message: string) {
+    setError(message)
+    setErrorVersion(prev => prev + 1)
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -35,7 +41,17 @@ export function useAuth(options: UseAuthOptions = {}) {
         }
 
         const parsedSession = JSON.parse(rawSession) as AuthSession
-        setSession(parsedSession)
+        const restoredEmail = String(parsedSession.user?.email || '').trim()
+        const sanitizedSession: AuthSession = {
+          ...parsedSession,
+          user: {
+            ...parsedSession.user,
+            email: restoredEmail.includes('@') ? restoredEmail : '',
+          },
+        }
+
+        setSession(sanitizedSession)
+        await AsyncStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(sanitizedSession))
       } catch {
         await AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
       } finally {
@@ -62,7 +78,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   async function submit() {
     const validationError = validateAuthForm(form)
     if (validationError) {
-      setError(validationError)
+      showError(validationError)
       return
     }
 
@@ -80,7 +96,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     } catch (requestError) {
       const message =
         requestError instanceof Error ? requestError.message : 'Не удалось выполнить запрос'
-      setError(message)
+      showError(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -94,14 +110,20 @@ export function useAuth(options: UseAuthOptions = {}) {
     setIsSubmitting(false)
   }
 
+  function clearError() {
+    setError(null)
+  }
+
   return {
     form,
     isSubmitting,
     isHydrating,
     error,
+    errorVersion,
     session,
     updateField,
     submit,
     resetSession,
+    clearError,
   }
 }

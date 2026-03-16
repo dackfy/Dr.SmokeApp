@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   View,
   Text,
   TouchableOpacity,
@@ -11,8 +12,11 @@ import {
   Keyboard,
   Platform,
   InputAccessoryView,
+  Pressable,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
 import ShiftScreen from './ShiftScreen';
@@ -23,14 +27,92 @@ import type { TabKey } from '../components/LiquidTabBar';
 const eyeOpenIcon = require('../assets/icons/eye-open.png');
 const eyeClosedIcon = require('../assets/icons/eye-closed.png');
 const homeIcon = require('../assets/icons/home.png');
-const profileIcon = require('../assets/icons/profile.png');
+const profileIcon = require('../assets/icons/more.png');
 const mailIcon = require('../assets/icons/mail.png');
 const trashIcon = require('../assets/icons/trash.png');
+const crossIcon = require('../assets/icons/cross.png');
 
 type AuthTab = TabKey;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const MESSAGE_VISIBLE_MS = 2550;
+const MESSAGE_FADE_MS = 450;
+const MESSAGE_FADE_IN_MS = 120;
+
+function formatTodayLabel(timezone?: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone || undefined,
+  }).format(new Date());
+}
+
+function validateStrongPassword(value: string): string | null {
+  if (value.length < 8) {
+    return 'Новый пароль должен быть не короче 8 символов';
+  }
+
+  if (!/^[A-Za-z0-9]+$/.test(value)) {
+    return 'Пароль должен содержать только латинские буквы и цифры';
+  }
+
+  if (!/[A-Z]/.test(value)) {
+    return 'Пароль должен содержать хотя бы одну заглавную букву';
+  }
+
+  if (!/\d/.test(value)) {
+    return 'Пароль должен содержать хотя бы одну цифру';
+  }
+
+  return null;
+}
+
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) {
+    return '+7';
+  }
+
+  // User enters local digits after +7; if started with 7/8, drop prefix.
+  const local = (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10);
+
+  if (!local) return '+7';
+
+  const p1 = local.slice(0, 3);
+  const p2 = local.slice(3, 6);
+  const p3 = local.slice(6, 8);
+  const p4 = local.slice(8, 10);
+
+  let out = '+7';
+  if (p1) out += ` (${p1}`;
+  if (p1.length === 3) out += ')';
+  if (p2) out += ` ${p2}`;
+  if (p3) out += `-${p3}`;
+  if (p4) out += `-${p4}`;
+
+  return out;
+}
+
+function extractLocalPhoneDigits(value: string) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10);
+}
+
+function formatPhoneInputWithBackspace(prevValue: string, nextValue: string) {
+  const prevLocal = extractLocalPhoneDigits(prevValue);
+  const nextLocal = extractLocalPhoneDigits(nextValue);
+
+  // If user deleted only mask symbols ( ) - and local digits count did not change,
+  // treat it as deleting one digit to avoid "stuck" backspace behavior.
+  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
+    return formatPhoneInput(`+7${prevLocal.slice(0, -1)}`);
+  }
+
+  return formatPhoneInput(nextValue);
+}
 
 export default function AuthScreen() {
   const authAccessoryId = 'auth-keyboard-accessory';
+  const insets = useSafeAreaInsets();
   const passwordInputRef = useRef<TextInput>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isOldPasswordVisible, setIsOldPasswordVisible] = useState(false);
@@ -49,7 +131,7 @@ export default function AuthScreen() {
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [forgotIdentity, setForgotIdentity] = useState('');
+  const [forgotIdentity, setForgotIdentity] = useState('+7');
   const [resetCode, setResetCode] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
@@ -64,17 +146,49 @@ export default function AuthScreen() {
   const [changePasswordSuccess, setChangePasswordSuccess] = useState<
     string | null
   >(null);
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const profileSheetProgress = useRef(new Animated.Value(0)).current;
+  const authNoticeOpacity = useRef(new Animated.Value(0)).current;
+  const forgotErrorOpacity = useRef(new Animated.Value(0)).current;
+  const loginErrorOpacity = useRef(new Animated.Value(0)).current;
+  const changePasswordErrorOpacity = useRef(new Animated.Value(0)).current;
+  const changePasswordSuccessOpacity = useRef(new Animated.Value(0)).current;
+  const forgotSubmitLockRef = useRef(false);
 
   const {
     form,
     isSubmitting,
     isHydrating,
     error,
+    errorVersion,
     session,
     updateField,
     submit,
     resetSession,
+    clearError,
   } = useAuth();
+
+  const openProfileSheet = React.useCallback(() => {
+    setIsProfileSheetOpen(true);
+    setIsPasswordSectionOpen(false);
+    Animated.timing(profileSheetProgress, {
+      toValue: 1,
+      duration: 330,
+      useNativeDriver: true,
+    }).start();
+  }, [profileSheetProgress]);
+
+  const closeProfileSheet = React.useCallback(() => {
+    Animated.timing(profileSheetProgress, {
+      toValue: 0,
+      duration: 260,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsProfileSheetOpen(false);
+      }
+    });
+  }, [profileSheetProgress]);
 
   const switchTab = React.useCallback(
     (nextTab: AuthTab) => {
@@ -98,15 +212,158 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (!authNotice) {
+      authNoticeOpacity.setValue(0);
       return;
     }
 
+    authNoticeOpacity.stopAnimation();
+    authNoticeOpacity.setValue(0);
+    Animated.timing(authNoticeOpacity, {
+      toValue: 1,
+      duration: MESSAGE_FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
     const timer = setTimeout(() => {
-      setAuthNotice(null);
-    }, 3000);
+      Animated.timing(authNoticeOpacity, {
+        toValue: 0,
+        duration: MESSAGE_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setAuthNotice(null);
+        }
+      });
+    }, MESSAGE_VISIBLE_MS);
 
-    return () => clearTimeout(timer);
-  }, [authNotice]);
+    return () => {
+      clearTimeout(timer);
+      authNoticeOpacity.stopAnimation();
+    };
+  }, [authNotice, authNoticeOpacity]);
+
+  useEffect(() => {
+    if (!changePasswordError) {
+      changePasswordErrorOpacity.setValue(0);
+      return;
+    }
+
+    changePasswordErrorOpacity.stopAnimation();
+    changePasswordErrorOpacity.setValue(0);
+    Animated.timing(changePasswordErrorOpacity, {
+      toValue: 1,
+      duration: MESSAGE_FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(changePasswordErrorOpacity, {
+        toValue: 0,
+        duration: MESSAGE_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setChangePasswordError(null);
+        }
+      });
+    }, MESSAGE_VISIBLE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      changePasswordErrorOpacity.stopAnimation();
+    };
+  }, [changePasswordError, changePasswordErrorOpacity]);
+
+  useEffect(() => {
+    if (!changePasswordSuccess) {
+      changePasswordSuccessOpacity.setValue(0);
+      return;
+    }
+
+    changePasswordSuccessOpacity.stopAnimation();
+    changePasswordSuccessOpacity.setValue(0);
+    Animated.timing(changePasswordSuccessOpacity, {
+      toValue: 1,
+      duration: MESSAGE_FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(changePasswordSuccessOpacity, {
+        toValue: 0,
+        duration: MESSAGE_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setChangePasswordSuccess(null);
+        }
+      });
+    }, MESSAGE_VISIBLE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      changePasswordSuccessOpacity.stopAnimation();
+    };
+  }, [changePasswordSuccess, changePasswordSuccessOpacity]);
+
+  useEffect(() => {
+    if (!forgotError) {
+      forgotErrorOpacity.setValue(0);
+      return;
+    }
+
+    forgotErrorOpacity.stopAnimation();
+    forgotErrorOpacity.setValue(0);
+    Animated.timing(forgotErrorOpacity, {
+      toValue: 1,
+      duration: MESSAGE_FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(forgotErrorOpacity, {
+        toValue: 0,
+        duration: MESSAGE_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setForgotError(null);
+        }
+      });
+    }, MESSAGE_VISIBLE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      forgotErrorOpacity.stopAnimation();
+    };
+  }, [forgotError, forgotErrorOpacity]);
+
+  useEffect(() => {
+    if (!error) {
+      loginErrorOpacity.setValue(0);
+      return;
+    }
+
+    loginErrorOpacity.stopAnimation();
+    loginErrorOpacity.setValue(0);
+    Animated.timing(loginErrorOpacity, {
+      toValue: 1,
+      duration: MESSAGE_FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(loginErrorOpacity, {
+        toValue: 0,
+        duration: MESSAGE_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          clearError();
+        }
+      });
+    }, MESSAGE_VISIBLE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      loginErrorOpacity.stopAnimation();
+    };
+  }, [error, errorVersion, loginErrorOpacity, clearError]);
 
   const resetChangePasswordForm = () => {
     setOldPassword('');
@@ -122,24 +379,49 @@ export default function AuthScreen() {
   const resetForgotPasswordForm = () => {
     setIsForgotPasswordFlow(false);
     setIsCodeSent(false);
-    setForgotIdentity('');
+    setForgotIdentity('+7');
     setResetCode('');
     setResetNewPassword('');
+    updateField('identifier', '+7');
+    updateField('password', '');
     setForgotError(null);
     setIsResetPasswordVisible(false);
     setIsForgotSubmitting(false);
     setFocusedForgotField(null);
   };
 
+  useEffect(() => {
+    // On any auth session transition (login/logout/account switch),
+    // force UI back to the default Home state.
+    setActiveTab('home');
+    setIsProfileSheetOpen(false);
+    profileSheetProgress.stopAnimation();
+    profileSheetProgress.setValue(0);
+    setIsPasswordSectionOpen(false);
+    setOldPassword('');
+    setNewPassword('');
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+    setIsOldPasswordVisible(false);
+    setIsNewPasswordVisible(false);
+    setIsPasswordVisible(false);
+    setFocusedLoginField(null);
+    setFocusedProfileField(null);
+  }, [session?.user?.id, session?.accessToken, profileSheetProgress]);
+
   const sendResetCode = async () => {
-    const identity = forgotIdentity.trim();
-    if (!identity) {
-      setForgotError('Введите логин или email');
+    if (isForgotSubmitting || forgotSubmitLockRef.current) {
       return;
     }
 
+    const identity = forgotIdentity.trim();
+    if (!identity) {
+      setForgotError('Введите номер телефона');
+      return;
+    }
+
+    forgotSubmitLockRef.current = true;
     setIsForgotSubmitting(true);
-    setForgotError(null);
     try {
       await authApi.forgotPassword({ identity });
       setIsCodeSent(true);
@@ -149,21 +431,26 @@ export default function AuthScreen() {
       setForgotError(message);
     } finally {
       setIsForgotSubmitting(false);
+      forgotSubmitLockRef.current = false;
     }
   };
 
   const submitResetPassword = async () => {
+    if (isForgotSubmitting || forgotSubmitLockRef.current) {
+      return;
+    }
+
     const identity = forgotIdentity.trim();
     const code = resetCode.trim();
     const newPass = resetNewPassword.trim();
 
     if (!identity) {
-      setForgotError('Введите логин или email');
+      setForgotError('Введите номер телефона');
       return;
     }
 
     if (!code || !newPass) {
-      setForgotError('Заполните логин/email, код и новый пароль');
+      setForgotError('Заполните номер телефона, код и новый пароль');
       return;
     }
 
@@ -172,13 +459,14 @@ export default function AuthScreen() {
       return;
     }
 
-    if (newPass.length < 6) {
-      setForgotError('Новый пароль должен быть не короче 6 символов');
+    const resetPasswordPolicyError = validateStrongPassword(newPass);
+    if (resetPasswordPolicyError) {
+      setForgotError(resetPasswordPolicyError);
       return;
     }
 
+    forgotSubmitLockRef.current = true;
     setIsForgotSubmitting(true);
-    setForgotError(null);
     try {
       await authApi.resetPassword({
         identity,
@@ -195,6 +483,7 @@ export default function AuthScreen() {
       setForgotError(message);
     } finally {
       setIsForgotSubmitting(false);
+      forgotSubmitLockRef.current = false;
     }
   };
 
@@ -208,8 +497,15 @@ export default function AuthScreen() {
       return;
     }
 
-    if (newPass.length < 6) {
-      setChangePasswordError('Новый пароль должен быть не короче 6 символов');
+    const changePasswordPolicyError = validateStrongPassword(newPass);
+    if (changePasswordPolicyError) {
+      setChangePasswordError(changePasswordPolicyError);
+      setChangePasswordSuccess(null);
+      return;
+    }
+
+    if (oldPass === newPass) {
+      setChangePasswordError('Новый пароль должен отличаться от старого');
       setChangePasswordSuccess(null);
       return;
     }
@@ -254,14 +550,27 @@ export default function AuthScreen() {
       .filter(Boolean)
       .join(' ');
     const displayName = fullName || session.user.email;
+    const profileEmail = session.user.email || 'Почта не указана';
+    const todayLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`;
+    const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase();
 
     const showProfile = activeTab === 'profile';
     const showMail = activeTab === 'mail';
     const showTrash = activeTab === 'trash';
+    const profileOverlayOpacity = profileSheetProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.32],
+      extrapolate: 'clamp',
+    });
+    const profileSheetTranslateY = profileSheetProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [SCREEN_HEIGHT, 0],
+      extrapolate: 'clamp',
+    });
 
     return (
       <View style={styles.authenticatedScreen}>
-        {activeTab === 'home' ? (
+        <View style={styles.homeLayer} pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
           <ShiftScreen
             session={session}
             onLogout={() => {
@@ -272,180 +581,298 @@ export default function AuthScreen() {
             onGoHome={() => setActiveTab('home')}
             onGoMail={() => setActiveTab('mail')}
             onGoTrash={() => setActiveTab('trash')}
-            onGoProfile={() => {
-              setActiveTab('profile');
-              setIsPasswordSectionOpen(false);
-            }}
-            activeTab={activeTab}
+            onGoProfile={openProfileSheet}
+            activeTab={activeTab === 'home' ? 'home' : activeTab}
             showHeaderActions={false}
             showTabBar={false}
           />
-        ) : showMail ? (
-          <SafeAreaView style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
-        ) : showTrash ? (
-          <SafeAreaView style={[styles.authenticatedScreen, { backgroundColor: '#FF6A00' }]} />
-        ) : (
-          <SafeAreaView style={styles.authenticatedScreen} edges={['top', 'bottom']}>
-            <StatusBar barStyle="light-content" />
-            <View style={styles.authenticatedScreen}>
-              <View style={[styles.authContent, showProfile && styles.profileContent]}>
-                {showProfile ? (
-                  <>
-                    <View style={styles.welcomeCard}>
-                      <Text style={styles.welcomeTitle}>Привет, {displayName}</Text>
-                      <Text style={styles.welcomeSubtitle}>Профиль сотрудника</Text>
+        </View>
 
-                      {!isPasswordSectionOpen ? (
-                        <TouchableOpacity
-                          style={[styles.button, styles.logoutButton]}
-                          onPress={() => {
-                            setIsPasswordSectionOpen(true);
-                            setChangePasswordError(null);
-                            setChangePasswordSuccess(null);
-                          }}
-                          disabled={isChangingPassword}
-                        >
-                          <Text style={styles.buttonText}>Смена пароля</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={styles.profileForm}>
-                          <View style={styles.passwordField}>
-                            <TextInput
-                              style={[
-                                styles.input,
-                                styles.passwordInput,
-                                styles.profileInput,
-                                focusedProfileField === 'oldPassword' && styles.inputFocused,
-                              ]}
-                              placeholder="Старый пароль"
-                              placeholderTextColor="#7A7A7A"
-                              secureTextEntry={!isOldPasswordVisible}
-                              autoCapitalize="none"
-                              value={oldPassword}
-                              onFocus={() => setFocusedProfileField('oldPassword')}
-                              onBlur={() => setFocusedProfileField(null)}
-                              onChangeText={text => {
-                                setOldPassword(text);
-                                if (changePasswordError) {
-                                  setChangePasswordError(null);
-                                }
-                              }}
-                              editable={!isChangingPassword}
-                            />
-                            <TouchableOpacity
-                              style={styles.eyeButton}
-                              onPress={() => setIsOldPasswordVisible(prev => !prev)}
-                              disabled={isChangingPassword}
-                              accessibilityRole="button"
-                              accessibilityLabel={
-                                isOldPasswordVisible
-                                  ? 'Скрыть старый пароль'
-                                  : 'Показать старый пароль'
-                              }
-                            >
-                              <Image
-                                source={isOldPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                                style={styles.eyeImage}
-                              />
-                            </TouchableOpacity>
-                          </View>
-
-                          <View style={styles.passwordField}>
-                            <TextInput
-                              style={[
-                                styles.input,
-                                styles.passwordInput,
-                                styles.profileInput,
-                                focusedProfileField === 'newPassword' && styles.inputFocused,
-                              ]}
-                              placeholder="Новый пароль"
-                              placeholderTextColor="#7A7A7A"
-                              secureTextEntry={!isNewPasswordVisible}
-                              autoCapitalize="none"
-                              value={newPassword}
-                              onFocus={() => setFocusedProfileField('newPassword')}
-                              onBlur={() => setFocusedProfileField(null)}
-                              onChangeText={text => {
-                                setNewPassword(text);
-                                if (changePasswordError) {
-                                  setChangePasswordError(null);
-                                }
-                              }}
-                              editable={!isChangingPassword}
-                            />
-                            <TouchableOpacity
-                              style={styles.eyeButton}
-                              onPress={() => setIsNewPasswordVisible(prev => !prev)}
-                              disabled={isChangingPassword}
-                              accessibilityRole="button"
-                              accessibilityLabel={
-                                isNewPasswordVisible
-                                  ? 'Скрыть новый пароль'
-                                  : 'Показать новый пароль'
-                              }
-                            >
-                              <Image
-                                source={isNewPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                                style={styles.eyeImage}
-                              />
-                            </TouchableOpacity>
-                          </View>
-
-                          {changePasswordError ? (
-                            <Text style={styles.errorText}>{changePasswordError}</Text>
-                          ) : null}
-                          {changePasswordSuccess ? (
-                            <Text style={styles.successTextInline}>{changePasswordSuccess}</Text>
-                          ) : null}
-
-                          <TouchableOpacity
-                            style={[styles.button, styles.logoutButton]}
-                            onPress={submitChangePassword}
-                            disabled={isChangingPassword}
-                          >
-                            {isChangingPassword ? (
-                              <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                              <Text style={styles.buttonText}>Сохранить пароль</Text>
-                            )}
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={styles.linkButton}
-                            onPress={resetChangePasswordForm}
-                            disabled={isChangingPassword}
-                          >
-                            <Text style={styles.linkButtonText}>Назад в профиль</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.logoutSmallButton}
-                      onPress={() => {
-                        resetChangePasswordForm();
-                        setActiveTab('home');
-                        resetSession();
-                      }}
-                    >
-                      <Text style={styles.logoutSmallButtonText}>Выйти</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
+        <View
+          style={[styles.tabLayer, { opacity: showMail ? 1 : 0 }]}
+          pointerEvents={showMail ? 'auto' : 'none'}>
+          <SafeAreaView
+            style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
+            edges={['top', 'bottom']}>
+            <View style={styles.tabHeaderContainer}>
+              <View style={styles.tabHeaderRow}>
+                <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                <TouchableOpacity
+                  style={styles.tabHeaderAvatarButton}
+                  onPress={openProfileSheet}
+                  accessibilityRole="button"
+                  accessibilityLabel="Открыть профиль">
+                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </SafeAreaView>
-        )}
+        </View>
 
-        <LiquidTabBar
-          activeTab={activeTab}
-          onTabChange={switchTab}
-          homeIcon={homeIcon}
-          profileIcon={profileIcon}
-          mailIcon={mailIcon}
-          trashIcon={trashIcon}
-        />
+        <View
+          style={[styles.tabLayer, { opacity: showTrash ? 1 : 0 }]}
+          pointerEvents={showTrash ? 'auto' : 'none'}>
+          <SafeAreaView
+            style={[styles.authenticatedScreen, { backgroundColor: '#FF6A00' }]}
+            edges={['top', 'bottom']}>
+            <View style={styles.tabHeaderContainer}>
+              <View style={styles.tabHeaderRow}>
+                <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                <TouchableOpacity
+                  style={styles.tabHeaderAvatarButton}
+                  onPress={openProfileSheet}
+                  accessibilityRole="button"
+                  accessibilityLabel="Открыть профиль">
+                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </SafeAreaView>
+        </View>
+
+        <View
+          style={[styles.tabLayer, { opacity: showProfile ? 1 : 0 }]}
+          pointerEvents={showProfile ? 'auto' : 'none'}>
+          <SafeAreaView style={[styles.authenticatedScreen, { backgroundColor: '#1A1A1A' }]} edges={['top', 'bottom']}>
+            {showProfile ? <StatusBar barStyle="dark-content" /> : null}
+            <View style={styles.profileTitleWrap}>
+              <Text style={styles.profileTitle}>Ещё</Text>
+            </View>
+          </SafeAreaView>
+        </View>
+
+        {isProfileSheetOpen ? (
+          <View style={styles.profileSheetRoot} pointerEvents="box-none">
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeProfileSheet}>
+              <Animated.View style={[styles.profileSheetBackdrop, { opacity: profileOverlayOpacity }]} />
+            </Pressable>
+
+            <Animated.View
+              style={[
+                styles.profileSheetCard,
+                { top: insets.top + 6, transform: [{ translateY: profileSheetTranslateY }] },
+              ]}>
+              <TouchableOpacity
+                style={styles.profileSheetCloseButton}
+                onPress={closeProfileSheet}
+                accessibilityRole="button"
+                accessibilityLabel="Закрыть профиль">
+                <Image source={crossIcon} style={styles.profileSheetCloseIcon} />
+              </TouchableOpacity>
+
+              <SafeAreaView style={styles.profileSheetSafeArea} edges={['top', 'bottom']}>
+                <View style={styles.profileSheetContent}>
+                  <View style={styles.profileAccountCard}>
+                    <View style={styles.profileAccountRow}>
+                      <View style={styles.profileAvatarCircle}>
+                        <Text style={styles.profileAvatarLetter}>{profileLetter}</Text>
+                      </View>
+                      <View style={styles.profileIdentityBlock}>
+                        <Text style={styles.profileAccountName}>{displayName}</Text>
+                        <Text style={styles.profileAccountEmail}>{profileEmail}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {!isPasswordSectionOpen ? (
+                    <View style={styles.profileActionsCard}>
+                      <TouchableOpacity
+                        style={styles.profileRowButton}
+                        onPress={() => {
+                          setIsPasswordSectionOpen(true);
+                          setChangePasswordError(null);
+                          setChangePasswordSuccess(null);
+                        }}
+                        disabled={isChangingPassword}>
+                        <Text style={styles.profileRowButtonText}>Смена пароля</Text>
+                        <Text style={styles.profileRowChevron}>›</Text>
+                      </TouchableOpacity>
+
+                      <View style={styles.profileDivider} />
+
+                      <View style={styles.profileRowStatic}>
+                        <Text style={styles.profileRowMutedText}>Тут скоро что-то будет</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.profilePasswordCard}>
+                      <View style={styles.profileForm}>
+                        <View style={styles.passwordField}>
+                          <TextInput
+                            style={[
+                              styles.input,
+                              styles.passwordInput,
+                              styles.profileInput,
+                              focusedProfileField === 'oldPassword' && styles.inputFocused,
+                            ]}
+                            placeholder="Старый пароль"
+                            placeholderTextColor="#7A7A7A"
+                            secureTextEntry={!isOldPasswordVisible}
+                            autoCapitalize="none"
+                            value={oldPassword}
+                            onFocus={() => setFocusedProfileField('oldPassword')}
+                            onBlur={() => setFocusedProfileField(null)}
+                            onChangeText={text => {
+                              setOldPassword(text);
+                              if (changePasswordError) {
+                                setChangePasswordError(null);
+                              }
+                            }}
+                            editable={!isChangingPassword}
+                          />
+                          <TouchableOpacity
+                            style={styles.eyeButton}
+                            onPress={() => setIsOldPasswordVisible(prev => !prev)}
+                            disabled={isChangingPassword}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              isOldPasswordVisible
+                                ? 'Скрыть старый пароль'
+                                : 'Показать старый пароль'
+                            }>
+                            <Image
+                              source={isOldPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
+                              style={styles.eyeImage}
+                            />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.passwordField}>
+                          <TextInput
+                            style={[
+                              styles.input,
+                              styles.passwordInput,
+                              styles.profileInput,
+                              focusedProfileField === 'newPassword' && styles.inputFocused,
+                            ]}
+                            placeholder="Новый пароль"
+                            placeholderTextColor="#7A7A7A"
+                            secureTextEntry={!isNewPasswordVisible}
+                            autoCapitalize="none"
+                            value={newPassword}
+                            onFocus={() => setFocusedProfileField('newPassword')}
+                            onBlur={() => setFocusedProfileField(null)}
+                            onChangeText={text => {
+                              setNewPassword(text);
+                              if (changePasswordError) {
+                                setChangePasswordError(null);
+                              }
+                            }}
+                            editable={!isChangingPassword}
+                          />
+                          <TouchableOpacity
+                            style={styles.eyeButton}
+                            onPress={() => setIsNewPasswordVisible(prev => !prev)}
+                            disabled={isChangingPassword}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              isNewPasswordVisible
+                                ? 'Скрыть новый пароль'
+                                : 'Показать новый пароль'
+                            }>
+                            <Image
+                              source={isNewPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
+                              style={styles.eyeImage}
+                            />
+                          </TouchableOpacity>
+                        </View>
+
+                        {changePasswordError ? (
+                          <Animated.View
+                            style={[
+                              styles.flashMessage,
+                              styles.flashMessageError,
+                              { opacity: changePasswordErrorOpacity },
+                            ]}>
+                            <View style={styles.flashMessageLeft}>
+                              <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
+                                <Text style={styles.flashIconText}>!</Text>
+                              </View>
+                              <Text style={styles.flashMessageText}>{changePasswordError}</Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.flashCloseButton}
+                              onPress={() => setChangePasswordError(null)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Закрыть сообщение об ошибке">
+                              <Text style={styles.flashCloseText}>✕</Text>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        ) : null}
+                        {changePasswordSuccess ? (
+                          <Animated.View
+                            style={[
+                              styles.flashMessage,
+                              styles.flashMessageSuccess,
+                              { opacity: changePasswordSuccessOpacity },
+                            ]}>
+                            <View style={styles.flashMessageLeft}>
+                              <View style={[styles.flashIconCircle, styles.flashIconCircleSuccess]}>
+                                <Text style={styles.flashIconText}>✓</Text>
+                              </View>
+                              <Text style={styles.flashMessageText}>{changePasswordSuccess}</Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.flashCloseButton}
+                              onPress={() => setChangePasswordSuccess(null)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Закрыть сообщение об успехе">
+                              <Text style={styles.flashCloseText}>✕</Text>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        ) : null}
+
+                        <TouchableOpacity
+                          style={[styles.button, styles.logoutButton]}
+                          onPress={submitChangePassword}
+                          disabled={isChangingPassword}>
+                          {isChangingPassword ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.buttonText}>Сохранить пароль</Text>
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.linkButton}
+                          onPress={resetChangePasswordForm}
+                          disabled={isChangingPassword}>
+                          <Text style={styles.linkButtonText}>Назад в профиль</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.profileBottomBlock}>
+                    <TouchableOpacity
+                      style={styles.profileLogoutButton}
+                      onPress={() => {
+                        resetChangePasswordForm();
+                        closeProfileSheet();
+                        setActiveTab('home');
+                        resetSession();
+                      }}>
+                      <Text style={styles.profileLogoutButtonText}>Выйти</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </SafeAreaView>
+            </Animated.View>
+          </View>
+        ) : null}
+
+        <View style={StyleSheet.absoluteFillObject}>
+          <LiquidTabBar
+            activeTab={activeTab}
+            onTabChange={switchTab}
+            homeIcon={homeIcon}
+            profileIcon={profileIcon}
+            profileLabel="Ещё"
+            themeMode={showProfile ? 'light' : 'dark'}
+            mailIcon={mailIcon}
+            trashIcon={trashIcon}
+          />
+        </View>
       </View>
     );
   }
@@ -466,9 +893,9 @@ export default function AuthScreen() {
                   styles.input,
                   focusedForgotField === 'identity' && styles.inputFocused,
                 ]}
-                placeholder="Email или логин"
+                placeholder="Номер телефона"
                 placeholderTextColor="#7A7A7A"
-                keyboardType="default"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={forgotIdentity}
@@ -483,7 +910,7 @@ export default function AuthScreen() {
                 }}
                 inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
                 onChangeText={text => {
-                  setForgotIdentity(text);
+                  setForgotIdentity(prev => formatPhoneInputWithBackspace(prev, text));
                   if (forgotError) {
                     setForgotError(null);
                   }
@@ -491,6 +918,31 @@ export default function AuthScreen() {
                 editable={!isForgotSubmitting}
               />
             ) : null}
+
+            <View style={styles.forgotFlashSlot}>
+              {forgotError ? (
+                <Animated.View
+                  style={[
+                    styles.flashMessage,
+                    styles.flashMessageError,
+                    { opacity: forgotErrorOpacity },
+                  ]}>
+                  <View style={styles.flashMessageLeft}>
+                    <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
+                      <Text style={styles.flashIconText}>!</Text>
+                    </View>
+                    <Text style={styles.flashMessageText}>{forgotError}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.flashCloseButton}
+                    onPress={() => setForgotError(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Закрыть сообщение об ошибке">
+                    <Text style={styles.flashCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              ) : null}
+            </View>
 
             {!isCodeSent ? (
               <TouchableOpacity
@@ -584,8 +1036,6 @@ export default function AuthScreen() {
               </>
             ) : null}
 
-            {forgotError ? <Text style={styles.errorText}>{forgotError}</Text> : null}
-
             <TouchableOpacity
               style={styles.linkButton}
               onPress={resetForgotPasswordForm}
@@ -601,16 +1051,16 @@ export default function AuthScreen() {
             styles.input,
             focusedLoginField === 'identifier' && styles.inputFocused,
           ]}
-          placeholder="Email или логин"
+          placeholder="Номер телефона"
           placeholderTextColor="#7A7A7A"
-          keyboardType="default"
+          keyboardType="phone-pad"
           autoCapitalize="none"
           autoCorrect={false}
           inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
           returnKeyType="next"
           value={form.identifier}
           onChangeText={text => {
-            updateField('identifier', text);
+            updateField('identifier', formatPhoneInputWithBackspace(form.identifier, text));
             if (authNotice) {
               setAuthNotice(null);
             }
@@ -664,12 +1114,50 @@ export default function AuthScreen() {
         </View>
 
         {authNotice ? (
-          <View style={styles.authNoticeBox}>
-            <Text style={styles.authNoticeText}>{authNotice}</Text>
-          </View>
+          <Animated.View
+            style={[
+              styles.flashMessage,
+              styles.flashMessageSuccess,
+              { opacity: authNoticeOpacity },
+            ]}>
+            <View style={styles.flashMessageLeft}>
+              <View style={[styles.flashIconCircle, styles.flashIconCircleSuccess]}>
+                <Text style={styles.flashIconText}>✓</Text>
+              </View>
+              <Text style={styles.flashMessageText}>{authNotice}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.flashCloseButton}
+              onPress={() => setAuthNotice(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Закрыть сообщение об успехе">
+              <Text style={styles.flashCloseText}>✕</Text>
+            </TouchableOpacity>
+          </Animated.View>
         ) : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <Animated.View
+            style={[
+              styles.flashMessage,
+              styles.flashMessageError,
+              { opacity: loginErrorOpacity },
+            ]}>
+            <View style={styles.flashMessageLeft}>
+              <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
+                <Text style={styles.flashIconText}>!</Text>
+              </View>
+              <Text style={styles.flashMessageText}>{error}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.flashCloseButton}
+              onPress={clearError}
+              accessibilityRole="button"
+              accessibilityLabel="Закрыть сообщение об ошибке">
+              <Text style={styles.flashCloseText}>✕</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.button, isSubmitting && styles.buttonDisabled]}
@@ -687,7 +1175,9 @@ export default function AuthScreen() {
           style={styles.linkButton}
           onPress={() => {
             setIsForgotPasswordFlow(true);
-            setForgotIdentity(form.identifier);
+            setForgotIdentity('+7');
+            updateField('identifier', '+7');
+            updateField('password', '');
             setForgotError(null);
             setAuthNotice(null);
             setIsCodeSent(false);

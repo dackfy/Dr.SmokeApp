@@ -28,7 +28,8 @@ function createSession(
   lastName?: string,
   city?: string,
   userId?: string,
-  timezone?: string
+  timezone?: string,
+  telegramId?: number
 ): AuthSession {
   return {
     accessToken: `mock-access-token-${Date.now()}`,
@@ -36,6 +37,7 @@ function createSession(
     user: {
       id: userId ?? String(Date.now()),
       email,
+      telegramId,
       name,
       lastName,
       city,
@@ -88,6 +90,7 @@ export const mockAuthApi: AuthApi = {
 type LoginResponse = {
   message?: string
   employee_id: number
+  telegram_id?: number
   region_id?: number
   name?: string
   lastName?: string
@@ -114,17 +117,45 @@ class AuthError extends Error {
   }
 }
 
+function normalizePhoneForBackend(value: string) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (!digits) return ''
+
+  // +7XXXXXXXXXX -> 8XXXXXXXXXX to match DB format like 89XXXXXXXXX
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return `8${digits.slice(1)}`
+  }
+
+  // XXXXXXXXXX -> 8XXXXXXXXXX
+  if (digits.length === 10) {
+    return `8${digits}`
+  }
+
+  return digits
+}
+
+function prepareIdentity(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  if (trimmed.includes('@')) {
+    return trimmed.toLowerCase()
+  }
+
+  const normalizedPhone = normalizePhoneForBackend(trimmed)
+  return normalizedPhone || trimmed
+}
+
 export const realAuthApi: AuthApi = {
   async login(payload) {
-    const identifier = payload.identifier.trim()
+    const identifier = prepareIdentity(payload.identifier)
     const isEmailLike = identifier.includes('@')
 
     const res = await fetch(buildApiUrl('/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: isEmailLike ? identifier.toLowerCase() : identifier,
-        login: identifier,
+        email: identifier,
         identifier,
         password: payload.password,
       }),
@@ -140,21 +171,24 @@ export const realAuthApi: AuthApi = {
     if (!res.ok) {
       const code = (data as { error?: string } | null)?.error
 
-      if (res.status === 401) throw new AuthError('Неверный логин или пароль', 401, code)
+      if (res.status === 401) throw new AuthError('Неверный номер телефона или пароль', 401, code)
       if (res.status === 403) throw new AuthError('Аккаунт не активен', 403, code)
-      if (res.status === 400) throw new AuthError('Введите логин (или email) и пароль', 400, code)
+      if (res.status === 400) throw new AuthError('Введите номер телефона и пароль', 400, code)
 
       throw new AuthError('Ошибка сервера. Попробуйте позже.', res.status, code)
     }
 
     const ok = data as LoginResponse
+    const normalizedServerEmail = String(ok.email || '').trim().toLowerCase()
+    const fallbackEmail = isEmailLike ? identifier.toLowerCase() : ''
     return createSession(
-      ok.email ?? payload.identifier,
+      normalizedServerEmail || fallbackEmail,
       ok.name ?? extractNameFromGreeting(ok.message),
       ok.lastName,
       ok.city,
       String(ok.employee_id),
-      ok.timezone
+      ok.timezone,
+      Number.isFinite(Number(ok.telegram_id)) ? Number(ok.telegram_id) : undefined
     )
   },
 
@@ -184,7 +218,7 @@ export const realAuthApi: AuthApi = {
       const code = (data as { error?: string } | null)?.error
 
       if (code === 'password_too_short') {
-        throw new AuthError('Новый пароль должен быть не короче 6 символов', 400, code)
+        throw new AuthError('Новый пароль должен быть не короче 8 символов', 400, code)
       }
       if (code === 'invalid_old_password') {
         throw new AuthError('Старый пароль введён неверно', 401, code)
@@ -204,11 +238,13 @@ export const realAuthApi: AuthApi = {
   },
 
   async forgotPassword(payload) {
+    const identity = prepareIdentity(payload.identity)
+
     const res = await fetch(buildApiUrl('/auth/forgot-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        identity: payload.identity.trim(),
+        identity,
       }),
     })
 
@@ -223,10 +259,10 @@ export const realAuthApi: AuthApi = {
       const code = (data as { error?: string } | null)?.error
 
       if (code === 'identity_required') {
-        throw new AuthError('Введите логин или email', 400, code)
+        throw new AuthError('Введите номер телефона', 400, code)
       }
       if (code === 'identity_not_found') {
-        throw new AuthError('Пользователь с таким логином или email не найден', 404, code)
+        throw new AuthError('Пользователь с таким номером не найден', 404, code)
       }
       if (code === 'email_not_set') {
         throw new AuthError('Для этого пользователя не указана почта', 400, code)
@@ -237,11 +273,13 @@ export const realAuthApi: AuthApi = {
   },
 
   async resetPassword(payload) {
+    const identity = prepareIdentity(payload.identity)
+
     const res = await fetch(buildApiUrl('/auth/reset-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        identity: payload.identity.trim(),
+        identity,
         code: payload.code.trim(),
         newPassword: payload.newPassword,
       }),
@@ -258,16 +296,16 @@ export const realAuthApi: AuthApi = {
       const code = (data as { error?: string } | null)?.error
 
       if (code === 'identity_code_new_required') {
-        throw new AuthError('Заполните логин/email, код и новый пароль', 400, code)
+        throw new AuthError('Заполните номер телефона, код и новый пароль', 400, code)
       }
       if (code === 'password_too_short') {
-        throw new AuthError('Новый пароль должен быть не короче 6 символов', 400, code)
+        throw new AuthError('Новый пароль должен быть не короче 8 символов', 400, code)
       }
       if (code === 'invalid_code') {
         throw new AuthError('Неверный или просроченный код', 400, code)
       }
       if (code === 'identity_not_found') {
-        throw new AuthError('Пользователь с таким логином или email не найден', 404, code)
+        throw new AuthError('Пользователь с таким номером не найден', 404, code)
       }
 
       throw new AuthError('Не удалось сбросить пароль. Попробуйте позже.', res.status, code)
