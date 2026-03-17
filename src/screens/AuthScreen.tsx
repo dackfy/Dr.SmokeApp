@@ -15,6 +15,7 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './AuthScreen.styles';
@@ -23,6 +24,12 @@ import ShiftScreen from './ShiftScreen';
 import { authApi } from '../features/auth/authApi';
 import LiquidTabBar from '../components/LiquidTabBar';
 import type { TabKey } from '../components/LiquidTabBar';
+import { useAndroidThemeMode } from '../theme/androidAppTheme';
+import {
+  getAndroidCompanyPalette,
+  getAndroidStatusBarStyle,
+  getAndroidThemePalette,
+} from '../theme/androidDynamicColors';
 
 const eyeOpenIcon = require('../assets/icons/eye-open.png');
 const eyeClosedIcon = require('../assets/icons/eye-closed.png');
@@ -111,6 +118,14 @@ function formatPhoneInputWithBackspace(prevValue: string, nextValue: string) {
 }
 
 export default function AuthScreen() {
+  const colorScheme = useColorScheme();
+  const androidTheme = useAndroidThemeMode();
+  const isAndroid = Platform.OS === 'android';
+  const androidPalette = isAndroid
+    ? androidTheme.mode === 'company'
+      ? getAndroidCompanyPalette()
+      : getAndroidThemePalette(colorScheme === 'dark')
+    : null;
   const authAccessoryId = 'auth-keyboard-accessory';
   const insets = useSafeAreaInsets();
   const passwordInputRef = useRef<TextInput>(null);
@@ -171,17 +186,26 @@ export default function AuthScreen() {
   const openProfileSheet = React.useCallback(() => {
     setIsProfileSheetOpen(true);
     setIsPasswordSectionOpen(false);
-    Animated.timing(profileSheetProgress, {
+    profileSheetProgress.stopAnimation();
+    profileSheetProgress.setValue(0);
+    Animated.spring(profileSheetProgress, {
       toValue: 1,
-      duration: 330,
+      stiffness: 220,
+      damping: 22,
+      mass: 0.95,
+      overshootClamping: false,
       useNativeDriver: true,
     }).start();
   }, [profileSheetProgress]);
 
   const closeProfileSheet = React.useCallback(() => {
-    Animated.timing(profileSheetProgress, {
+    profileSheetProgress.stopAnimation();
+    Animated.spring(profileSheetProgress, {
       toValue: 0,
-      duration: 260,
+      stiffness: 260,
+      damping: 28,
+      mass: 0.9,
+      overshootClamping: true,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) {
@@ -553,6 +577,321 @@ export default function AuthScreen() {
     const profileEmail = session.user.email || 'Почта не указана';
     const todayLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`;
     const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase();
+    const profileStatusBarStyle =
+      isAndroid && androidPalette
+        ? getAndroidStatusBarStyle(String(androidPalette.background))
+        : 'dark-content';
+    const androidTabThemeMode =
+      isAndroid && androidTheme.mode === 'material' && colorScheme !== 'dark'
+        ? 'light'
+        : 'dark';
+    const renderAndroidThemeSettings = () => {
+      if (!isAndroid || !androidPalette) {
+        return null;
+      }
+
+      const isCompanyMode = androidTheme.mode === 'company';
+      const materialSurface = String(androidPalette.surface);
+      const materialAccent = String(androidPalette.surfaceAccent);
+      const materialOutline = String(androidPalette.outlineVariant);
+      const companyPreview = ['#050505', '#FF6A00', '#252525'];
+      const materialPreview = [
+        String(androidPalette.primary),
+        String(androidPalette.secondary),
+        String(androidPalette.tertiary),
+      ];
+
+      return (
+        <View style={styles.androidThemeSection}>
+          <Text
+            style={[
+              styles.androidThemeTitle,
+              {
+                color: String(androidPalette.onSurface),
+              },
+            ]}>
+            Оформление Android
+          </Text>
+          <Text
+            style={[
+              styles.androidThemeSubtitle,
+              {
+                color: String(androidPalette.onSurfaceMuted),
+              },
+            ]}>
+            Выбери фирменный стиль приложения или адаптацию под системную тему Android.
+          </Text>
+
+          <View style={styles.androidThemeCardList}>
+            <TouchableOpacity
+              style={[
+                styles.androidThemeCard,
+                {
+                  backgroundColor:
+                    isCompanyMode
+                      ? String(androidPalette.primaryContainerStrong)
+                      : materialSurface,
+                  borderColor:
+                    isCompanyMode
+                      ? String(androidPalette.primary)
+                      : materialOutline,
+                },
+              ]}
+              onPress={() => androidTheme.setMode('company')}
+              disabled={androidTheme.isHydrating}>
+              <View style={styles.androidThemeCardTopRow}>
+                <View
+                  style={[
+                    styles.androidThemeBadge,
+                    {
+                      backgroundColor: isCompanyMode
+                        ? String(androidPalette.primary)
+                        : materialAccent,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.androidThemeBadgeText,
+                      {
+                        color: isCompanyMode
+                          ? String(androidPalette.onPrimary)
+                          : String(androidPalette.onSurfaceMuted),
+                      },
+                    ]}>
+                    Фирменный
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.androidThemeRadio,
+                    {
+                      borderColor: isCompanyMode
+                        ? String(androidPalette.primary)
+                        : String(androidPalette.outline),
+                      backgroundColor: isCompanyMode
+                        ? String(androidPalette.primary)
+                        : 'transparent',
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.androidThemeCardHeaderRow}>
+                <Text
+                  style={[
+                    styles.androidThemeCardTitle,
+                    {
+                      color: String(androidPalette.onSurface),
+                    },
+                  ]}>
+                  Код компании
+                </Text>
+                <Text
+                  style={[
+                    styles.androidThemeCardMeta,
+                    {
+                      color: String(androidPalette.onSurfaceMuted),
+                    },
+                  ]}>
+                  Deep contrast
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.androidThemeCardDescription,
+                  {
+                    color: String(androidPalette.onSurfaceMuted),
+                  },
+                ]}>
+                Плотный темный интерфейс с ярким оранжевым акцентом и собранной фирменной подачей.
+              </Text>
+              <View style={styles.androidThemePreviewRail}>
+                <View
+                  style={[
+                    styles.androidThemePreviewCard,
+                    {
+                      backgroundColor: companyPreview[0],
+                      borderColor: 'rgba(255,255,255,0.06)',
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.androidThemePreviewDot,
+                      { backgroundColor: companyPreview[1] },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.androidThemePreviewLine,
+                      { backgroundColor: 'rgba(255,255,255,0.18)' },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.androidThemePreviewTall,
+                    { backgroundColor: companyPreview[1] },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.androidThemePreviewCard,
+                    {
+                      backgroundColor: companyPreview[2],
+                      borderColor: 'rgba(255,255,255,0.06)',
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.androidThemePreviewLine,
+                      { backgroundColor: 'rgba(255,255,255,0.9)' },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.androidThemePreviewLineShort,
+                      { backgroundColor: 'rgba(255,255,255,0.22)' },
+                    ]}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.androidThemeCard,
+                {
+                  backgroundColor:
+                    !isCompanyMode
+                      ? String(androidPalette.primaryContainer)
+                      : materialSurface,
+                  borderColor:
+                    !isCompanyMode
+                      ? String(androidPalette.primary)
+                      : materialOutline,
+                },
+              ]}
+              onPress={() => androidTheme.setMode('material')}
+              disabled={androidTheme.isHydrating}>
+              <View style={styles.androidThemeCardTopRow}>
+                <View
+                  style={[
+                    styles.androidThemeBadge,
+                    {
+                      backgroundColor: !isCompanyMode
+                        ? String(androidPalette.primary)
+                        : materialAccent,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.androidThemeBadgeText,
+                      {
+                        color: !isCompanyMode
+                          ? String(androidPalette.onPrimary)
+                          : String(androidPalette.onSurfaceMuted),
+                      },
+                    ]}>
+                    System aware
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.androidThemeRadio,
+                    {
+                      borderColor: !isCompanyMode
+                        ? String(androidPalette.primary)
+                        : String(androidPalette.outline),
+                      backgroundColor: !isCompanyMode
+                        ? String(androidPalette.primary)
+                        : 'transparent',
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.androidThemeCardHeaderRow}>
+                <Text
+                  style={[
+                    styles.androidThemeCardTitle,
+                    {
+                      color: String(androidPalette.onSurface),
+                    },
+                  ]}>
+                  Material You
+                </Text>
+                <Text
+                  style={[
+                    styles.androidThemeCardMeta,
+                    {
+                      color: String(androidPalette.onSurfaceMuted),
+                    },
+                  ]}>
+                  Android 16
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.androidThemeCardDescription,
+                  {
+                    color: String(androidPalette.onSurfaceMuted),
+                  },
+                ]}>
+                Адаптируется под светлую и темную системную тему и выглядит ближе к современному Android.
+              </Text>
+              <View style={styles.androidThemePreviewRail}>
+                <View
+                  style={[
+                    styles.androidThemePreviewCard,
+                    {
+                      backgroundColor: materialSurface,
+                      borderColor: materialOutline,
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.androidThemePreviewDot,
+                      { backgroundColor: materialPreview[0] },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.androidThemePreviewLine,
+                      { backgroundColor: materialPreview[1] },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.androidThemePreviewTall,
+                    { backgroundColor: materialPreview[0] },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.androidThemePreviewCard,
+                    {
+                      backgroundColor: String(androidPalette.primaryContainer),
+                      borderColor: materialOutline,
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.androidThemePreviewLine,
+                      { backgroundColor: materialPreview[2] },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.androidThemePreviewLineShort,
+                      { backgroundColor: materialPreview[1] },
+                    ]}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    };
 
     const showProfile = activeTab === 'profile';
     const showMail = activeTab === 'mail';
@@ -563,8 +902,13 @@ export default function AuthScreen() {
       extrapolate: 'clamp',
     });
     const profileSheetTranslateY = profileSheetProgress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [SCREEN_HEIGHT, 0],
+      inputRange: [0, 0.72, 1],
+      outputRange: [SCREEN_HEIGHT, 24, 0],
+      extrapolate: 'clamp',
+    });
+    const profileSheetScale = profileSheetProgress.interpolate({
+      inputRange: [0, 0.7, 1],
+      outputRange: [0.94, 0.985, 1],
       extrapolate: 'clamp',
     });
 
@@ -588,58 +932,95 @@ export default function AuthScreen() {
           />
         </View>
 
-        <View
-          style={[styles.tabLayer, { opacity: showMail ? 1 : 0 }]}
-          pointerEvents={showMail ? 'auto' : 'none'}>
-          <SafeAreaView
-            style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
-            edges={['top', 'bottom']}>
-            <View style={styles.tabHeaderContainer}>
-              <View style={styles.tabHeaderRow}>
-                <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                <TouchableOpacity
-                  style={styles.tabHeaderAvatarButton}
-                  onPress={openProfileSheet}
-                  accessibilityRole="button"
-                  accessibilityLabel="Открыть профиль">
-                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                </TouchableOpacity>
+        {showMail ? (
+          <View style={styles.tabLayer} pointerEvents="auto">
+            <SafeAreaView
+              style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
+              edges={['top', 'bottom']}>
+              <View style={styles.tabHeaderContainer}>
+                <View style={styles.tabHeaderRow}>
+                  <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                  <TouchableOpacity
+                    style={styles.tabHeaderAvatarButton}
+                    onPress={openProfileSheet}
+                    accessibilityRole="button"
+                    accessibilityLabel="Открыть профиль">
+                    <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </SafeAreaView>
-        </View>
+            </SafeAreaView>
+          </View>
+        ) : null}
 
-        <View
-          style={[styles.tabLayer, { opacity: showTrash ? 1 : 0 }]}
-          pointerEvents={showTrash ? 'auto' : 'none'}>
-          <SafeAreaView
-            style={[styles.authenticatedScreen, { backgroundColor: '#FF6A00' }]}
-            edges={['top', 'bottom']}>
-            <View style={styles.tabHeaderContainer}>
-              <View style={styles.tabHeaderRow}>
-                <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                <TouchableOpacity
-                  style={styles.tabHeaderAvatarButton}
-                  onPress={openProfileSheet}
-                  accessibilityRole="button"
-                  accessibilityLabel="Открыть профиль">
-                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                </TouchableOpacity>
+        {showTrash ? (
+          <View style={styles.tabLayer} pointerEvents="auto">
+            <SafeAreaView
+              style={[styles.authenticatedScreen, { backgroundColor: '#FF6A00' }]}
+              edges={['top', 'bottom']}>
+              <View style={styles.tabHeaderContainer}>
+                <View style={styles.tabHeaderRow}>
+                  <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                  <TouchableOpacity
+                    style={styles.tabHeaderAvatarButton}
+                    onPress={openProfileSheet}
+                    accessibilityRole="button"
+                    accessibilityLabel="Открыть профиль">
+                    <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </SafeAreaView>
-        </View>
+            </SafeAreaView>
+          </View>
+        ) : null}
 
-        <View
-          style={[styles.tabLayer, { opacity: showProfile ? 1 : 0 }]}
-          pointerEvents={showProfile ? 'auto' : 'none'}>
-          <SafeAreaView style={[styles.authenticatedScreen, { backgroundColor: '#1A1A1A' }]} edges={['top', 'bottom']}>
-            {showProfile ? <StatusBar barStyle="dark-content" /> : null}
-            <View style={styles.profileTitleWrap}>
-              <Text style={styles.profileTitle}>Ещё</Text>
-            </View>
-          </SafeAreaView>
-        </View>
+        {showProfile ? (
+          <View style={styles.tabLayer} pointerEvents="auto">
+            <SafeAreaView
+              style={[
+                styles.authenticatedScreen,
+                {
+                  backgroundColor:
+                    isAndroid && androidPalette
+                      ? String(androidPalette.background)
+                      : '#1A1A1A',
+                },
+              ]}
+              edges={['top', 'bottom']}>
+              <StatusBar barStyle={profileStatusBarStyle} />
+              <View style={styles.profileTitleWrap}>
+                <Text
+                  style={[
+                    styles.profileTitle,
+                    isAndroid && androidPalette
+                      ? { color: String(androidPalette.onSurface) }
+                      : null,
+                  ]}>
+                  Ещё
+                </Text>
+              </View>
+              {isAndroid ? (
+                <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+                  <View
+                    style={{
+                      borderRadius: 30,
+                      padding: 18,
+                      backgroundColor: String(androidPalette?.surfaceRaised || '#1C1C1C'),
+                      borderWidth: 1,
+                      borderColor: String(androidPalette?.outlineVariant || '#2C2C2E'),
+                      shadowColor: '#000000',
+                      shadowOffset: { width: 0, height: 12 },
+                      shadowOpacity: colorScheme === 'dark' ? 0.22 : 0.08,
+                      shadowRadius: 28,
+                      elevation: 8,
+                    }}>
+                    {renderAndroidThemeSettings()}
+                  </View>
+                </View>
+              ) : null}
+            </SafeAreaView>
+          </View>
+        ) : null}
 
         {isProfileSheetOpen ? (
           <View style={styles.profileSheetRoot} pointerEvents="box-none">
@@ -650,7 +1031,13 @@ export default function AuthScreen() {
             <Animated.View
               style={[
                 styles.profileSheetCard,
-                { top: insets.top + 6, transform: [{ translateY: profileSheetTranslateY }] },
+                {
+                  top: insets.top + 6,
+                  transform: [
+                    { translateY: profileSheetTranslateY },
+                    { scale: profileSheetScale },
+                  ],
+                },
               ]}>
               <TouchableOpacity
                 style={styles.profileSheetCloseButton}
@@ -868,7 +1255,28 @@ export default function AuthScreen() {
             homeIcon={homeIcon}
             profileIcon={profileIcon}
             profileLabel="Ещё"
-            themeMode={showProfile ? 'light' : 'dark'}
+            themeMode={androidTabThemeMode}
+            activeTintColor={
+              isAndroid && androidPalette ? String(androidPalette.primary) : undefined
+            }
+            activeBackgroundColor={
+              isAndroid && androidPalette
+                ? String(androidPalette.primaryContainerStrong)
+                : undefined
+            }
+            inactiveTintColor={
+              isAndroid && androidPalette ? String(androidPalette.onSurfaceMuted) : undefined
+            }
+            shellBackgroundColor={
+              isAndroid && androidPalette
+                ? String(androidPalette.surfaceRaised)
+                : undefined
+            }
+            shellBorderColor={
+              isAndroid && androidPalette
+                ? String(androidPalette.outlineVariant)
+                : undefined
+            }
             mailIcon={mailIcon}
             trashIcon={trashIcon}
           />

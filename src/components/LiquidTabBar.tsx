@@ -16,6 +16,7 @@ import {
   isLiquidGlassSupported,
 } from '@callstack/liquid-glass';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LiquidTabBarAndroid from './LiquidTabBar.android';
 
 export type TabKey = 'home' | 'mail' | 'trash' | 'profile';
 
@@ -35,6 +36,11 @@ type LiquidTabBarProps = {
   homeLabel?: string;
   profileLabel?: string;
   themeMode?: 'dark' | 'light';
+  activeTintColor?: string;
+  activeBackgroundColor?: string;
+  inactiveTintColor?: string;
+  shellBackgroundColor?: string;
+  shellBorderColor?: string;
 };
 
 const BAR_HORIZONTAL_PADDING = 46;
@@ -53,7 +59,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-export default function LiquidTabBar({
+function SharedLiquidTabBar({
   activeTab,
   onTabChange,
   homeIcon,
@@ -64,8 +70,24 @@ export default function LiquidTabBar({
   profileLabel = 'Профиль',
   themeMode = 'dark',
 }: LiquidTabBarProps) {
-  void themeMode;
+  const isLightTheme = themeMode === 'light';
   const hasExtraTabs = Boolean(mailIcon && trashIcon);
+  const inactiveIconTint = isLightTheme ? '#64748B' : INACTIVE_ICON_TINT;
+  const activeIconTint = isLightTheme ? '#2563EB' : ACTIVE_ICON_TINT;
+  const extraTabLabelColor = isLightTheme ? '#94A3B8' : EXTRA_TAB_LABEL_COLOR;
+  const fallbackContainerColor = isLightTheme
+    ? 'rgba(255,255,255,0.84)'
+    : 'rgba(24,24,26,0.28)';
+  const rimColor = isLightTheme ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.3)';
+  const activePillColor = isLightTheme
+    ? 'rgba(37,99,235,0.08)'
+    : 'rgba(255,255,255,0.04)';
+  const activePillFallbackColor = isLightTheme
+    ? 'rgba(37,99,235,0.16)'
+    : 'rgba(255,255,255,0.12)';
+  const activePillRimColor = isLightTheme
+    ? 'rgba(37,99,235,0.12)'
+    : 'rgba(255,255,255,0.08)';
 
   const tabs = React.useMemo<TabConfig[]>(
     () =>
@@ -634,6 +656,7 @@ export default function LiquidTabBar({
         style={[
           styles.container,
           !isLiquidGlassSupported && styles.containerFallback,
+          !isLiquidGlassSupported && { backgroundColor: fallbackContainerColor },
         ]}
         spacing={TAB_GAP}
         onLayout={event => setBarWidth(event.nativeEvent.layout.width)}>
@@ -645,7 +668,10 @@ export default function LiquidTabBar({
           colorScheme="system"
         />
 
-        <Animated.View pointerEvents="none" style={[styles.barRim, { opacity: barRimOpacity }]} />
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.barRim, { opacity: barRimOpacity, borderColor: rimColor }]}
+        />
 
         {itemWidth > 0 ? (
           <Animated.View
@@ -654,6 +680,7 @@ export default function LiquidTabBar({
             shouldRasterizeIOS
             style={[
               styles.activePill,
+              { backgroundColor: activePillColor },
               {
                 width: bubbleDynamicWidth,
                 left: bubbleBaseLeft,
@@ -679,24 +706,33 @@ export default function LiquidTabBar({
                 StyleSheet.absoluteFill,
                 styles.activePillGlass,
                 !isLiquidGlassSupported && styles.activePillFallback,
+                !isLiquidGlassSupported && { backgroundColor: activePillFallbackColor },
               ]}
               effect="regular"
               tintColor="rgba(255,255,255,0.03)"
               colorScheme="system"
               interactive
             />
-            <Animated.View style={[styles.activePillRim, { opacity: rimOpacity }]} />
+            <Animated.View
+              style={[
+                styles.activePillRim,
+                { opacity: rimOpacity, borderColor: activePillRimColor },
+              ]}
+            />
           </Animated.View>
         ) : null}
 
         <View style={styles.tabsRow} {...panHandlers}>
-          {tabs.map((tab, index) => (
+          {tabs.map(tab => (
             <View key={tab.key} style={styles.tabButton} pointerEvents="none">
-              <Image source={tab.icon} style={styles.icon} />
+              <Image source={tab.icon} style={[styles.icon, { tintColor: inactiveIconTint }]} />
               <Text
                 style={[
                   styles.tabLabel,
-                  (tab.key === 'mail' || tab.key === 'trash') && styles.tabLabelExtra,
+                  { color: inactiveIconTint },
+                  (tab.key === 'mail' || tab.key === 'trash')
+                    ? [styles.tabLabelExtra, { color: extraTabLabelColor }]
+                    : null,
                 ]}>
                 {tab.label}
               </Text>
@@ -729,8 +765,18 @@ export default function LiquidTabBar({
               ]}>
               {tabs.map(tab => (
                 <View key={`overlay-${tab.key}`} style={styles.tabButton}>
-                  <Image source={tab.icon} style={[styles.icon, styles.iconActive]} />
-                  <Text style={[styles.tabLabel, styles.tabLabelActive]}>{tab.label}</Text>
+                  <Image
+                    source={tab.icon}
+                    style={[styles.icon, styles.iconActive, { tintColor: activeIconTint }]}
+                  />
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      styles.tabLabelActive,
+                      { color: activeIconTint },
+                    ]}>
+                    {tab.label}
+                  </Text>
                 </View>
               ))}
             </Animated.View>
@@ -739,6 +785,14 @@ export default function LiquidTabBar({
       </LiquidGlassContainerView>
     </View>
   );
+}
+
+export default function LiquidTabBar(props: LiquidTabBarProps) {
+  if (Platform.OS === 'android') {
+    return <LiquidTabBarAndroid {...props} />
+  }
+
+  return <SharedLiquidTabBar {...props} />
 }
 
 const styles = StyleSheet.create({

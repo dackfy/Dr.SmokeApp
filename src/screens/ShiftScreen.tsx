@@ -18,16 +18,28 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { launchCamera } from 'react-native-image-picker'
 import type { AuthSession } from '../features/auth/types'
 import { useShiftFlow } from '../features/shift/useShiftFlow'
-import { styles } from './ShiftScreen.styles'
+import { styles as baseStyles } from './ShiftScreen.styles'
+import {
+  companyStyles as androidCompanyStyles,
+  darkStyles as androidDarkStyles,
+  lightStyles as androidLightStyles,
+} from './ShiftScreen.styles.android'
 import LiquidTabBar from '../components/LiquidTabBar'
 import type { TabKey } from '../components/LiquidTabBar'
 import { buildApiUrl } from '../config/api'
+import { useAndroidThemeMode } from '../theme/androidAppTheme'
+import {
+  getAndroidCompanyPalette,
+  getAndroidStatusBarStyle,
+  getAndroidThemePalette,
+} from '../theme/androidDynamicColors'
 
 type ShiftScreenProps = {
   session: AuthSession
@@ -227,6 +239,37 @@ export default function ShiftScreen({
   showHeaderActions = true,
   showTabBar = true,
 }: ShiftScreenProps) {
+  const colorScheme = useColorScheme()
+  const androidTheme = useAndroidThemeMode()
+  const androidPalette =
+    Platform.OS === 'android'
+      ? androidTheme.mode === 'company'
+        ? getAndroidCompanyPalette()
+        : getAndroidThemePalette(colorScheme === 'dark')
+      : null
+  const androidStatusBarColor =
+    Platform.OS === 'android' && androidPalette
+      ? String(androidPalette.background)
+      : undefined
+  const androidStatusBarStyle =
+    Platform.OS === 'android' && androidStatusBarColor
+      ? getAndroidStatusBarStyle(androidStatusBarColor)
+      : 'light-content'
+  const styles = React.useMemo(() => {
+    if (Platform.OS !== 'android') {
+      return baseStyles
+    }
+
+    return {
+      ...baseStyles,
+      ...(androidTheme.mode === 'company'
+        ? androidCompanyStyles
+        : colorScheme === 'dark'
+          ? androidDarkStyles
+          : androidLightStyles),
+    }
+  }, [androidTheme.mode, colorScheme])
+
   const [isShopDropdownOpen, setIsShopDropdownOpen] = React.useState(false)
   const [focusedField, setFocusedField] = React.useState<string | null>(null)
   const [dcBalance, setDcBalance] = React.useState<number | null>(null)
@@ -474,7 +517,10 @@ export default function ShiftScreen({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar
+        barStyle={androidStatusBarStyle}
+        backgroundColor={androidStatusBarColor}
+      />
 
       <View style={styles.container}>
       <KeyboardAvoidingView

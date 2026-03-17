@@ -430,6 +430,11 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2C2C2E',
     overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 18,
   },
 
   profileSheetSafeArea: {
@@ -596,6 +601,131 @@ export const styles = StyleSheet.create({
     height: 18,
     resizeMode: 'contain',
     tintColor: '#F2F2F7',
+  },
+
+  androidThemeSection: {
+    minHeight: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+  },
+
+  androidThemeTitle: {
+    fontSize: 22,
+    marginBottom: 8,
+    fontWeight: '800',
+  },
+
+  androidThemeSubtitle: {
+    marginBottom: 16,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+
+  androidThemeCardList: {
+    gap: 12,
+  },
+
+  androidThemeCard: {
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+  },
+
+  androidThemeCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  androidThemeBadge: {
+    minHeight: 28,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  androidThemeBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
+  androidThemeRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+  },
+
+  androidThemeCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 12,
+  },
+
+  androidThemeCardTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    flexShrink: 1,
+  },
+
+  androidThemeCardMeta: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  androidThemeCardDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+
+  androidThemePreviewRail: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+    height: 56,
+  },
+
+  androidThemePreviewCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    justifyContent: 'space-between',
+  },
+
+  androidThemePreviewTall: {
+    width: 22,
+    borderRadius: 14,
+  },
+
+  androidThemePreviewDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  androidThemePreviewLine: {
+    height: 7,
+    borderRadius: 999,
+    width: '92%',
+  },
+
+  androidThemePreviewLineShort: {
+    height: 6,
+    borderRadius: 999,
+    width: '58%',
   },
 
   tabHeaderContainer: {

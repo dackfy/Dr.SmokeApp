@@ -1,29 +1,32 @@
-import { StyleSheet } from 'react-native'
+import { Platform, StyleSheet } from 'react-native'
+
+const isAndroid = Platform.OS === 'android'
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: isAndroid ? '#121A2A' : '#000000',
   },
 
   content: {
-    padding: 20,
-    paddingBottom: 120,
-    gap: 14,
+    padding: isAndroid ? 18 : 20,
+    paddingTop: isAndroid ? 14 : 20,
+    paddingBottom: isAndroid ? 132 : 120,
+    gap: isAndroid ? 16 : 14,
   },
 
   card: {
-    backgroundColor: '#111111',
+    backgroundColor: isAndroid ? '#1E2636' : '#111111',
     borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
+    borderColor: isAndroid ? '#33405A' : '#1F1F1F',
+    borderRadius: isAndroid ? 30 : 16,
+    padding: isAndroid ? 20 : 16,
+    gap: isAndroid ? 12 : 10,
   },
 
   greetingBlock: {
     paddingHorizontal: 4,
-    gap: 10,
+    gap: isAndroid ? 12 : 10,
   },
 
   title: {
@@ -33,11 +36,11 @@ export const styles = StyleSheet.create({
   },
 
   headerRow: {
-    paddingHorizontal: 4,
+    paddingHorizontal: isAndroid ? 2 : 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: isAndroid ? 2 : 4,
   },
 
   headerTitle: {
@@ -72,20 +75,20 @@ export const styles = StyleSheet.create({
 
   balanceFlashCard: {
     flex: 1,
-    backgroundColor: '#111111',
+    backgroundColor: isAndroid ? '#1E2636' : '#111111',
     borderWidth: 1,
-    borderColor: '#1F1F1F',
-    borderRadius: 26,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: isAndroid ? '#33405A' : '#1F1F1F',
+    borderRadius: isAndroid ? 28 : 26,
+    paddingHorizontal: isAndroid ? 16 : 12,
+    paddingVertical: isAndroid ? 14 : 10,
     marginRight: 10,
   },
 
   balanceFlashCardActive: {
-    borderColor: '#FF6A00',
-    shadowColor: '#FF6A00',
-    shadowOpacity: 0.26,
-    shadowRadius: 10,
+    borderColor: isAndroid ? '#4A8BFF' : '#FF6A00',
+    shadowColor: isAndroid ? '#4A8BFF' : '#FF6A00',
+    shadowOpacity: isAndroid ? 0.18 : 0.26,
+    shadowRadius: isAndroid ? 16 : 10,
     shadowOffset: { width: 0, height: 0 },
     elevation: 5,
   },
@@ -96,12 +99,12 @@ export const styles = StyleSheet.create({
   },
 
   balanceFlashIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#232323',
+    width: isAndroid ? 42 : 36,
+    height: isAndroid ? 42 : 36,
+    borderRadius: isAndroid ? 21 : 18,
+    backgroundColor: isAndroid ? '#243048' : '#232323',
     borderWidth: 1,
-    borderColor: '#2D2D2D',
+    borderColor: isAndroid ? '#3B4C6D' : '#2D2D2D',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -120,7 +123,7 @@ export const styles = StyleSheet.create({
   },
 
   balanceFlashCaption: {
-    color: '#B6B6B6',
+    color: isAndroid ? '#97A6C4' : '#B6B6B6',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 16,
@@ -128,9 +131,9 @@ export const styles = StyleSheet.create({
 
   balanceFlashValue: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: isAndroid ? 24 : 22,
     fontWeight: '800',
-    lineHeight: 27,
+    lineHeight: isAndroid ? 30 : 27,
   },
 
   balanceFlashChevron: {
@@ -144,7 +147,7 @@ export const styles = StyleSheet.create({
   balanceFlashHistory: {
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#1F1F1F',
+    borderTopColor: isAndroid ? '#33405A' : '#1F1F1F',
     paddingTop: 8,
     gap: 8,
   },
@@ -154,7 +157,7 @@ export const styles = StyleSheet.create({
   },
 
   balanceFlashMuted: {
-    color: '#AFAFAF',
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
     fontSize: 13,
     lineHeight: 18,
   },
@@ -178,7 +181,7 @@ export const styles = StyleSheet.create({
   },
 
   balanceHistoryDate: {
-    color: '#A5A5A5',
+    color: isAndroid ? '#8D9AB4' : '#A5A5A5',
     fontSize: 11,
     lineHeight: 14,
     marginTop: 2,
@@ -193,24 +196,24 @@ export const styles = StyleSheet.create({
   },
 
   headerAvatarButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#7E8BFF',
+    width: isAndroid ? 48 : 38,
+    height: isAndroid ? 48 : 38,
+    borderRadius: isAndroid ? 24 : 19,
+    backgroundColor: isAndroid ? '#243048' : '#7E8BFF',
     borderWidth: 1,
-    borderColor: '#7E8BFF',
+    borderColor: isAndroid ? '#3B4C6D' : '#7E8BFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   headerAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: isAndroid ? '#AFC7FF' : '#FFFFFF',
+    fontSize: isAndroid ? 18 : 16,
     fontWeight: '800',
   },
 
   scheduleSection: {
-    gap: 10,
+    gap: isAndroid ? 12 : 10,
   },
 
   scheduleSectionHeader: {
@@ -222,24 +225,24 @@ export const styles = StyleSheet.create({
 
   scheduleList: {
     paddingHorizontal: 4,
-    gap: 8,
+    gap: isAndroid ? 10 : 8,
     paddingRight: 12,
   },
 
   scheduleCard: {
-    width: 164,
+    width: isAndroid ? 172 : 164,
     minHeight: 196,
-    borderRadius: 20,
+    borderRadius: isAndroid ? 28 : 20,
     borderWidth: 1,
-    borderColor: '#2B2B2B',
-    backgroundColor: '#161616',
+    borderColor: isAndroid ? '#33405A' : '#2B2B2B',
+    backgroundColor: isAndroid ? '#1E2636' : '#161616',
     overflow: 'hidden',
   },
 
   scheduleCardTop: {
-    backgroundColor: '#FF6A00',
+    backgroundColor: isAndroid ? '#2A3550' : '#FF6A00',
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: isAndroid ? 10 : 8,
   },
 
   scheduleCardHeader: {
@@ -248,7 +251,7 @@ export const styles = StyleSheet.create({
 
   scheduleCardBody: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: isAndroid ? 12 : 10,
     gap: 5,
   },
 
@@ -264,20 +267,20 @@ export const styles = StyleSheet.create({
 
   scheduleDate: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: isAndroid ? 22 : 24,
     fontWeight: '800',
     lineHeight: 28,
   },
 
   scheduleWeekday: {
-    color: '#FFF2E6',
+    color: isAndroid ? '#AFC7FF' : '#FFF2E6',
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 18,
   },
 
   scheduleTime: {
-    color: '#FF6A00',
+    color: isAndroid ? '#7DB2FF' : '#FF6A00',
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
@@ -297,7 +300,7 @@ export const styles = StyleSheet.create({
   },
 
   scheduleAddress: {
-    color: '#B8B8B8',
+    color: isAndroid ? '#97A6C4' : '#B8B8B8',
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 17,
@@ -308,21 +311,21 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 8,
     borderRadius: 999,
-    backgroundColor: '#2C1E12',
+    backgroundColor: isAndroid ? '#22314C' : '#2C1E12',
     borderWidth: 1,
-    borderColor: '#664122',
+    borderColor: isAndroid ? '#40557C' : '#664122',
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
 
   scheduleDutyText: {
-    color: '#FFD3A6',
+    color: isAndroid ? '#AFC7FF' : '#FFD3A6',
     fontSize: 12,
     fontWeight: '700',
   },
 
   scheduleDutyValue: {
-    color: '#FF6A00',
+    color: isAndroid ? '#7DB2FF' : '#FF6A00',
     fontSize: 22,
     fontWeight: '800',
     lineHeight: 26,
@@ -330,41 +333,41 @@ export const styles = StyleSheet.create({
   },
 
   subtitle: {
-    color: '#B6B6B6',
+    color: isAndroid ? '#97A6C4' : '#B6B6B6',
     fontSize: 14,
     lineHeight: 20,
   },
 
   sectionTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: isAndroid ? 22 : 18,
+    fontWeight: isAndroid ? '800' : '700',
   },
 
   badgeOpen: {
     alignSelf: 'flex-start',
-    backgroundColor: '#194B2A',
-    borderColor: '#216C3A',
+    backgroundColor: isAndroid ? '#243048' : '#194B2A',
+    borderColor: isAndroid ? '#40557C' : '#216C3A',
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: isAndroid ? 14 : 10,
+    paddingVertical: isAndroid ? 7 : 4,
   },
 
   badgeClosed: {
     alignSelf: 'flex-start',
-    backgroundColor: '#2D2222',
-    borderColor: '#5C3131',
+    backgroundColor: isAndroid ? '#312B31' : '#2D2222',
+    borderColor: isAndroid ? '#524754' : '#5C3131',
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: isAndroid ? 14 : 10,
+    paddingVertical: isAndroid ? 7 : 4,
   },
 
   badgeText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: isAndroid ? '800' : '600',
   },
 
   row: {
@@ -377,17 +380,19 @@ export const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: '#FF6A00',
-    borderRadius: 50,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: isAndroid ? '#4A8BFF' : '#FF6A00',
+    borderRadius: isAndroid ? 22 : 50,
+    minHeight: isAndroid ? 52 : undefined,
+    paddingVertical: isAndroid ? 13 : 12,
+    paddingHorizontal: isAndroid ? 18 : 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   buttonSecondary: {
-    backgroundColor: '#232323',
+    backgroundColor: isAndroid ? '#1E2636' : '#232323',
     borderWidth: 1,
-    borderColor: '#2D2D2D',
+    borderColor: isAndroid ? '#33405A' : '#2D2D2D',
   },
 
   buttonDanger: {
@@ -395,13 +400,13 @@ export const styles = StyleSheet.create({
   },
 
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: isAndroid ? 0.5 : 0.6,
   },
 
   buttonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: isAndroid ? '800' : '700',
   },
 
   stack: {
@@ -649,7 +654,7 @@ export const styles = StyleSheet.create({
   },
 
   smallText: {
-    color: '#A9A9A9',
+    color: isAndroid ? '#97A6C4' : '#A9A9A9',
     fontSize: 12,
     lineHeight: 18,
   },
