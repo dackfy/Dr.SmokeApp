@@ -40,6 +40,7 @@ import {
   getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
+import { checkEmployeeAccess } from '../features/auth/authApi'
 
 type ShiftScreenProps = {
   session: AuthSession
@@ -361,11 +362,19 @@ export default function ShiftScreen({
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true)
     try {
+      await checkEmployeeAccess(session.user.id)
       await Promise.all([actions.refresh(), loadDcData(), loadScheduleData()])
+    } catch (refreshError) {
+      if (
+        refreshError instanceof Error &&
+        refreshError.message === 'Доступ к вашему аккаунту ограничен'
+      ) {
+        onLogout()
+      }
     } finally {
       setIsRefreshing(false)
     }
-  }, [actions, loadDcData, loadScheduleData])
+  }, [actions, loadDcData, loadScheduleData, onLogout, session.user.id])
 
   const balanceValue =
     dcBalance === null
