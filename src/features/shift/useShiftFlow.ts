@@ -105,8 +105,8 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
     setNotice(null)
   }, [closeDraftBeforeEdit, closeEditTarget, mode, resetCloseFlow, resetOpenFlow])
 
-  const refresh = useCallback(async (options: RefreshOptions = {}) => {
-    const { silent = false } = options
+  const refresh = useCallback(async (refreshOptions: RefreshOptions = {}) => {
+    const { silent = false } = refreshOptions
 
     if (!silent) {
       setIsLoading(true)

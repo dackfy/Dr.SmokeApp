@@ -146,6 +146,27 @@ function prepareIdentity(value: string) {
   return normalizedPhone || trimmed
 }
 
+export async function checkEmployeeAccess(employeeId: string): Promise<void> {
+  const res = await fetch(buildApiUrl(`/employees/${encodeURIComponent(employeeId)}/access-status`))
+
+  let data: unknown = null
+  try {
+    data = await res.json()
+  } catch {
+    // ignore non-JSON response
+  }
+
+  if (!res.ok) {
+    const code = (data as { error?: string } | null)?.error
+
+    if (res.status === 403 && code === 'account_access_restricted') {
+      throw new AuthError('Доступ к вашему аккаунту ограничен', 403, code)
+    }
+
+    throw new AuthError('Не удалось проверить доступ к аккаунту', res.status, code)
+  }
+}
+
 export const realAuthApi: AuthApi = {
   async login(payload) {
     const identifier = prepareIdentity(payload.identifier)
@@ -171,6 +192,9 @@ export const realAuthApi: AuthApi = {
     if (!res.ok) {
       const code = (data as { error?: string } | null)?.error
 
+      if (code === 'account_access_restricted') {
+        throw new AuthError('Доступ к вашему аккаунту ограничен', 403, code)
+      }
       if (res.status === 401) throw new AuthError('Неверный номер телефона или пароль', 401, code)
       if (res.status === 403) throw new AuthError('Аккаунт не активен', 403, code)
       if (res.status === 400) throw new AuthError('Введите номер телефона и пароль', 400, code)
@@ -258,6 +282,9 @@ export const realAuthApi: AuthApi = {
     if (!res.ok) {
       const code = (data as { error?: string } | null)?.error
 
+      if (code === 'account_access_restricted') {
+        throw new AuthError('Доступ к вашему аккаунту ограничен', 403, code)
+      }
       if (code === 'identity_required') {
         throw new AuthError('Введите номер телефона', 400, code)
       }
@@ -295,6 +322,9 @@ export const realAuthApi: AuthApi = {
     if (!res.ok) {
       const code = (data as { error?: string } | null)?.error
 
+      if (code === 'account_access_restricted') {
+        throw new AuthError('Доступ к вашему аккаунту ограничен', 403, code)
+      }
       if (code === 'identity_code_new_required') {
         throw new AuthError('Заполните номер телефона, код и новый пароль', 400, code)
       }

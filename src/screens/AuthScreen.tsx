@@ -38,6 +38,7 @@ const profileIcon = require('../assets/icons/more.png');
 const mailIcon = require('../assets/icons/mail.png');
 const trashIcon = require('../assets/icons/trash.png');
 const crossIcon = require('../assets/icons/cross.png');
+const lockIcon = require('../assets/icons/lock.png');
 
 type AuthTab = TabKey;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -140,9 +141,11 @@ export default function AuthScreen() {
   const [focusedLoginField, setFocusedLoginField] = useState<
     'identifier' | 'password' | null
   >(null);
+  const [loginPhoneSelection, setLoginPhoneSelection] = useState({ start: 2, end: 2 });
   const [focusedForgotField, setFocusedForgotField] = useState<
     'identity' | 'code' | 'newPassword' | null
   >(null);
+  const [forgotPhoneSelection, setForgotPhoneSelection] = useState({ start: 2, end: 2 });
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -934,43 +937,116 @@ export default function AuthScreen() {
 
         {showMail ? (
           <View style={styles.tabLayer} pointerEvents="auto">
-            <SafeAreaView
-              style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
-              edges={['top', 'bottom']}>
-              <View style={styles.tabHeaderContainer}>
-                <View style={styles.tabHeaderRow}>
-                  <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                  <TouchableOpacity
-                    style={styles.tabHeaderAvatarButton}
-                    onPress={openProfileSheet}
-                    accessibilityRole="button"
-                    accessibilityLabel="Открыть профиль">
-                    <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                  </TouchableOpacity>
+            {isAndroid ? (
+              <SafeAreaView
+                style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
+                edges={['top', 'bottom']}>
+                <View style={styles.tabHeaderContainer}>
+                  <View style={styles.tabHeaderRow}>
+                    <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                    <TouchableOpacity
+                      style={styles.tabHeaderAvatarButton}
+                      onPress={openProfileSheet}
+                      accessibilityRole="button"
+                      accessibilityLabel="Открыть профиль">
+                      <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            </SafeAreaView>
+
+                <View style={styles.comingSoonWrap}>
+                  <Image
+                    source={lockIcon}
+                    defaultSource={lockIcon}
+                    fadeDuration={0}
+                    style={styles.comingSoonIcon}
+                  />
+                  <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
+                </View>
+              </SafeAreaView>
+            ) : (
+              <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
+            )}
           </View>
         ) : null}
 
         {showTrash ? (
           <View style={styles.tabLayer} pointerEvents="auto">
-            <SafeAreaView
-              style={[styles.authenticatedScreen, { backgroundColor: '#FF6A00' }]}
-              edges={['top', 'bottom']}>
-              <View style={styles.tabHeaderContainer}>
-                <View style={styles.tabHeaderRow}>
-                  <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                  <TouchableOpacity
-                    style={styles.tabHeaderAvatarButton}
-                    onPress={openProfileSheet}
-                    accessibilityRole="button"
-                    accessibilityLabel="Открыть профиль">
-                    <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                  </TouchableOpacity>
+            {isAndroid ? (
+              <SafeAreaView
+                style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
+                edges={['top', 'bottom']}>
+                <View style={styles.tabHeaderContainer}>
+                  <View style={styles.tabHeaderRow}>
+                    <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                    <TouchableOpacity
+                      style={styles.tabHeaderAvatarButton}
+                      onPress={openProfileSheet}
+                      accessibilityRole="button"
+                      accessibilityLabel="Открыть профиль">
+                      <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                <View style={styles.comingSoonWrap}>
+                  <Image
+                    source={lockIcon}
+                    defaultSource={lockIcon}
+                    fadeDuration={0}
+                    style={styles.comingSoonIcon}
+                  />
+                  <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
+                </View>
+              </SafeAreaView>
+            ) : (
+              <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
+            )}
+          </View>
+        ) : null}
+
+        {!isAndroid ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.iosComingSoonOverlay,
+              { opacity: showMail || showTrash || showProfile ? 1 : 0 },
+            ]}>
+            <View style={styles.comingSoonWrap}>
+              <Image
+                source={lockIcon}
+                defaultSource={lockIcon}
+                fadeDuration={0}
+                style={styles.comingSoonIcon}
+              />
+              <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {!isAndroid && (showMail || showTrash) ? (
+          <View pointerEvents="box-none" style={styles.iosFloatingHeaderWrap}>
+              <View
+                style={[
+                  styles.tabHeaderContainer,
+                  styles.iosFloatingHeaderContainer,
+                  { paddingTop: insets.top + 25 },
+                ]}>
+              <View
+                style={[
+                  styles.tabHeaderRow,
+                  styles.tabHeaderRowIosOnly,
+                  styles.iosFloatingHeaderRow,
+                ]}>
+                <TouchableOpacity
+                  style={styles.tabHeaderAvatarButton}
+                  onPress={openProfileSheet}
+                  accessibilityRole="button"
+                  accessibilityLabel="Открыть профиль">
+                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
+                </TouchableOpacity>
               </View>
-            </SafeAreaView>
+            </View>
           </View>
         ) : null}
 
@@ -983,22 +1059,24 @@ export default function AuthScreen() {
                   backgroundColor:
                     isAndroid && androidPalette
                       ? String(androidPalette.background)
-                      : '#1A1A1A',
+                      : '#000000',
                 },
               ]}
               edges={['top', 'bottom']}>
               <StatusBar barStyle={profileStatusBarStyle} />
-              <View style={styles.profileTitleWrap}>
-                <Text
-                  style={[
-                    styles.profileTitle,
-                    isAndroid && androidPalette
-                      ? { color: String(androidPalette.onSurface) }
-                      : null,
-                  ]}>
-                  Ещё
-                </Text>
-              </View>
+              {isAndroid ? (
+                <View style={styles.profileTitleWrap}>
+                  <Text
+                    style={[
+                      styles.profileTitle,
+                      isAndroid && androidPalette
+                        ? { color: String(androidPalette.onSurface) }
+                        : null,
+                    ]}>
+                    Ещё
+                  </Text>
+                </View>
+              ) : null}
               {isAndroid ? (
                 <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
                   <View
@@ -1307,7 +1385,12 @@ export default function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={forgotIdentity}
-                onFocus={() => setFocusedForgotField('identity')}
+                selection={forgotPhoneSelection}
+                onFocus={() => {
+                  setFocusedForgotField('identity');
+                  const caret = forgotIdentity.length;
+                  setForgotPhoneSelection({ start: caret, end: caret });
+                }}
                 onBlur={() => setFocusedForgotField(null)}
                 returnKeyType="done"
                 onSubmitEditing={() => {
@@ -1318,7 +1401,12 @@ export default function AuthScreen() {
                 }}
                 inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
                 onChangeText={text => {
-                  setForgotIdentity(prev => formatPhoneInputWithBackspace(prev, text));
+                  setForgotIdentity(prev => {
+                    const nextValue = formatPhoneInputWithBackspace(prev, text);
+                    const caret = nextValue.length;
+                    setForgotPhoneSelection({ start: caret, end: caret });
+                    return nextValue;
+                  });
                   if (forgotError) {
                     setForgotError(null);
                   }
@@ -1467,14 +1555,22 @@ export default function AuthScreen() {
           inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
           returnKeyType="next"
           value={form.identifier}
+          selection={loginPhoneSelection}
           onChangeText={text => {
-            updateField('identifier', formatPhoneInputWithBackspace(form.identifier, text));
+            const nextValue = formatPhoneInputWithBackspace(form.identifier, text);
+            updateField('identifier', nextValue);
+            const caret = nextValue.length;
+            setLoginPhoneSelection({ start: caret, end: caret });
             if (authNotice) {
               setAuthNotice(null);
             }
           }}
           onSubmitEditing={() => passwordInputRef.current?.focus()}
-          onFocus={() => setFocusedLoginField('identifier')}
+          onFocus={() => {
+            setFocusedLoginField('identifier');
+            const caret = form.identifier.length;
+            setLoginPhoneSelection({ start: caret, end: caret });
+          }}
           onBlur={() => setFocusedLoginField(null)}
           editable={!isSubmitting}
         />

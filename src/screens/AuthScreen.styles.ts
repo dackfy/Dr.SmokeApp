@@ -16,11 +16,39 @@ export const styles = StyleSheet.create({
     zIndex: 1,
   },
 
+  iosComingSoonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+
   authContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 30,
+  },
+
+  comingSoonWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    gap: 16,
+  },
+
+  comingSoonIcon: {
+    width: 68,
+    height: 68,
+    resizeMode: 'contain',
+    tintColor: '#A9A9A9',
+  },
+
+  comingSoonText: {
+    color: '#A9A9A9',
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
   profileContent: {
@@ -131,6 +159,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+    fontVariant: ['tabular-nums'],
     marginBottom: 12,
   },
 
@@ -734,12 +763,20 @@ export const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
+  tabHeaderContainerIosOnly: {
+    paddingTop: 32,
+  },
+
   tabHeaderRow: {
     paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 4,
+  },
+
+  tabHeaderRowIosOnly: {
+    justifyContent: 'flex-end',
   },
 
   tabHeaderTitle: {
@@ -764,6 +801,22 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+
+  iosFloatingHeaderWrap: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+
+  iosFloatingHeaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+
+  iosFloatingHeaderRow: {
+    minHeight: 56,
   },
 
   profileTitleWrap: {
