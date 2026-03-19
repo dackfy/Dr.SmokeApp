@@ -20,8 +20,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
-import ShiftScreen from './ShiftScreen';
 import MoreScreen from './MoreScreen';
+import HomeScreenRouter from './HomeScreenRouter';
 import { authApi } from '../features/auth/authApi';
 import LiquidTabBar from '../components/LiquidTabBar';
 import type { TabKey } from '../components/LiquidTabBar';
@@ -181,8 +181,10 @@ export default function AuthScreen() {
     error,
     errorVersion,
     session,
+    isRefreshingSession,
     updateField,
     submit,
+    refreshSession,
     resetSession,
     clearError,
   } = useAuth();
@@ -612,13 +614,15 @@ export default function AuthScreen() {
     return (
       <View style={styles.authenticatedScreen}>
         <View style={styles.homeLayer} pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
-          <ShiftScreen
+          <HomeScreenRouter
             session={session}
+            isRefreshingSession={isRefreshingSession}
             onLogout={() => {
               resetChangePasswordForm();
               setActiveTab('home');
               resetSession();
             }}
+            onRefreshSession={refreshSession}
             onGoHome={() => setActiveTab('home')}
             onGoMail={() => setActiveTab('mail')}
             onGoTrash={() => setActiveTab('trash')}
@@ -704,7 +708,7 @@ export default function AuthScreen() {
             pointerEvents="none"
             style={[
               styles.iosComingSoonOverlay,
-              { opacity: showMail || showTrash || showProfile ? 1 : 0 },
+              { opacity: showMail || showTrash ? 1 : 0 },
             ]}>
             <View style={styles.comingSoonWrap}>
               <Image

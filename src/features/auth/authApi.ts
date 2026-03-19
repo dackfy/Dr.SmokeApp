@@ -22,26 +22,32 @@ function wait(ms: number) {
   })
 }
 
-function createSession(
-  email: string,
-  name?: string,
-  lastName?: string,
-  city?: string,
-  userId?: string,
-  timezone?: string,
+function createSession(options: {
+  email: string
+  name?: string
+  lastName?: string
+  city?: string
+  userId?: string
+  timezone?: string
   telegramId?: number
-): AuthSession {
+  regionId?: number
+  regionName?: string
+  userRole?: number
+}): AuthSession {
   return {
     accessToken: `mock-access-token-${Date.now()}`,
     refreshToken: `mock-refresh-token-${Date.now()}`,
     user: {
-      id: userId ?? String(Date.now()),
-      email,
-      telegramId,
-      name,
-      lastName,
-      city,
-      timezone,
+      id: options.userId ?? String(Date.now()),
+      email: options.email,
+      telegramId: options.telegramId,
+      name: options.name,
+      lastName: options.lastName,
+      city: options.city,
+      timezone: options.timezone,
+      regionId: options.regionId,
+      regionName: options.regionName,
+      userRole: options.userRole,
     },
   }
 }
@@ -54,7 +60,7 @@ export const mockAuthApi: AuthApi = {
       throw new Error('Тестовая ошибка логина (mock)')
     }
 
-    return createSession(payload.identifier)
+    return createSession({ email: payload.identifier, userRole: 3 })
   },
 
   async register(payload) {
@@ -64,7 +70,13 @@ export const mockAuthApi: AuthApi = {
       throw new Error('Пользователь уже существует (mock)')
     }
 
-    return createSession(payload.email, payload.name, payload.lastName, payload.city)
+    return createSession({
+      email: payload.email,
+      name: payload.name,
+      lastName: payload.lastName,
+      city: payload.city,
+      userRole: 3,
+    })
   },
 
   async changePassword(payload) {
@@ -96,6 +108,7 @@ type LoginResponse = {
   telegram_id?: number
   telegramId?: number
   region_id?: number
+  region_name?: string
   name?: string
   firstName?: string
   lastName?: string
@@ -120,22 +133,41 @@ type LoginResponse = {
     timezone?: string
     time_zone?: string
   }
+  user_role?: number
   employee?: {
     id?: number | string
     employee_id?: number | string
     employeeId?: number | string
-    first_name?: string
+    first_name?: string | null
     name?: string
     firstName?: string
-    last_name?: string
+    last_name?: string | null
     lastName?: string
     city?: string
-    email?: string
-    timezone?: string
+    email?: string | null
+    region_id?: number | null
+    region_name?: string | null
+    timezone?: string | null
     time_zone?: string
+    user_role?: number | null
     telegram_id?: number
     telegramId?: number
   }
+}
+
+type EmployeeProfileResponse = {
+  employee?: {
+    id?: number
+    first_name?: string | null
+    last_name?: string | null
+    email?: string | null
+    phone_number?: string | null
+    region_id?: number | null
+    region_name?: string | null
+    timezone?: string | null
+    user_role?: number | null
+  }
+  error?: string
 }
 
 function extractNameFromGreeting(message?: string) {
@@ -211,6 +243,88 @@ function prepareIdentity(value: string) {
   return normalizedPhone || trimmed
 }
 
+function buildSessionFromServerAuth(
+  payload: LoginResponse,
+  options: {
+    identifier?: string
+    isEmailLike?: boolean
+    previousSession?: AuthSession
+  } = {},
+) {
+  const employee = payload.employee
+  const userPayload = payload.user
+  const employeeId = readStringValue(
+    employee?.id,
+    employee?.employee_id,
+    employee?.employeeId,
+    payload.employee_id,
+    payload.employeeId,
+    payload.id,
+    payload.user_id,
+    userPayload?.employee_id,
+    userPayload?.employeeId,
+    userPayload?.id,
+    userPayload?.user_id,
+  )
+  const employeeEmail = readStringValue(employee?.email, payload.email, userPayload?.email)
+  const employeeRegionId = readNumberValue(employee?.region_id, payload.region_id)
+  const employeeRegionName = readStringValue(employee?.region_name, payload.region_name)
+  const employeeTimezone = readStringValue(
+    employee?.timezone,
+    employee?.time_zone,
+    payload.timezone,
+    payload.time_zone,
+    userPayload?.timezone,
+    userPayload?.time_zone,
+  )
+  const employeeRole = readNumberValue(employee?.user_role, payload.user_role)
+  const employeeFirstName =
+    readStringValue(
+      employee?.first_name,
+      employee?.name,
+      employee?.firstName,
+      payload.name,
+      payload.firstName,
+      userPayload?.name,
+      userPayload?.firstName,
+    ) ??
+    extractNameFromGreeting(payload.message) ??
+    options.previousSession?.user.name
+  const employeeLastName =
+    readStringValue(
+      employee?.last_name,
+      employee?.lastName,
+      payload.lastName,
+      payload.last_name,
+      userPayload?.lastName,
+      userPayload?.last_name,
+    ) ?? options.previousSession?.user.lastName
+  const normalizedServerEmail = String(employeeEmail || '').trim().toLowerCase()
+  const fallbackEmail =
+    options.isEmailLike && options.identifier ? options.identifier.toLowerCase() : options.previousSession?.user.email || ''
+
+  return createSession({
+    email: normalizedServerEmail || fallbackEmail,
+    name: employeeFirstName,
+    lastName: employeeLastName,
+    city: readStringValue(employee?.city, payload.city, userPayload?.city) ?? options.previousSession?.user.city,
+    userId: String(employeeId ?? options.previousSession?.user.id ?? ''),
+    timezone: employeeTimezone ?? options.previousSession?.user.timezone,
+    telegramId:
+      readNumberValue(
+        employee?.telegram_id,
+        employee?.telegramId,
+        payload.telegram_id,
+        payload.telegramId,
+        userPayload?.telegram_id,
+        userPayload?.telegramId,
+      ) ?? options.previousSession?.user.telegramId,
+    regionId: employeeRegionId ?? options.previousSession?.user.regionId,
+    regionName: employeeRegionName ?? options.previousSession?.user.regionName,
+    userRole: employeeRole ?? (options.previousSession?.user.userRole ?? 3),
+  })
+}
+
 export async function checkEmployeeAccess(employeeId: string): Promise<void> {
   const res = await fetch(buildApiUrl(`/employees/${encodeURIComponent(employeeId)}/access-status`))
 
@@ -230,6 +344,40 @@ export async function checkEmployeeAccess(employeeId: string): Promise<void> {
 
     throw new AuthError('Не удалось проверить доступ к аккаунту', res.status, code)
   }
+}
+
+export async function refreshEmployeeSession(session: AuthSession): Promise<AuthSession> {
+  const employeeId = String(session.user.id || '').trim()
+
+  if (!employeeId) {
+    throw new AuthError('Не удалось определить сотрудника для обновления профиля')
+  }
+
+  const res = await fetch(buildApiUrl(`/employees/${encodeURIComponent(employeeId)}/profile`))
+
+  let data: unknown = null
+  try {
+    data = await res.json()
+  } catch {
+    // ignore non-JSON response
+  }
+
+  if (!res.ok) {
+    const code = (data as { error?: string } | null)?.error
+
+    if (code === 'account_access_restricted') {
+      throw new AuthError('Доступ к вашему аккаунту ограничен', 403, code)
+    }
+    if (code === 'employee_not_found') {
+      throw new AuthError('Сотрудник не найден', 404, code)
+    }
+
+    throw new AuthError('Не удалось обновить данные профиля', res.status, code)
+  }
+
+  return buildSessionFromServerAuth(data as EmployeeProfileResponse as LoginResponse, {
+    previousSession: session,
+  })
 }
 
 export const realAuthApi: AuthApi = {
@@ -268,68 +416,10 @@ export const realAuthApi: AuthApi = {
     }
 
     const ok = data as LoginResponse
-    const userPayload = ok.user ?? {}
-    const employeePayload = ok.employee ?? {}
-    const employeeId = readStringValue(
-      ok.employee_id,
-      ok.employeeId,
-      ok.id,
-      ok.user_id,
-      userPayload.employee_id,
-      userPayload.employeeId,
-      userPayload.id,
-      userPayload.user_id,
-      employeePayload.employee_id,
-      employeePayload.employeeId,
-      employeePayload.id,
-    )
-
-    if (!employeeId) {
-      throw new AuthError('Сервер не вернул employee_id для текущего пользователя')
-    }
-
-    const normalizedServerEmail =
-      readStringValue(ok.email, userPayload.email, employeePayload.email)?.toLowerCase() || ''
-    const fallbackEmail = isEmailLike ? identifier.toLowerCase() : ''
-    return createSession(
-      normalizedServerEmail || fallbackEmail,
-      readStringValue(
-        ok.name,
-        ok.firstName,
-        userPayload.name,
-        userPayload.firstName,
-        employeePayload.name,
-        employeePayload.firstName,
-        employeePayload.first_name,
-      ) ??
-        extractNameFromGreeting(ok.message),
-      readStringValue(
-        ok.lastName,
-        ok.last_name,
-        userPayload.lastName,
-        userPayload.last_name,
-        employeePayload.lastName,
-        employeePayload.last_name,
-      ),
-      readStringValue(ok.city, userPayload.city, employeePayload.city),
-      employeeId,
-      readStringValue(
-        ok.timezone,
-        ok.time_zone,
-        userPayload.timezone,
-        userPayload.time_zone,
-        employeePayload.timezone,
-        employeePayload.time_zone,
-      ),
-      readNumberValue(
-        ok.telegram_id,
-        ok.telegramId,
-        userPayload.telegram_id,
-        userPayload.telegramId,
-        employeePayload.telegram_id,
-        employeePayload.telegramId,
-      ),
-    )
+    return buildSessionFromServerAuth(ok, {
+      identifier,
+      isEmailLike,
+    })
   },
 
   async register(_payload) {
