@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
     padding: isAndroid ? 18 : 20,
     paddingTop: isAndroid ? 14 : 20,
     paddingBottom: isAndroid ? 132 : 120,
-    gap: isAndroid ? 16 : 14,
+    gap: isAndroid ? 20 : 18,
   },
 
   card: {
@@ -234,8 +234,8 @@ export const styles = StyleSheet.create({
     minHeight: 196,
     borderRadius: isAndroid ? 28 : 20,
     borderWidth: 1,
-    borderColor: isAndroid ? '#33405A' : '#2B2B2B',
-    backgroundColor: isAndroid ? '#1E2636' : '#161616',
+    borderColor: isAndroid ? '#33405A' : '#1F1F1F',
+    backgroundColor: isAndroid ? '#1E2636' : '#111111',
     overflow: 'hidden',
   },
 
@@ -332,6 +332,544 @@ export const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  todayShiftSection: {
+    gap: isAndroid ? 12 : 10,
+  },
+
+  salarySection: {
+    gap: isAndroid ? 12 : 10,
+  },
+
+  salaryCard: {
+    backgroundColor: isAndroid ? '#1E2636' : '#111111',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#1F1F1F',
+    borderRadius: isAndroid ? 28 : 20,
+    paddingHorizontal: isAndroid ? 18 : 17,
+    paddingTop: isAndroid ? 18 : 16,
+    paddingBottom: isAndroid ? 18 : 16,
+    gap: isAndroid ? 14 : 12,
+  },
+
+  salaryCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  salaryPeriodSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+
+  salaryPeriodTab: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#232323',
+    backgroundColor: isAndroid ? '#1C2638' : '#151515',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  salaryPeriodTabActive: {
+    backgroundColor: isAndroid ? '#22314C' : '#22160F',
+    borderColor: isAndroid ? '#40557C' : '#4A2B18',
+  },
+
+  salaryPeriodTabText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+
+  salaryPeriodTabTextActive: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+  },
+
+  salaryPeriodTabTextInactive: {
+    color: isAndroid ? '#7C8CA9' : '#787878',
+  },
+
+  salaryBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: isAndroid ? '#22314C' : '#22160F',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#4A2B18',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+
+  salaryBadgeText: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+
+  salaryZoneText: {
+    color: isAndroid ? '#7DB2FF' : '#FF6A00',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+
+  salaryZoneBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+
+  salaryValue: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 28 : 26,
+    fontWeight: '800',
+    lineHeight: isAndroid ? 34 : 32,
+    fontVariant: ['tabular-nums'],
+  },
+
+  salaryCaption: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  salaryMetaRow: {
+    marginTop: 2,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: isAndroid ? '#33405A' : '#1B1B1B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  salaryMetaInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+
+  salaryMetaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+
+  salaryExpandButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: isAndroid ? '#2C364A' : '#1B1B1B',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#47536B' : '#2C2C2C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  salaryExpandIcon: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 24,
+    transform: [{ rotate: '90deg' }],
+  },
+
+  salaryExpandIconOpen: {
+    transform: [{ rotate: '-90deg' }],
+  },
+
+  salaryDetailsWrap: {
+    overflow: 'hidden',
+  },
+
+  salaryExpandFooter: {
+    marginTop: 4,
+    width: '100%',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+
+  salaryDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: isAndroid ? '#33405A' : '#1B1B1B',
+    gap: 14,
+  },
+
+  salaryZoneList: {
+    gap: 8,
+  },
+
+  salaryZoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  salaryZoneRowLabel: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  salaryZoneRowValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+
+  salaryDetailsSection: {
+    gap: 8,
+  },
+
+  salaryDetailsTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+
+  salaryShiftRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  salaryShiftComparisonCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#1B1B1B',
+    backgroundColor: isAndroid ? '#182234' : '#0D0D0D',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+
+  salaryShiftSummaryLine: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+
+  salaryShiftSummaryCaption: {
+    color: isAndroid ? '#97A6C4' : '#A0A0A0',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: -2,
+  },
+
+  salaryShiftComparisonList: {
+    gap: 6,
+  },
+
+  salaryShiftComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  salaryShiftComparisonLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+
+  salaryShiftComparisonLabelGreen: {
+    color: '#45C46B',
+  },
+
+  salaryShiftComparisonLabelBlue: {
+    color: '#58A6FF',
+  },
+
+  salaryShiftComparisonLabelRed: {
+    color: '#FF5A5F',
+  },
+
+  salaryShiftTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+
+  salaryFineTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+
+  salaryFineTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+
+  salaryFineReason: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  salaryShiftShop: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    flex: 1,
+  },
+
+  salaryShiftDate: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  salaryShiftReason: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  salaryShiftValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+
+  salaryShiftValueBonus: {
+    color: '#45C46B',
+  },
+
+  salaryShiftValuePenalty: {
+    color: '#FF7A7A',
+  },
+
+  salaryEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isAndroid ? 12 : 10,
+    gap: 10,
+  },
+
+  salaryEmptyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: isAndroid ? '#243048' : '#171717',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  salaryEmptyIconText: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+
+  salaryEmptyIconImage: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+    tintColor: isAndroid ? '#AFC7FF' : '#FFB36B',
+  },
+
+  salaryEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+
+  salaryEmptyText: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+
+  todayShiftList: {
+    gap: isAndroid ? 10 : 8,
+    paddingHorizontal: 4,
+  },
+
+  todayShiftCard: {
+    borderRadius: isAndroid ? 28 : 20,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#1F1F1F',
+    backgroundColor: isAndroid ? '#1E2636' : '#111111',
+    paddingHorizontal: isAndroid ? 18 : 17,
+    paddingVertical: isAndroid ? 18 : 16,
+    gap: isAndroid ? 14 : 12,
+  },
+
+  todayShiftTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  todayShiftBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: isAndroid ? '#22314C' : '#22160F',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#4A2B18',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+
+  todayShiftBadgeText: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+
+  todayShiftShop: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 19 : 18,
+    fontWeight: '800',
+    lineHeight: isAndroid ? 24 : 23,
+    marginTop: 2,
+  },
+
+  todayShiftHours: {
+    color: isAndroid ? '#7DB2FF' : '#FF6A00',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+
+  todayShiftEmployeeBlock: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: isAndroid ? '#33405A' : '#1B1B1B',
+    gap: 8,
+  },
+
+  todayShiftEmployeeList: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+
+  todayShiftEmployeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    minHeight: 40,
+  },
+
+  todayShiftEmployeePill: {
+    borderRadius: 999,
+    backgroundColor: isAndroid ? '#243048' : '#171717',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#2A2A2A',
+    minHeight: 34,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    justifyContent: 'center',
+  },
+
+  todayShiftEmployeeName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+
+  todayShiftCallButton: {
+    borderRadius: 999,
+    backgroundColor: isAndroid ? '#243048' : '#1E1610',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#4A2B18',
+    minHeight: 34,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    justifyContent: 'center',
+  },
+
+  todayShiftCallButtonText: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+
+  todayShiftEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isAndroid ? 8 : 6,
+    gap: 10,
+  },
+
+  todayShiftEmptyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: isAndroid ? '#243048' : '#171717',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#40557C' : '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  todayShiftEmptyIconText: {
+    color: isAndroid ? '#AFC7FF' : '#FFB36B',
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+
+  todayShiftEmptyIconImage: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+    tintColor: isAndroid ? '#AFC7FF' : '#FFB36B',
+  },
+
+  todayShiftEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+
+  todayShiftEmptyText: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+
   subtitle: {
     color: isAndroid ? '#97A6C4' : '#B6B6B6',
     fontSize: 14,
@@ -373,6 +911,19 @@ export const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 12,
+  },
+
+  shiftInlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 28,
+  },
+
+  shiftInlineLoadingText: {
+    color: isAndroid ? '#AFAFAF' : '#A0A0A0',
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   rowButton: {
