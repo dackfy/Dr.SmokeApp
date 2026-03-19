@@ -89,14 +89,53 @@ export const mockAuthApi: AuthApi = {
 
 type LoginResponse = {
   message?: string
-  employee_id: number
+  employee_id?: number | string
+  employeeId?: number | string
+  id?: number | string
+  user_id?: number | string
   telegram_id?: number
+  telegramId?: number
   region_id?: number
   name?: string
+  firstName?: string
   lastName?: string
+  last_name?: string
   city?: string
   email?: string
   timezone?: string
+  time_zone?: string
+  user?: {
+    employee_id?: number | string
+    employeeId?: number | string
+    id?: number | string
+    user_id?: number | string
+    telegram_id?: number
+    telegramId?: number
+    name?: string
+    firstName?: string
+    lastName?: string
+    last_name?: string
+    city?: string
+    email?: string
+    timezone?: string
+    time_zone?: string
+  }
+  employee?: {
+    id?: number | string
+    employee_id?: number | string
+    employeeId?: number | string
+    first_name?: string
+    name?: string
+    firstName?: string
+    last_name?: string
+    lastName?: string
+    city?: string
+    email?: string
+    timezone?: string
+    time_zone?: string
+    telegram_id?: number
+    telegramId?: number
+  }
 }
 
 function extractNameFromGreeting(message?: string) {
@@ -104,6 +143,32 @@ function extractNameFromGreeting(message?: string) {
 
   const match = message.match(/^Привет,\s*(.+)$/i)
   return match?.[1]?.trim() || undefined
+}
+
+function readStringValue(...values: Array<unknown>) {
+  for (const value of values) {
+    if (value === null || value === undefined) {
+      continue
+    }
+
+    const normalized = String(value).trim()
+    if (normalized && normalized !== 'undefined' && normalized !== 'null') {
+      return normalized
+    }
+  }
+
+  return undefined
+}
+
+function readNumberValue(...values: Array<unknown>) {
+  for (const value of values) {
+    const normalized = Number(value)
+    if (Number.isFinite(normalized)) {
+      return normalized
+    }
+  }
+
+  return undefined
 }
 
 class AuthError extends Error {
@@ -203,16 +268,67 @@ export const realAuthApi: AuthApi = {
     }
 
     const ok = data as LoginResponse
-    const normalizedServerEmail = String(ok.email || '').trim().toLowerCase()
+    const userPayload = ok.user ?? {}
+    const employeePayload = ok.employee ?? {}
+    const employeeId = readStringValue(
+      ok.employee_id,
+      ok.employeeId,
+      ok.id,
+      ok.user_id,
+      userPayload.employee_id,
+      userPayload.employeeId,
+      userPayload.id,
+      userPayload.user_id,
+      employeePayload.employee_id,
+      employeePayload.employeeId,
+      employeePayload.id,
+    )
+
+    if (!employeeId) {
+      throw new AuthError('Сервер не вернул employee_id для текущего пользователя')
+    }
+
+    const normalizedServerEmail =
+      readStringValue(ok.email, userPayload.email, employeePayload.email)?.toLowerCase() || ''
     const fallbackEmail = isEmailLike ? identifier.toLowerCase() : ''
     return createSession(
       normalizedServerEmail || fallbackEmail,
-      ok.name ?? extractNameFromGreeting(ok.message),
-      ok.lastName,
-      ok.city,
-      String(ok.employee_id),
-      ok.timezone,
-      Number.isFinite(Number(ok.telegram_id)) ? Number(ok.telegram_id) : undefined
+      readStringValue(
+        ok.name,
+        ok.firstName,
+        userPayload.name,
+        userPayload.firstName,
+        employeePayload.name,
+        employeePayload.firstName,
+        employeePayload.first_name,
+      ) ??
+        extractNameFromGreeting(ok.message),
+      readStringValue(
+        ok.lastName,
+        ok.last_name,
+        userPayload.lastName,
+        userPayload.last_name,
+        employeePayload.lastName,
+        employeePayload.last_name,
+      ),
+      readStringValue(ok.city, userPayload.city, employeePayload.city),
+      employeeId,
+      readStringValue(
+        ok.timezone,
+        ok.time_zone,
+        userPayload.timezone,
+        userPayload.time_zone,
+        employeePayload.timezone,
+        employeePayload.time_zone,
+      ),
+      readNumberValue(
+        ok.telegram_id,
+        ok.telegramId,
+        userPayload.telegram_id,
+        userPayload.telegramId,
+        employeePayload.telegram_id,
+        employeePayload.telegramId,
+      ),
     )
   },
 
