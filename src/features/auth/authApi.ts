@@ -101,25 +101,57 @@ export const mockAuthApi: AuthApi = {
 
 type LoginResponse = {
   message?: string
-  employee_id: number
+  employee_id?: number | string
+  employeeId?: number | string
+  id?: number | string
+  user_id?: number | string
   telegram_id?: number
+  telegramId?: number
   region_id?: number
   region_name?: string
   name?: string
+  firstName?: string
   lastName?: string
+  last_name?: string
   city?: string
   email?: string
   timezone?: string
+  time_zone?: string
+  user?: {
+    employee_id?: number | string
+    employeeId?: number | string
+    id?: number | string
+    user_id?: number | string
+    telegram_id?: number
+    telegramId?: number
+    name?: string
+    firstName?: string
+    lastName?: string
+    last_name?: string
+    city?: string
+    email?: string
+    timezone?: string
+    time_zone?: string
+  }
   user_role?: number
   employee?: {
-    id?: number
+    id?: number | string
+    employee_id?: number | string
+    employeeId?: number | string
     first_name?: string | null
+    name?: string
+    firstName?: string
     last_name?: string | null
+    lastName?: string
+    city?: string
     email?: string | null
     region_id?: number | null
     region_name?: string | null
     timezone?: string | null
+    time_zone?: string
     user_role?: number | null
+    telegram_id?: number
+    telegramId?: number
   }
 }
 
@@ -143,6 +175,32 @@ function extractNameFromGreeting(message?: string) {
 
   const match = message.match(/^Привет,\s*(.+)$/i)
   return match?.[1]?.trim() || undefined
+}
+
+function readStringValue(...values: Array<unknown>) {
+  for (const value of values) {
+    if (value === null || value === undefined) {
+      continue
+    }
+
+    const normalized = String(value).trim()
+    if (normalized && normalized !== 'undefined' && normalized !== 'null') {
+      return normalized
+    }
+  }
+
+  return undefined
+}
+
+function readNumberValue(...values: Array<unknown>) {
+  for (const value of values) {
+    const normalized = Number(value)
+    if (Number.isFinite(normalized)) {
+      return normalized
+    }
+  }
+
+  return undefined
 }
 
 class AuthError extends Error {
@@ -194,18 +252,53 @@ function buildSessionFromServerAuth(
   } = {},
 ) {
   const employee = payload.employee
-  const employeeId = employee?.id ?? payload.employee_id
-  const employeeEmail = employee?.email ?? payload.email
-  const employeeRegionId = employee?.region_id ?? payload.region_id
-  const employeeRegionName = employee?.region_name ?? payload.region_name
-  const employeeTimezone = employee?.timezone ?? payload.timezone
-  const employeeRole = employee?.user_role ?? payload.user_role
+  const userPayload = payload.user
+  const employeeId = readStringValue(
+    employee?.id,
+    employee?.employee_id,
+    employee?.employeeId,
+    payload.employee_id,
+    payload.employeeId,
+    payload.id,
+    payload.user_id,
+    userPayload?.employee_id,
+    userPayload?.employeeId,
+    userPayload?.id,
+    userPayload?.user_id,
+  )
+  const employeeEmail = readStringValue(employee?.email, payload.email, userPayload?.email)
+  const employeeRegionId = readNumberValue(employee?.region_id, payload.region_id)
+  const employeeRegionName = readStringValue(employee?.region_name, payload.region_name)
+  const employeeTimezone = readStringValue(
+    employee?.timezone,
+    employee?.time_zone,
+    payload.timezone,
+    payload.time_zone,
+    userPayload?.timezone,
+    userPayload?.time_zone,
+  )
+  const employeeRole = readNumberValue(employee?.user_role, payload.user_role)
   const employeeFirstName =
-    employee?.first_name ??
-    payload.name ??
+    readStringValue(
+      employee?.first_name,
+      employee?.name,
+      employee?.firstName,
+      payload.name,
+      payload.firstName,
+      userPayload?.name,
+      userPayload?.firstName,
+    ) ??
     extractNameFromGreeting(payload.message) ??
     options.previousSession?.user.name
-  const employeeLastName = employee?.last_name ?? payload.lastName ?? options.previousSession?.user.lastName
+  const employeeLastName =
+    readStringValue(
+      employee?.last_name,
+      employee?.lastName,
+      payload.lastName,
+      payload.last_name,
+      userPayload?.lastName,
+      userPayload?.last_name,
+    ) ?? options.previousSession?.user.lastName
   const normalizedServerEmail = String(employeeEmail || '').trim().toLowerCase()
   const fallbackEmail =
     options.isEmailLike && options.identifier ? options.identifier.toLowerCase() : options.previousSession?.user.email || ''
@@ -214,19 +307,21 @@ function buildSessionFromServerAuth(
     email: normalizedServerEmail || fallbackEmail,
     name: employeeFirstName,
     lastName: employeeLastName,
-    city: payload.city ?? options.previousSession?.user.city,
+    city: readStringValue(employee?.city, payload.city, userPayload?.city) ?? options.previousSession?.user.city,
     userId: String(employeeId ?? options.previousSession?.user.id ?? ''),
     timezone: employeeTimezone ?? options.previousSession?.user.timezone,
-    telegramId: Number.isFinite(Number(payload.telegram_id))
-      ? Number(payload.telegram_id)
-      : options.previousSession?.user.telegramId,
-    regionId: Number.isFinite(Number(employeeRegionId))
-      ? Number(employeeRegionId)
-      : options.previousSession?.user.regionId,
+    telegramId:
+      readNumberValue(
+        employee?.telegram_id,
+        employee?.telegramId,
+        payload.telegram_id,
+        payload.telegramId,
+        userPayload?.telegram_id,
+        userPayload?.telegramId,
+      ) ?? options.previousSession?.user.telegramId,
+    regionId: employeeRegionId ?? options.previousSession?.user.regionId,
     regionName: employeeRegionName ?? options.previousSession?.user.regionName,
-    userRole: Number.isFinite(Number(employeeRole))
-      ? Number(employeeRole)
-      : (options.previousSession?.user.userRole ?? 3),
+    userRole: employeeRole ?? (options.previousSession?.user.userRole ?? 3),
   })
 }
 
