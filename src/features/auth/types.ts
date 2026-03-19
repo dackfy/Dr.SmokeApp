@@ -6,6 +6,9 @@ export type AuthUser = {
   lastName?: string
   city?: string
   timezone?: string
+  regionId?: number
+  regionName?: string
+  userRole?: number
 }
 
 export type AuthSession = {
