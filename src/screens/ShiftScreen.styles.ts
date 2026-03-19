@@ -43,6 +43,39 @@ export const styles = StyleSheet.create({
     marginBottom: isAndroid ? 2 : 4,
   },
 
+  tabHeaderContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+
+  tabHeaderRow: {
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+
+  tabHeaderRowIosOnly: {
+    justifyContent: 'flex-end',
+  },
+
+  iosFloatingHeaderWrap: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+
+  iosFloatingHeaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+
+  iosFloatingHeaderRow: {
+    minHeight: 56,
+  },
+
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 33,
@@ -199,15 +232,15 @@ export const styles = StyleSheet.create({
     width: isAndroid ? 48 : 38,
     height: isAndroid ? 48 : 38,
     borderRadius: isAndroid ? 24 : 19,
-    backgroundColor: isAndroid ? '#243048' : '#7E8BFF',
+    backgroundColor: '#151515',
     borderWidth: 1,
-    borderColor: isAndroid ? '#3B4C6D' : '#7E8BFF',
+    borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   headerAvatarText: {
-    color: isAndroid ? '#AFC7FF' : '#FFFFFF',
+    color: '#FFFFFF',
     fontSize: isAndroid ? 18 : 16,
     fontWeight: '800',
   },

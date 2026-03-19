@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { authApi, type AuthApi } from './authApi'
+import { authApi, refreshEmployeeSession, type AuthApi } from './authApi'
 import type { AuthFormValues, AuthSession } from './types'
 import { validateAuthForm } from './validators'
 
@@ -24,6 +24,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   const [error, setError] = useState<string | null>(null)
   const [errorVersion, setErrorVersion] = useState(0)
   const [session, setSession] = useState<AuthSession | null>(null)
+  const [isRefreshingSession, setIsRefreshingSession] = useState(false)
 
   function showError(message: string) {
     setError(message)
@@ -47,6 +48,9 @@ export function useAuth(options: UseAuthOptions = {}) {
           user: {
             ...parsedSession.user,
             email: restoredEmail.includes('@') ? restoredEmail : '',
+            userRole: Number.isFinite(Number(parsedSession.user?.userRole))
+              ? Number(parsedSession.user?.userRole)
+              : 3,
           },
         }
 
@@ -102,6 +106,22 @@ export function useAuth(options: UseAuthOptions = {}) {
     }
   }
 
+  async function refreshSession() {
+    if (!session || isRefreshingSession) {
+      return
+    }
+
+    setIsRefreshingSession(true)
+
+    try {
+      const nextSession = await refreshEmployeeSession(session)
+      setSession(nextSession)
+      await AsyncStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+    } finally {
+      setIsRefreshingSession(false)
+    }
+  }
+
   function resetSession() {
     AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY).catch(() => {})
     setSession(null)
@@ -121,8 +141,10 @@ export function useAuth(options: UseAuthOptions = {}) {
     error,
     errorVersion,
     session,
+    isRefreshingSession,
     updateField,
     submit,
+    refreshSession,
     resetSession,
     clearError,
   }

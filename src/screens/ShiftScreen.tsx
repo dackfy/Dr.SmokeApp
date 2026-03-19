@@ -46,6 +46,7 @@ import { checkEmployeeAccess } from '../features/auth/authApi'
 type ShiftScreenProps = {
   session: AuthSession
   onLogout: () => void
+  onRefreshSession?: () => Promise<void>
   onBack?: () => void
   onGoHome?: () => void
   onGoMail?: () => void
@@ -586,6 +587,7 @@ async function takePhoto(
 export default function ShiftScreen({
   session,
   onLogout,
+  onRefreshSession,
   onBack,
   onGoHome,
   onGoMail,
@@ -595,6 +597,7 @@ export default function ShiftScreen({
   showHeaderActions = true,
   showTabBar = true,
 }: ShiftScreenProps) {
+  const isAndroid = Platform.OS === 'android'
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
   const androidPalette =
@@ -881,6 +884,7 @@ export default function ShiftScreen({
       setIsSalaryClosing(false)
       salaryAnim.setValue(0)
       await Promise.all([
+        onRefreshSession?.(),
         actions.refresh({ silent: true }),
         loadDcData(),
         loadScheduleData(),
@@ -897,7 +901,7 @@ export default function ShiftScreen({
     } finally {
       setIsRefreshing(false)
     }
-  }, [actions, loadDcData, loadScheduleData, loadTodayOpenShiftsData, loadSalaryPeriods, onLogout, salaryAnim, selectedSalaryPeriod, session.user.id])
+  }, [actions, loadDcData, loadScheduleData, loadTodayOpenShiftsData, loadSalaryPeriods, onLogout, onRefreshSession, salaryAnim, session.user.id])
 
   const salarySummary = salarySummaries[selectedSalaryPeriod] ?? null
 
