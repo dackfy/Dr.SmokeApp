@@ -20,6 +20,7 @@ import {
   TextInput,
   TouchableOpacity,
   useColorScheme,
+  Vibration,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -153,6 +154,12 @@ const mailIcon = require('../assets/icons/mail.png')
 const trashIcon = require('../assets/icons/trash.png')
 const shopIcon = require('../assets/icons/shop.png')
 const rubleIcon = require('../assets/icons/ruble.png')
+
+function pulseHaptic() {
+  if (Platform.OS === 'android') {
+    Vibration.vibrate(8)
+  }
+}
 
 function formatDateTime(value?: string) {
   if (!value) return '-'
@@ -441,24 +448,6 @@ function normalizeClock(value?: string | null) {
   return `${hours}:${minutes}`
 }
 
-function formatPhoneDisplay(value?: string | null) {
-  const digits = String(value || '').replace(/\D/g, '')
-  const normalized =
-    digits.length === 11 && digits.startsWith('8')
-      ? `7${digits.slice(1)}`
-      : digits.slice(0, 11)
-
-  if (normalized.length !== 11 || !normalized.startsWith('7')) {
-    return String(value || '').trim() || 'Телефон не указан'
-  }
-
-  const p1 = normalized.slice(1, 4)
-  const p2 = normalized.slice(4, 7)
-  const p3 = normalized.slice(7, 9)
-  const p4 = normalized.slice(9, 11)
-  return `+7 ${p1} ${p2}-${p3}-${p4}`
-}
-
 function getDialablePhone(value?: string | null) {
   const digits = String(value || '').replace(/\D/g, '')
   if (digits.length === 11 && digits.startsWith('8')) {
@@ -597,7 +586,6 @@ export default function ShiftScreen({
   showHeaderActions = true,
   showTabBar = true,
 }: ShiftScreenProps) {
-  const isAndroid = Platform.OS === 'android'
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
   const androidPalette =
@@ -630,6 +618,7 @@ export default function ShiftScreen({
   }, [androidTheme.mode, colorScheme])
 
   const [isShopDropdownOpen, setIsShopDropdownOpen] = React.useState(false)
+  const [isShopDropdownMounted, setIsShopDropdownMounted] = React.useState(false)
   const [focusedField, setFocusedField] = React.useState<string | null>(null)
   const [dcBalance, setDcBalance] = React.useState<number | null>(null)
   const [dcHistory, setDcHistory] = React.useState<DcHistoryItem[]>([])
@@ -655,6 +644,7 @@ export default function ShiftScreen({
   const salaryCacheRef = React.useRef<Partial<Record<SalaryPeriodKey, SalarySummaryResponse | null>>>({})
   const shiftErrorOpacity = React.useRef(new Animated.Value(0)).current
   const shiftNoticeOpacity = React.useRef(new Animated.Value(0)).current
+  const shopModalProgress = React.useRef(new Animated.Value(0)).current
   const cashAccessoryId = 'shift-cash-accessory'
 
   const {
@@ -678,6 +668,45 @@ export default function ShiftScreen({
   const fullName = [session.user.name, session.user.lastName].filter(Boolean).join(' ')
   const displayName = fullName || session.user.email
   const todayShiftBadgeLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`
+  const openShopDropdown = React.useCallback(() => {
+    pulseHaptic()
+    setIsShopDropdownOpen(true)
+  }, [])
+  const closeShopDropdown = React.useCallback(() => {
+    setIsShopDropdownOpen(false)
+  }, [])
+
+  React.useEffect(() => {
+    if (isShopDropdownOpen) {
+      setIsShopDropdownMounted(true)
+      shopModalProgress.stopAnimation()
+      shopModalProgress.setValue(0)
+      Animated.spring(shopModalProgress, {
+        toValue: 1,
+        damping: 20,
+        stiffness: 220,
+        mass: 0.95,
+        useNativeDriver: true,
+      }).start()
+      return
+    }
+
+    if (!isShopDropdownMounted) {
+      return
+    }
+
+    shopModalProgress.stopAnimation()
+    Animated.timing(shopModalProgress, {
+      toValue: 0,
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsShopDropdownMounted(false)
+      }
+    })
+  }, [isShopDropdownMounted, isShopDropdownOpen, shopModalProgress])
 
   const handlePhonePress = React.useCallback(async (phoneNumber?: string | null) => {
     const dialablePhone = getDialablePhone(phoneNumber)
@@ -784,7 +813,6 @@ export default function ShiftScreen({
   const loadSalaryPeriods = React.useCallback(async (
     options?: { force?: boolean; preferredPeriod?: SalaryPeriodKey },
   ) => {
-    const preferredPeriod = options?.preferredPeriod || 'current'
     const hasCurrent = salaryCacheRef.current.current !== undefined
     const hasPrevious = salaryCacheRef.current.previous !== undefined
     const shouldUseCache = !options?.force && hasCurrent && hasPrevious
@@ -798,9 +826,7 @@ export default function ShiftScreen({
       return
     }
 
-    if (!salarySummaries.current && !salarySummaries.previous) {
-      setIsSalaryLoading(true)
-    }
+    setIsSalaryLoading(true)
 
     try {
       const [currentData, previousData] = await Promise.all([
@@ -838,7 +864,7 @@ export default function ShiftScreen({
     } finally {
       setIsSalaryLoading(false)
     }
-  }, [fetchSalaryData, salaryContentOpacity, salarySummaries.current, salarySummaries.previous])
+  }, [fetchSalaryData, salaryContentOpacity])
 
   React.useEffect(() => {
     loadDcData()
@@ -1375,7 +1401,9 @@ export default function ShiftScreen({
                       styles.shopSelectTrigger,
                       isShopDropdownOpen && styles.shopSelectTriggerActive,
                     ]}
-                    onPress={() => setIsShopDropdownOpen(prev => !prev)}
+                    onPress={() =>
+                      isShopDropdownOpen ? closeShopDropdown() : openShopDropdown()
+                    }
                     disabled={isSubmitting}>
                     <Text
                       style={[
@@ -2083,11 +2111,29 @@ export default function ShiftScreen({
         </ScrollView>
 
         <Modal
-          visible={isShopDropdownOpen}
-          animationType="fade"
+          visible={isShopDropdownMounted}
+          animationType="none"
           transparent
-          onRequestClose={() => setIsShopDropdownOpen(false)}>
-          <Pressable style={styles.shopModalOverlay} onPress={() => setIsShopDropdownOpen(false)}>
+          onRequestClose={closeShopDropdown}>
+          <Pressable style={styles.shopModalOverlay} onPress={closeShopDropdown}>
+            <Animated.View
+              style={{
+                opacity: shopModalProgress,
+                transform: [
+                  {
+                    translateY: shopModalProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [32, 0],
+                    }),
+                  },
+                  {
+                    scale: shopModalProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.96, 1],
+                    }),
+                  },
+                ],
+              }}>
             <Pressable style={styles.shopModalCard} onPress={() => {}}>
               <Text style={styles.shopModalTitle}>Выберите магазин</Text>
               <ScrollView
@@ -2103,8 +2149,9 @@ export default function ShiftScreen({
                         openDraft.shopId === shop.id && styles.shopOptionRowActive,
                       ]}
                       onPress={() => {
+                        pulseHaptic()
                         actions.selectShop(shop.id, shop.name)
-                        setIsShopDropdownOpen(false)
+                        closeShopDropdown()
                       }}>
                       <Text
                         style={[
@@ -2127,6 +2174,7 @@ export default function ShiftScreen({
                 )}
               </ScrollView>
             </Pressable>
+            </Animated.View>
           </Pressable>
         </Modal>
 

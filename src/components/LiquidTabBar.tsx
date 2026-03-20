@@ -41,6 +41,7 @@ type LiquidTabBarProps = {
   inactiveTintColor?: string;
   shellBackgroundColor?: string;
   shellBorderColor?: string;
+  activeForegroundColor?: string;
 };
 
 const BAR_HORIZONTAL_PADDING = 46;

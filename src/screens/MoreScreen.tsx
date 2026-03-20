@@ -24,8 +24,6 @@ type MoreScreenRoute = 'root' | 'appearance' | 'portal'
 
 type MoreScreenProps = {
   employeeId: string
-  profileLetter: string
-  onOpenProfile: () => void
 }
 
 const PORTAL_URL = 'https://portal.dr-smoke.ru/'
@@ -40,12 +38,12 @@ const iosPalette: AndroidThemePalette = {
   outlineVariant: '#262628',
   onSurface: '#FFFFFF',
   onSurfaceMuted: '#A1A1AA',
-  primary: '#0A84FF',
-  primaryStrong: '#7E8BFF',
-  secondary: '#7E8BFF',
-  tertiary: '#64D2FF',
-  primaryContainer: '#15263A',
-  primaryContainerStrong: '#1D3048',
+  primary: '#FF6A00',
+  primaryStrong: '#FF8C38',
+  secondary: '#C97B42',
+  tertiary: '#7A5C46',
+  primaryContainer: '#241409',
+  primaryContainerStrong: '#2E1808',
   onPrimary: '#FFFFFF',
   error: '#FF7A7A',
   errorContainer: '#351313',
@@ -54,15 +52,13 @@ const iosPalette: AndroidThemePalette = {
   successContainer: '#102317',
   successBorder: '#234130',
   buttonText: '#FFFFFF',
-  closedBadge: '#202027',
-  closedBadgeBorder: '#333340',
+  closedBadge: '#24160B',
+  closedBadgeBorder: '#503016',
   secondaryButton: '#1C1C1E',
 }
 
 export default function MoreScreen({
   employeeId,
-  profileLetter,
-  onOpenProfile,
 }: MoreScreenProps) {
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
@@ -88,35 +84,79 @@ export default function MoreScreen({
   const isCompanyMode = isAndroid && androidTheme.mode === 'company'
   const isMaterialMode = isAndroid && androidTheme.mode === 'material'
   const isMaterialDark = isMaterialMode && colorScheme === 'dark'
-  const accentTextColor = isMaterialDark
-    ? String(palette.onSurface)
-    : String(palette.primary)
-  const subtleSurfaceColor =
-    isMaterialDark ? String(palette.surface) : String(palette.surfaceRaised)
+  const accentTextColor = isCompanyMode
+    ? String(palette.primaryStrong)
+    : isMaterialDark
+      ? String(palette.onSurface)
+      : String(palette.primary)
+  const subtleSurfaceColor = isCompanyMode
+    ? String(palette.surfaceMuted)
+    : isMaterialDark
+      ? String(palette.surface)
+      : String(palette.surfaceRaised)
   const rootCardBackground = String(palette.surfaceRaised)
-  const heroCardBackground = subtleSurfaceColor
+  const heroCardBackground = isCompanyMode
+    ? String(palette.surfaceMuted)
+    : subtleSurfaceColor
   const heroKickerColor = accentTextColor
   const secondaryMutedColor =
     isMaterialDark ? String(palette.onSurfaceMuted) : String(palette.onSurfaceMuted)
-  const heroBorderColor =
-    isMaterialMode && isMaterialDark
+  const heroBorderColor = isCompanyMode
+    ? String(palette.primaryContainerStrong)
+    : isMaterialMode && isMaterialDark
       ? String(palette.outline)
       : isMaterialMode
         ? String(palette.primary)
         : String(palette.outlineVariant)
-  const portalHeroBackground = subtleSurfaceColor
-  const portalPanelBackground = String(palette.surfaceRaised)
-  const portalSecondaryPanel = subtleSurfaceColor
+  const portalHeroBackground = isCompanyMode
+    ? String(palette.surfaceMuted)
+    : subtleSurfaceColor
+  const portalPanelBackground = isCompanyMode
+    ? String(palette.surfaceRaised)
+    : String(palette.surfaceRaised)
+  const portalSecondaryPanel = isCompanyMode
+    ? String(palette.surface)
+    : subtleSurfaceColor
   const ctaBackground =
-    isMaterialDark ? String(palette.primaryStrong) : String(palette.primary)
+    isCompanyMode
+      ? String(palette.primary)
+      : isMaterialDark
+        ? String(palette.primaryStrong)
+        : String(palette.primary)
   const ctaTextColor =
     getAndroidStatusBarStyle(ctaBackground) === 'dark-content'
       ? '#08120F'
       : '#FFFFFF'
   const ctaBorderColor =
-    isMaterialDark ? String(palette.primaryStrong) : String(palette.primary)
+    isCompanyMode
+      ? String(palette.primaryStrong)
+      : isMaterialDark
+        ? String(palette.primaryStrong)
+        : String(palette.primary)
   const materialSolidAccent =
     isMaterialDark ? String(palette.primaryStrong) : String(palette.primary)
+  const materialSelectedBadgeBackground = isMaterialDark
+    ? String(palette.primaryStrong)
+    : materialSolidAccent
+  const materialSelectedRadioBorder = isMaterialDark ? '#D7E3EC' : materialSolidAccent
+  const materialPreviewCardBackground = isMaterialDark
+    ? '#141A20'
+    : String(palette.surfaceRaised)
+  const materialPreviewCardSecondaryBackground = isMaterialDark
+    ? '#222C36'
+    : String(palette.surfaceAccent)
+  const materialPreviewBorder = isMaterialDark
+    ? 'rgba(215,227,236,0.14)'
+    : String(palette.outlineVariant)
+  const materialPreviewPrimaryLine = isMaterialDark
+    ? '#F5F7FA'
+    : materialPreview[0]
+  const materialPreviewSecondaryLine = isMaterialDark
+    ? '#AEBBC7'
+    : materialPreview[1]
+  const materialPreviewTertiaryLine = isMaterialDark
+    ? '#CBD5E1'
+    : materialPreview[2]
   const {
     session: portalSession,
     isLoading: isPortalLoading,
@@ -176,14 +216,18 @@ export default function MoreScreen({
 
   const renderHeader = (title: string, subtitle?: string) => (
     <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
+      <View style={styles.topBarLeft}>
         {route !== 'root' ? (
           <TouchableOpacity
             style={[
               styles.backButton,
               {
-                backgroundColor: String(palette.surfaceRaised),
-                borderColor: String(palette.outlineVariant),
+                backgroundColor: isCompanyMode
+                  ? String(palette.surfaceMuted)
+                  : String(palette.surfaceRaised),
+                borderColor: isCompanyMode
+                  ? String(palette.primaryContainerStrong)
+                  : String(palette.outlineVariant),
               },
             ]}
             onPress={() => setRoute('root')}
@@ -192,7 +236,7 @@ export default function MoreScreen({
             <Text style={[styles.backButtonText, { color: String(palette.onSurface) }]}>‹</Text>
           </TouchableOpacity>
         ) : null}
-        <View style={{ flex: 1 }}>
+        <View style={styles.headerTextWrap}>
           <Text style={[styles.screenTitle, { color: String(palette.onSurface) }]}>
             {title}
           </Text>
@@ -203,24 +247,6 @@ export default function MoreScreen({
           ) : null}
         </View>
       </View>
-
-      <TouchableOpacity
-        style={[
-          styles.avatarButton,
-          {
-            backgroundColor: isMaterialDark
-              ? String(palette.surfaceMuted)
-              : String(palette.primaryContainerStrong),
-            borderColor: String(palette.outlineVariant),
-          },
-        ]}
-        onPress={onOpenProfile}
-        accessibilityRole="button"
-        accessibilityLabel="Открыть профиль">
-        <Text style={[styles.avatarText, { color: accentTextColor }]}>
-          {profileLetter}
-        </Text>
-      </TouchableOpacity>
     </View>
   )
 
@@ -232,7 +258,14 @@ export default function MoreScreen({
           styles.heroCard,
           {
             backgroundColor: heroCardBackground,
-            borderColor: String(palette.outlineVariant),
+            borderColor: isCompanyMode
+              ? String(palette.primaryContainerStrong)
+              : String(palette.outlineVariant),
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: isCompanyMode ? 0.18 : 0.08,
+            shadowRadius: 24,
+            elevation: isCompanyMode ? 8 : 4,
           },
         ]}>
         <Text style={[styles.heroKicker, { color: heroKickerColor }]}>
@@ -259,8 +292,17 @@ export default function MoreScreen({
             style={[
               styles.navRow,
               {
-                backgroundColor: String(palette.surface),
-                borderColor: String(palette.outlineVariant),
+                backgroundColor: isCompanyMode
+                  ? String(palette.surface)
+                  : String(palette.surface),
+                borderColor: isCompanyMode
+                  ? String(palette.primaryContainerStrong)
+                  : String(palette.outlineVariant),
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: isCompanyMode ? 0.12 : 0.04,
+                shadowRadius: 18,
+                elevation: isCompanyMode ? 4 : 2,
               },
             ]}
             onPress={() => setRoute('appearance')}>
@@ -288,8 +330,17 @@ export default function MoreScreen({
             style={[
               styles.navRow,
               {
-                backgroundColor: String(palette.surface),
-                borderColor: String(palette.outlineVariant),
+                backgroundColor: isCompanyMode
+                  ? String(palette.surface)
+                  : String(palette.surface),
+                borderColor: isCompanyMode
+                  ? String(palette.primaryContainerStrong)
+                  : String(palette.outlineVariant),
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: isCompanyMode ? 0.12 : 0.04,
+                shadowRadius: 18,
+                elevation: isCompanyMode ? 4 : 2,
               },
             ]}
             onPress={() => setRoute('portal')}>
@@ -468,9 +519,14 @@ export default function MoreScreen({
                 backgroundColor: isMaterialMode
                   ? String(palette.surfaceRaised)
                   : String(palette.surface),
-                borderColor: !isCompanyMode
+                borderColor: isMaterialMode
                   ? materialSolidAccent
                   : String(palette.outlineVariant),
+                shadowColor: isMaterialMode ? materialSolidAccent : '#000000',
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: isMaterialMode ? 0.12 : 0.04,
+                shadowRadius: 20,
+                elevation: isMaterialMode ? 5 : 2,
               },
             ]}
             onPress={() => androidTheme.setMode('material')}>
@@ -479,8 +535,8 @@ export default function MoreScreen({
                 style={[
                   styles.badgeLeft,
                   {
-                    backgroundColor: !isCompanyMode
-                      ? materialSolidAccent
+                    backgroundColor: isMaterialMode
+                      ? materialSelectedBadgeBackground
                       : String(palette.surfaceMuted),
                   },
                 ]}>
@@ -488,9 +544,11 @@ export default function MoreScreen({
                   style={[
                     styles.badgeLeftText,
                     {
-                      color: !isCompanyMode
-                        ? String(palette.onPrimary)
-                        : String(palette.onSurface),
+                      color: isMaterialMode
+                        ? '#FFFFFF'
+                        : isMaterialDark
+                          ? '#D7E3EC'
+                          : String(palette.onSurface),
                     },
                   ]}>
                     System aware
@@ -500,15 +558,23 @@ export default function MoreScreen({
                 style={[
                   styles.radio,
                   {
-                    borderColor: !isCompanyMode
-                      ? materialSolidAccent
+                    borderColor: isMaterialMode
+                      ? materialSelectedRadioBorder
                       : String(palette.outline),
-                    backgroundColor: !isCompanyMode
-                      ? materialSolidAccent
+                    backgroundColor: isMaterialMode
+                      ? '#FFFFFF'
                       : 'transparent',
                   },
-                ]}
-              />
+                ]}>
+                {isMaterialMode ? (
+                  <View
+                    style={[
+                      styles.radioInner,
+                      { backgroundColor: materialSolidAccent },
+                    ]}
+                  />
+                ) : null}
+              </View>
             </View>
             <View style={styles.optionHeader}>
               <Text style={[styles.optionTitle, { color: String(palette.onSurface) }]}>
@@ -531,20 +597,20 @@ export default function MoreScreen({
                 style={[
                   styles.previewCard,
                   {
-                    backgroundColor: String(palette.surface),
-                    borderColor: String(palette.outlineVariant),
+                    backgroundColor: materialPreviewCardBackground,
+                    borderColor: materialPreviewBorder,
                   },
                 ]}>
                 <View
                   style={[
                     styles.previewDot,
-                    { backgroundColor: materialPreview[0] },
+                    { backgroundColor: materialSolidAccent },
                   ]}
                 />
                 <View
                   style={[
                     styles.previewLine,
-                    { backgroundColor: materialPreview[1] },
+                    { backgroundColor: materialPreviewPrimaryLine },
                   ]}
                 />
               </View>
@@ -558,20 +624,20 @@ export default function MoreScreen({
                 style={[
                   styles.previewCard,
                   {
-                    backgroundColor: String(palette.surfaceAccent),
-                    borderColor: String(palette.outlineVariant),
+                    backgroundColor: materialPreviewCardSecondaryBackground,
+                    borderColor: materialPreviewBorder,
                   },
                 ]}>
                 <View
                   style={[
                     styles.previewLine,
-                    { backgroundColor: materialPreview[2] },
+                    { backgroundColor: materialPreviewTertiaryLine },
                   ]}
                 />
                 <View
                   style={[
                     styles.previewLineShort,
-                    { backgroundColor: materialPreview[1] },
+                    { backgroundColor: materialPreviewSecondaryLine },
                   ]}
                 />
               </View>
