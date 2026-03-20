@@ -15,6 +15,8 @@ type AndroidThemeContextValue = {
 
 const STORAGE_KEY = 'android_design_mode_v1'
 const INTRO_STORAGE_KEY = 'android_design_intro_seen_v2'
+const THEME_EXIT_MS = 280
+const THEME_ENTER_MS = 420
 
 const AndroidThemeContext = React.createContext<AndroidThemeContextValue>({
   mode: 'material',
@@ -77,10 +79,10 @@ export function useAndroidThemeModeState(): AndroidThemeContextValue {
 
         const enterTimeout = setTimeout(() => {
           setTransitionPhase('idle')
-        }, 240)
+        }, THEME_ENTER_MS)
 
         timeoutsRef.current.push(enterTimeout as unknown as number)
-      }, 240)
+      }, THEME_EXIT_MS)
 
       timeoutsRef.current.push(exitTimeout as unknown as number)
     },

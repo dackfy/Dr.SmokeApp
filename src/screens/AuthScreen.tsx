@@ -43,6 +43,7 @@ const lockIcon = require('../assets/icons/lock.png');
 
 type AuthTab = TabKey;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 const MESSAGE_VISIBLE_MS = 2550;
 const MESSAGE_FADE_MS = 450;
 const MESSAGE_FADE_IN_MS = 120;
@@ -166,7 +167,10 @@ export default function AuthScreen() {
     string | null
   >(null);
   const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const [previousTab, setPreviousTab] = useState<AuthTab>('home');
+  const [isTabTransitioning, setIsTabTransitioning] = useState(false);
   const profileSheetProgress = useRef(new Animated.Value(0)).current;
+  const tabTransitionProgress = useRef(new Animated.Value(1)).current;
   const authNoticeOpacity = useRef(new Animated.Value(0)).current;
   const forgotErrorOpacity = useRef(new Animated.Value(0)).current;
   const loginErrorOpacity = useRef(new Animated.Value(0)).current;
@@ -222,6 +226,15 @@ export default function AuthScreen() {
 
   const switchTab = React.useCallback(
     (nextTab: AuthTab) => {
+      if (nextTab === activeTab) {
+        return;
+      }
+
+      setPreviousTab(activeTab);
+      setIsTabTransitioning(true);
+      tabTransitionProgress.stopAnimation();
+      tabTransitionProgress.setValue(0);
+
       if (nextTab === 'home') {
         setActiveTab('home');
         setOldPassword('');
@@ -232,12 +245,22 @@ export default function AuthScreen() {
         setIsNewPasswordVisible(false);
         setFocusedProfileField(null);
         setIsPasswordSectionOpen(false);
-        return;
+      } else {
+        setActiveTab(nextTab);
+        setIsPasswordSectionOpen(false);
       }
-      setActiveTab(nextTab);
-      setIsPasswordSectionOpen(false);
+
+      Animated.timing(tabTransitionProgress, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setIsTabTransitioning(false);
+        }
+      });
     },
-    [],
+    [activeTab, tabTransitionProgress],
   );
 
   useEffect(() => {
@@ -587,10 +610,46 @@ export default function AuthScreen() {
       isAndroid && androidPalette
         ? getAndroidStatusBarStyle(String(androidPalette.background))
         : 'light-content';
+    const isAndroidMaterialMode = isAndroid && androidTheme.mode === 'material';
+    const isAndroidMaterialDark = isAndroidMaterialMode && colorScheme === 'dark';
     const androidTabThemeMode =
-      isAndroid && androidTheme.mode === 'material' && colorScheme !== 'dark'
-        ? 'light'
-        : 'dark';
+      isAndroidMaterialMode && !isAndroidMaterialDark ? 'light' : 'dark';
+    const androidTabActiveBackground =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? String(androidPalette.primaryContainerStrong)
+          : isAndroidMaterialDark
+            ? String(androidPalette.surfaceAccent)
+            : String(androidPalette.primaryContainer)
+        : undefined;
+    const androidTabActiveForeground =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? String(androidPalette.onSurface)
+          : isAndroidMaterialDark
+            ? String(androidPalette.onSurface)
+            : String(androidPalette.primaryStrong)
+        : undefined;
+    const androidTabInactiveForeground =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? '#B7C0C9'
+          : String(androidPalette.onSurfaceMuted)
+        : undefined;
+    const androidTabShellBackground =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? String(androidPalette.surfaceRaised)
+          : isAndroidMaterialDark
+            ? 'rgba(18,22,26,0.92)'
+            : 'rgba(251,252,254,0.94)'
+        : undefined;
+    const androidTabShellBorder =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? String(androidPalette.primaryContainerStrong)
+          : String(androidPalette.outlineVariant)
+        : undefined;
 
     const showProfile = activeTab === 'profile';
     const showMail = activeTab === 'mail';
@@ -610,10 +669,93 @@ export default function AuthScreen() {
       outputRange: [0.94, 0.985, 1],
       extrapolate: 'clamp',
     });
+    const tabIndexMap: Record<AuthTab, number> = {
+      home: 0,
+      mail: 1,
+      trash: 2,
+      profile: 3,
+    };
+    const previousIndex = tabIndexMap[previousTab];
+    const activeIndex = tabIndexMap[activeTab];
+    const direction = activeIndex > previousIndex ? 1 : -1;
+    const travelDistance = SCREEN_WIDTH * 0.14;
+
+    const createTabAnimatedStyle = (tab: AuthTab) => {
+      const isIncoming = tab === activeTab;
+      const isOutgoing = tab === previousTab && isTabTransitioning;
+      const isStaticActive = tab === activeTab && !isTabTransitioning;
+
+      if (isStaticActive) {
+        return {
+          opacity: 1,
+          transform: [{ translateX: 0 }, { scale: 1 }],
+        };
+      }
+
+      if (isIncoming) {
+        return {
+          opacity: tabTransitionProgress,
+          transform: [
+            {
+              translateX: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [direction * travelDistance, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.992, 1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        };
+      }
+
+      if (isOutgoing) {
+        return {
+          opacity: tabTransitionProgress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 0],
+            extrapolate: 'clamp',
+          }),
+          transform: [
+            {
+              translateX: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -direction * travelDistance * 0.7],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0.996],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        };
+      }
+
+      return {
+        opacity: 0,
+        transform: [{ translateX: 0 }, { scale: 1 }],
+      };
+    };
+
+    const homeTabAnimatedStyle = createTabAnimatedStyle('home');
+    const mailTabAnimatedStyle = createTabAnimatedStyle('mail');
+    const trashTabAnimatedStyle = createTabAnimatedStyle('trash');
+    const profileTabAnimatedStyle = createTabAnimatedStyle('profile');
 
     return (
       <View style={styles.authenticatedScreen}>
-        <View style={styles.homeLayer} pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
+        <Animated.View
+          style={[styles.homeLayer, homeTabAnimatedStyle]}
+          pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
           <HomeScreenRouter
             session={session}
             isRefreshingSession={isRefreshingSession}
@@ -631,10 +773,11 @@ export default function AuthScreen() {
             showHeaderActions={false}
             showTabBar={false}
           />
-        </View>
+        </Animated.View>
 
-        {showMail ? (
-          <View style={styles.tabLayer} pointerEvents="auto">
+        <Animated.View
+          style={[styles.tabLayer, mailTabAnimatedStyle]}
+          pointerEvents={showMail ? 'auto' : 'none'}>
             {isAndroid ? (
               <SafeAreaView
                 style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
@@ -642,13 +785,6 @@ export default function AuthScreen() {
                 <View style={styles.tabHeaderContainer}>
                   <View style={styles.tabHeaderRow}>
                     <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                    <TouchableOpacity
-                      style={styles.tabHeaderAvatarButton}
-                      onPress={openProfileSheet}
-                      accessibilityRole="button"
-                      accessibilityLabel="Открыть профиль">
-                      <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -665,11 +801,11 @@ export default function AuthScreen() {
             ) : (
               <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
             )}
-          </View>
-        ) : null}
+          </Animated.View>
 
-        {showTrash ? (
-          <View style={styles.tabLayer} pointerEvents="auto">
+        <Animated.View
+          style={[styles.tabLayer, trashTabAnimatedStyle]}
+          pointerEvents={showTrash ? 'auto' : 'none'}>
             {isAndroid ? (
               <SafeAreaView
                 style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
@@ -677,13 +813,6 @@ export default function AuthScreen() {
                 <View style={styles.tabHeaderContainer}>
                   <View style={styles.tabHeaderRow}>
                     <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
-                    <TouchableOpacity
-                      style={styles.tabHeaderAvatarButton}
-                      onPress={openProfileSheet}
-                      accessibilityRole="button"
-                      accessibilityLabel="Открыть профиль">
-                      <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -700,8 +829,7 @@ export default function AuthScreen() {
             ) : (
               <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
             )}
-          </View>
-        ) : null}
+          </Animated.View>
 
         {!isAndroid ? (
           <View
@@ -735,21 +863,15 @@ export default function AuthScreen() {
                   styles.tabHeaderRow,
                   styles.tabHeaderRowIosOnly,
                   styles.iosFloatingHeaderRow,
-                ]}>
-                <TouchableOpacity
-                  style={styles.tabHeaderAvatarButton}
-                  onPress={openProfileSheet}
-                  accessibilityRole="button"
-                  accessibilityLabel="Открыть профиль">
-                  <Text style={styles.tabHeaderAvatarText}>{profileLetter}</Text>
-                </TouchableOpacity>
-              </View>
+                ]}
+              />
             </View>
           </View>
         ) : null}
 
-        {showProfile ? (
-          <View style={styles.tabLayer} pointerEvents="auto">
+        <Animated.View
+          style={[styles.tabLayer, profileTabAnimatedStyle]}
+          pointerEvents={showProfile ? 'auto' : 'none'}>
             <SafeAreaView
               style={[
                 styles.authenticatedScreen,
@@ -764,12 +886,9 @@ export default function AuthScreen() {
               <StatusBar barStyle={profileStatusBarStyle} />
               <MoreScreen
                 employeeId={session.user.id}
-                profileLetter={profileLetter}
-                onOpenProfile={openProfileSheet}
               />
             </SafeAreaView>
-          </View>
-        ) : null}
+          </Animated.View>
 
         {isProfileSheetOpen ? (
           <View style={styles.profileSheetRoot} pointerEvents="box-none">
@@ -1008,24 +1127,11 @@ export default function AuthScreen() {
             activeTintColor={
               isAndroid && androidPalette ? String(androidPalette.primary) : undefined
             }
-            activeBackgroundColor={
-              isAndroid && androidPalette
-                ? String(androidPalette.primaryContainerStrong)
-                : undefined
-            }
-            inactiveTintColor={
-              isAndroid && androidPalette ? String(androidPalette.onSurfaceMuted) : undefined
-            }
-            shellBackgroundColor={
-              isAndroid && androidPalette
-                ? String(androidPalette.surfaceRaised)
-                : undefined
-            }
-            shellBorderColor={
-              isAndroid && androidPalette
-                ? String(androidPalette.outlineVariant)
-                : undefined
-            }
+            activeBackgroundColor={androidTabActiveBackground}
+            activeForegroundColor={androidTabActiveForeground}
+            inactiveTintColor={androidTabInactiveForeground}
+            shellBackgroundColor={androidTabShellBackground}
+            shellBorderColor={androidTabShellBorder}
             mailIcon={mailIcon}
             trashIcon={trashIcon}
           />

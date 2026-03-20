@@ -31,26 +31,6 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  debugCaption: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-  },
-
-  avatarButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-
   sectionCard: {
     borderRadius: 30,
     borderWidth: 1,
@@ -142,6 +122,11 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
 
+  headerTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+
   backButton: {
     width: 42,
     height: 42,
@@ -155,6 +140,12 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 24,
     fontWeight: '700',
+  },
+
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 
   screenTitle: {
@@ -332,10 +323,12 @@ export const styles = StyleSheet.create({
   },
 
   radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   optionCard: {
