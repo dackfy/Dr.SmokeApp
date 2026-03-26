@@ -1,7 +1,7 @@
 import React from 'react'
 import type { AuthSession } from '../features/auth/types'
 import EmployeeHomeScreen from './EmployeeHomeScreen'
-import HrHomeScreen from './HrHomeScreen'
+import SuperHrHomeScreen from './SuperHrHomeScreen'
 import RolePlaceholderHomeScreen from './RolePlaceholderHomeScreen'
 
 type HomeScreenRouterProps = React.ComponentProps<typeof EmployeeHomeScreen> & {
@@ -29,9 +29,9 @@ export default function HomeScreenRouter({
     )
   }
 
-  if (role === 2) {
+  if (role === 10) {
     return (
-      <HrHomeScreen
+      <SuperHrHomeScreen
         session={session}
         onLogout={rest.onLogout}
         onRefreshSession={onRefreshSession}
