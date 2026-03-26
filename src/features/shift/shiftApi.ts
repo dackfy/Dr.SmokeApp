@@ -319,6 +319,24 @@ export const shiftApi: ShiftApi = {
       if (res.status === 404 && code === 'shop_not_found') {
         throw new Error('Магазин не найден.')
       }
+      if (res.status === 404 && code === 'employee_not_found') {
+        throw new Error('Сотрудник не найден.')
+      }
+      if (res.status === 400 && code === 'invalid_employee_id') {
+        throw new Error('Некорректный employee_id.')
+      }
+      if (res.status === 400 && code === 'invalid_payload') {
+        throw new Error('Проверьте сумму размена и выбранный магазин.')
+      }
+      if (res.status === 409 && code === 'shop_shift_already_open') {
+        throw new Error('В этом магазине уже открыта смена.')
+      }
+      if (typeof data?.message === 'string' && data.message.trim()) {
+        throw new Error(data.message.trim())
+      }
+      if (typeof code === 'string' && code.trim()) {
+        throw new Error(`Ошибка сервера: ${code.trim()}`)
+      }
       throw new Error('Не удалось открыть смену.')
     }
 
