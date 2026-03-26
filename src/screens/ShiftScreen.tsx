@@ -150,7 +150,7 @@ type SalaryPeriodKey = 'current' | 'previous'
 
 const homeIcon = require('../assets/icons/home.png')
 const profileIcon = require('../assets/icons/more.png')
-const mailIcon = require('../assets/icons/mail.png')
+const mailIcon = require('../assets/icons/gift.png')
 const trashIcon = require('../assets/icons/trash.png')
 const shopIcon = require('../assets/icons/shop.png')
 const rubleIcon = require('../assets/icons/ruble.png')

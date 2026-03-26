@@ -240,6 +240,7 @@ export default function LiquidTabBarAndroid({
                         source={tab.icon}
                         style={[
                           styles.icon,
+                          tab.key === 'mail' ? styles.mailIcon : null,
                           { tintColor: isActive ? activeForeground : inactiveTint },
                         ]}
                       />
@@ -327,6 +328,10 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     resizeMode: 'contain',
+  },
+  mailIcon: {
+    width: 24,
+    height: 24,
   },
   label: {
     fontSize: 11,

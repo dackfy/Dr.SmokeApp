@@ -730,7 +730,14 @@ function SharedLiquidTabBar({
         <View style={styles.tabsRow} {...panHandlers}>
           {tabs.map(tab => (
             <View key={tab.key} style={styles.tabButton} pointerEvents="none">
-              <Image source={tab.icon} style={[styles.icon, { tintColor: inactiveIconTint }]} />
+              <Image
+                source={tab.icon}
+                style={[
+                  styles.icon,
+                  tab.key === 'mail' ? styles.mailIcon : null,
+                  { tintColor: inactiveIconTint },
+                ]}
+              />
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -776,7 +783,12 @@ function SharedLiquidTabBar({
                 <View key={`overlay-${tab.key}`} style={styles.tabButton}>
                   <Image
                     source={tab.icon}
-                    style={[styles.icon, styles.iconActive, { tintColor: activeIconTint }]}
+                    style={[
+                      styles.icon,
+                      tab.key === 'mail' ? styles.mailIcon : null,
+                      styles.iconActive,
+                      { tintColor: activeIconTint },
+                    ]}
                   />
                   <Text
                     numberOfLines={1}
@@ -895,6 +907,11 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: INACTIVE_ICON_TINT,
     opacity: Platform.OS === 'ios' && isLiquidGlassSupported ? 0.94 : 0.9,
+  },
+
+  mailIcon: {
+    width: 23,
+    height: 23,
   },
 
   iconActive: {
