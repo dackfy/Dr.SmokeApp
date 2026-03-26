@@ -450,9 +450,6 @@ function normalizeClock(value?: string | null) {
 
 function getDialablePhone(value?: string | null) {
   const digits = String(value || '').replace(/\D/g, '')
-  if (digits.length === 10) {
-    return `+7${digits}`
-  }
   if (digits.length === 11 && digits.startsWith('8')) {
     return `+7${digits.slice(1)}`
   }
@@ -619,18 +616,6 @@ export default function ShiftScreen({
           : androidLightStyles),
     }
   }, [androidTheme.mode, colorScheme])
-  const inputPlaceholderColor =
-    Platform.OS === 'android'
-      ? androidTheme.mode === 'company'
-        ? '#B9B9B9'
-        : colorScheme === 'dark'
-          ? '#B8C2CC'
-          : '#6B7280'
-      : '#7A7A7A'
-  const inputAccentColor =
-    Platform.OS === 'android' && androidPalette
-      ? String(androidPalette.primaryStrong)
-      : '#FF6A00'
 
   const [isShopDropdownOpen, setIsShopDropdownOpen] = React.useState(false)
   const [isShopDropdownMounted, setIsShopDropdownMounted] = React.useState(false)
@@ -732,9 +717,14 @@ export default function ShiftScreen({
     const phoneUrl = `tel:${dialablePhone}`
 
     try {
+      const canOpen = await Linking.canOpenURL(phoneUrl)
+      if (!canOpen) {
+        return
+      }
+
       await Linking.openURL(phoneUrl)
     } catch {
-      Alert.alert('Не удалось открыть звонилку', `Попробуйте набрать номер вручную: ${dialablePhone}`)
+      // ignore linking failures for now
     }
   }, [])
 
@@ -1264,7 +1254,7 @@ export default function ShiftScreen({
                 style={[styles.button, styles.buttonSecondary]}
                 onPress={onBack}
                 disabled={isSubmitting || isLoading}>
-                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Назад</Text>
+                <Text style={styles.buttonText}>Назад</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -1272,7 +1262,7 @@ export default function ShiftScreen({
               style={[styles.button, styles.buttonSecondary]}
               onPress={onLogout}
               disabled={isSubmitting || isLoading}>
-              <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Выйти</Text>
+              <Text style={styles.buttonText}>Выйти</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -1383,13 +1373,7 @@ export default function ShiftScreen({
                   ]}
                   onPress={actions.startOpening}
                   disabled={!canStartOpening || isSubmitting || isLoading}>
-                  <Text
-                    style={[
-                      styles.buttonText,
-                      !canStartOpening ? styles.buttonTextDisabled : null,
-                    ]}>
-                    Открыть смену
-                  </Text>
+                  <Text style={styles.buttonText}>Открыть смену</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1401,13 +1385,7 @@ export default function ShiftScreen({
                   ]}
                   onPress={actions.startClosing}
                   disabled={!canStartClosing || isSubmitting || isLoading}>
-                  <Text
-                    style={[
-                      styles.buttonText,
-                      !canStartClosing ? styles.buttonTextDisabled : null,
-                    ]}>
-                    Закрыть смену
-                  </Text>
+                  <Text style={styles.buttonText}>Закрыть смену</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -1482,9 +1460,7 @@ export default function ShiftScreen({
                       focusedField === 'cashAtOpening' ? styles.inputFocused : null,
                     ]}
                     placeholder="0"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     keyboardType="decimal-pad"
                     returnKeyType="done"
                     blurOnSubmit
@@ -1500,7 +1476,7 @@ export default function ShiftScreen({
                     style={[styles.button, isSubmitting && styles.buttonDisabled]}
                     onPress={actions.submitOpenShift}
                     disabled={isSubmitting}>
-                    <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
+                    <Text style={styles.buttonText}>
                       {isSubmitting ? 'Отправка...' : 'Отправить отчёт'}
                     </Text>
                   </TouchableOpacity>
@@ -1532,7 +1508,7 @@ export default function ShiftScreen({
                     style={[styles.button, isSubmitting && styles.buttonDisabled]}
                     onPress={actions.submitOpenShift}
                     disabled={isSubmitting}>
-                    <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
+                    <Text style={styles.buttonText}>
                       {isSubmitting ? 'Отправка...' : 'Открыть смену'}
                     </Text>
                   </TouchableOpacity>
@@ -1543,7 +1519,7 @@ export default function ShiftScreen({
                 style={[styles.button, styles.buttonSecondary]}
                 onPress={actions.cancelFlow}
                 disabled={isSubmitting}>
-                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Отменить</Text>
+                <Text style={styles.buttonText}>Отменить</Text>
               </TouchableOpacity>
             </>
           ) : null}
@@ -1566,9 +1542,7 @@ export default function ShiftScreen({
                     style={[styles.button, styles.buttonDanger]}
                     onPress={actions.resetWrongOpenedShop}
                     disabled={isSubmitting}>
-                    <Text style={[styles.buttonText, styles.buttonTextDanger]}>
-                      Неправильно открыл смену
-                    </Text>
+                    <Text style={styles.buttonText}>Неправильно открыл смену</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1584,9 +1558,7 @@ export default function ShiftScreen({
                       focusedField === 'closeRevenueTotal' ? styles.inputFocused : null,
                     ]}
                     placeholder="0"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     keyboardType="decimal-pad"
                     value={closeDraft.revenueTotal}
                     onFocus={() => setFocusedField('closeRevenueTotal')}
@@ -1611,9 +1583,7 @@ export default function ShiftScreen({
                       focusedField === 'closeChecksCount' ? styles.inputFocused : null,
                     ]}
                     placeholder="0"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     keyboardType="number-pad"
                     value={closeDraft.checksCount}
                     onFocus={() => setFocusedField('closeChecksCount')}
@@ -1638,9 +1608,7 @@ export default function ShiftScreen({
                       focusedField === 'closeCashlessPayment' ? styles.inputFocused : null,
                     ]}
                     placeholder="0"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     keyboardType="decimal-pad"
                     value={closeDraft.cashlessPayment}
                     onFocus={() => setFocusedField('closeCashlessPayment')}
@@ -1680,9 +1648,7 @@ export default function ShiftScreen({
                       focusedField === 'closeCashDenomination' ? styles.inputFocused : null,
                     ]}
                     placeholder="0"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     keyboardType="decimal-pad"
                     value={closeDraft.cashDenomination}
                     onFocus={() => setFocusedField('closeCashDenomination')}
@@ -1707,9 +1673,7 @@ export default function ShiftScreen({
                       focusedField === 'closeComment' ? styles.inputFocused : null,
                     ]}
                     placeholder="Комментарий"
-                    placeholderTextColor={inputPlaceholderColor}
-                    selectionColor={inputAccentColor}
-                    cursorColor={inputAccentColor}
+                    placeholderTextColor="#7A7A7A"
                     value={closeDraft.comment}
                     onFocus={() => setFocusedField('closeComment')}
                     onBlur={() => setFocusedField(null)}
@@ -1797,7 +1761,7 @@ export default function ShiftScreen({
                     style={[styles.button, isSubmitting && styles.buttonDisabled]}
                     onPress={actions.submitCloseShift}
                     disabled={isSubmitting}>
-                    <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
+                    <Text style={styles.buttonText}>
                       {isSubmitting ? 'Отправка...' : 'Закрыть смену'}
                     </Text>
                   </TouchableOpacity>
@@ -1808,7 +1772,7 @@ export default function ShiftScreen({
                 style={[styles.button, styles.buttonSecondary]}
                 onPress={actions.cancelFlow}
                 disabled={isSubmitting}>
-                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Отменить</Text>
+                <Text style={styles.buttonText}>Отменить</Text>
               </TouchableOpacity>
             </>
           ) : null}

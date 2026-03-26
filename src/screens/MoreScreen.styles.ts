@@ -42,12 +42,6 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
 
-  heroAccentBar: {
-    width: 72,
-    height: 6,
-    borderRadius: 999,
-  },
-
   heroGlowCard: {
     borderRadius: 34,
     borderWidth: 1,
@@ -72,34 +66,6 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
 
-  heroInfoGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-
-  heroInfoCard: {
-    flex: 1,
-    minHeight: 72,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 6,
-  },
-
-  heroInfoLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.35,
-    textTransform: 'uppercase',
-  },
-
-  heroInfoValue: {
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '800',
-  },
-
   navRow: {
     minHeight: 72,
     borderRadius: 22,
@@ -115,21 +81,6 @@ export const styles = StyleSheet.create({
   navRowTextWrap: {
     flex: 1,
     gap: 4,
-  },
-
-  navRowBadge: {
-    minWidth: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-
-  navRowBadgeText: {
-    fontSize: 18,
-    lineHeight: 18,
-    fontWeight: '800',
   },
 
   navRowTitle: {
@@ -385,16 +336,6 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-
-  optionHoldFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 24,
   },
 
   optionHeader: {
@@ -423,13 +364,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginBottom: 14,
-  },
-
-  themeHoldHint: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-    paddingHorizontal: 2,
   },
 
   previewRail: {

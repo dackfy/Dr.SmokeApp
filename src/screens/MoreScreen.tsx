@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  Animated,
   BackHandler,
   Linking,
   Platform,
@@ -9,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   useColorScheme,
-  Vibration,
   View,
 } from 'react-native'
 import { usePortalAccess } from '../features/portal/usePortalAccess'
@@ -66,10 +64,6 @@ export default function MoreScreen({
   const androidTheme = useAndroidThemeMode()
   const isAndroid = Platform.OS === 'android'
   const [route, setRoute] = React.useState<MoreScreenRoute>('root')
-  const themeHoldProgress = React.useRef(new Animated.Value(0)).current
-  const holdTimersRef = React.useRef<number[]>([])
-  const holdCommittedRef = React.useRef(false)
-  const [holdTarget, setHoldTarget] = React.useState<'company' | 'material' | null>(null)
 
   const palette = React.useMemo(() => {
     if (!isAndroid) {
@@ -104,11 +98,6 @@ export default function MoreScreen({
   const heroCardBackground = isCompanyMode
     ? String(palette.surfaceMuted)
     : subtleSurfaceColor
-  const accentSurface = isCompanyMode
-    ? String(palette.primaryContainerStrong)
-    : isMaterialDark
-      ? '#202A33'
-      : String(palette.primaryContainer)
   const heroKickerColor = accentTextColor
   const secondaryMutedColor =
     isMaterialDark ? String(palette.onSurfaceMuted) : String(palette.onSurfaceMuted)
@@ -211,116 +200,6 @@ export default function MoreScreen({
     return () => subscription.remove()
   }, [isAndroid, route])
 
-  React.useEffect(() => {
-    return () => {
-      holdTimersRef.current.forEach(timer => clearTimeout(timer))
-      holdTimersRef.current = []
-    }
-  }, [])
-
-  const stopThemeHold = React.useCallback(
-    (animated = true) => {
-      holdTimersRef.current.forEach(timer => clearTimeout(timer))
-      holdTimersRef.current = []
-
-      const finish = () => {
-        setHoldTarget(null)
-        holdCommittedRef.current = false
-      }
-
-      if (animated) {
-        Animated.timing(themeHoldProgress, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: false,
-        }).start(finish)
-      } else {
-        themeHoldProgress.setValue(0)
-        finish()
-      }
-    },
-    [themeHoldProgress],
-  )
-
-  const startThemeHold = React.useCallback(
-    (mode: 'company' | 'material') => {
-      if (!isAndroid || androidTheme.transitionPhase !== 'idle') {
-        return
-      }
-
-      stopThemeHold(false)
-      holdCommittedRef.current = false
-      setHoldTarget(mode)
-      themeHoldProgress.setValue(0)
-      Vibration.vibrate(mode === 'company' ? 4 : 3)
-
-      holdTimersRef.current = [
-        setTimeout(() => Vibration.vibrate(mode === 'company' ? 7 : 6), 170) as unknown as number,
-        setTimeout(() => Vibration.vibrate(mode === 'company' ? 11 : 9), 360) as unknown as number,
-      ]
-
-      Animated.timing(themeHoldProgress, {
-        toValue: 1,
-        duration: 620,
-        useNativeDriver: false,
-      }).start()
-    },
-    [androidTheme.transitionPhase, isAndroid, stopThemeHold, themeHoldProgress],
-  )
-
-  const commitThemeHold = React.useCallback(
-    (mode: 'company' | 'material') => {
-      if (!isAndroid || holdCommittedRef.current || androidTheme.mode === mode) {
-        stopThemeHold()
-        return
-      }
-
-      holdCommittedRef.current = true
-      holdTimersRef.current.forEach(timer => clearTimeout(timer))
-      holdTimersRef.current = []
-      Vibration.vibrate([0, 10, 22, 18, 16])
-
-      Animated.timing(themeHoldProgress, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: false,
-      }).start(() => {
-        androidTheme.setMode(mode)
-        setTimeout(() => {
-          stopThemeHold()
-        }, 260)
-      })
-    },
-    [androidTheme, isAndroid, stopThemeHold, themeHoldProgress],
-  )
-
-  const renderThemeHoldOverlay = (mode: 'company' | 'material', accent: string) => {
-    if (holdTarget !== mode) {
-      return null
-    }
-
-    return (
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.optionHoldFill,
-          {
-            backgroundColor: accent,
-            opacity: themeHoldProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.06, 0.16],
-              extrapolate: 'clamp',
-            }),
-            width: themeHoldProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', '100%'],
-            }),
-          },
-        ]}
-      />
-    )
-  }
-
   const handlePortalPrimaryAction = React.useCallback(() => {
     if (portalSession.status === 'active') {
       logoutPortal()
@@ -389,12 +268,6 @@ export default function MoreScreen({
             elevation: isCompanyMode ? 8 : 4,
           },
         ]}>
-        <View
-          style={[
-            styles.heroAccentBar,
-            { backgroundColor: isCompanyMode ? String(palette.primary) : materialSolidAccent },
-          ]}
-        />
         <Text style={[styles.heroKicker, { color: heroKickerColor }]}>
           Центр настроек
         </Text>
@@ -402,41 +275,8 @@ export default function MoreScreen({
           Настройки и инструменты
         </Text>
         <Text style={[styles.subtitle, { color: secondaryMutedColor }]}>
-          Оформление, портал и служебные инструменты собраны в одном месте и поданы в том же
-          плотном визуальном ритме, что и главная.
+          Здесь будут собраны оформление приложения, доступ на портал и внутренние сервисы.
         </Text>
-        <View style={styles.heroInfoGrid}>
-          <View
-            style={[
-              styles.heroInfoCard,
-              {
-                backgroundColor: String(palette.surface),
-                borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
-              },
-            ]}>
-            <Text style={[styles.heroInfoLabel, { color: heroKickerColor }]}>Оформление</Text>
-            <Text style={[styles.heroInfoValue, { color: String(palette.onSurface) }]}>
-              {isAndroid ? (androidTheme.mode === 'company' ? 'Код компании' : 'Material You') : 'iOS'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.heroInfoCard,
-              {
-                backgroundColor: String(palette.surface),
-                borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
-              },
-            ]}>
-            <Text style={[styles.heroInfoLabel, { color: heroKickerColor }]}>Портал</Text>
-            <Text style={[styles.heroInfoValue, { color: String(palette.onSurface) }]}>
-              {portalStatusLabel}
-            </Text>
-          </View>
-        </View>
       </View>
 
       <View
@@ -466,18 +306,6 @@ export default function MoreScreen({
               },
             ]}
             onPress={() => setRoute('appearance')}>
-            <View
-              style={[
-                styles.navRowBadge,
-                {
-                  backgroundColor: accentSurface,
-                  borderColor: isCompanyMode
-                    ? String(palette.primaryContainerStrong)
-                    : String(palette.outlineVariant),
-                },
-              ]}>
-              <Text style={[styles.navRowBadgeText, { color: accentTextColor }]}>A</Text>
-            </View>
             <View style={styles.navRowTextWrap}>
               <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>
                 Оформление
@@ -516,18 +344,6 @@ export default function MoreScreen({
               },
             ]}
             onPress={() => setRoute('portal')}>
-            <View
-              style={[
-                styles.navRowBadge,
-                {
-                  backgroundColor: accentSurface,
-                  borderColor: isCompanyMode
-                    ? String(palette.primaryContainerStrong)
-                    : String(palette.outlineVariant),
-                },
-              ]}>
-              <Text style={[styles.navRowBadgeText, { color: accentTextColor }]}>P</Text>
-            </View>
             <View style={styles.navRowTextWrap}>
               <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>
                 Инструменты
@@ -592,11 +408,7 @@ export default function MoreScreen({
                   : String(palette.outlineVariant),
               },
             ]}
-            delayLongPress={620}
-            onPressIn={() => startThemeHold('company')}
-            onPressOut={() => stopThemeHold()}
-            onLongPress={() => commitThemeHold('company')}>
-            {renderThemeHoldOverlay('company', String(palette.primary))}
+            onPress={() => androidTheme.setMode('company')}>
             <View style={styles.badgeRow}>
               <View
                 style={[
@@ -717,11 +529,7 @@ export default function MoreScreen({
                 elevation: isMaterialMode ? 5 : 2,
               },
             ]}
-            delayLongPress={620}
-            onPressIn={() => startThemeHold('material')}
-            onPressOut={() => stopThemeHold()}
-            onLongPress={() => commitThemeHold('material')}>
-            {renderThemeHoldOverlay('material', materialSolidAccent)}
+            onPress={() => androidTheme.setMode('material')}>
             <View style={styles.badgeRow}>
               <View
                 style={[
@@ -835,11 +643,6 @@ export default function MoreScreen({
               </View>
             </View>
           </Pressable>
-
-          <Text style={[styles.themeHoldHint, { color: secondaryMutedColor }]}>
-            Удерживай карточку, чтобы применить тему. Сильное короткое касание запускает,
-            нарастающая отдача подтверждает переключение.
-          </Text>
         </View>
       )}
     </View>
@@ -857,17 +660,11 @@ export default function MoreScreen({
         ]}>
         <View
           style={[
-            styles.heroAccentBar,
-            { backgroundColor: isCompanyMode ? String(palette.primary) : materialSolidAccent },
-          ]}
-        />
-        <View
-          style={[
             styles.statusPill,
             { backgroundColor: String(palette.surfaceRaised) },
           ]}>
           <Text style={[styles.statusPillText, { color: heroKickerColor }]}>
-            Портал
+            Portal access
           </Text>
         </View>
         <Text style={[styles.heroTitle, { color: String(palette.onSurface) }]}>
@@ -1012,6 +809,22 @@ export default function MoreScreen({
             {portalActionLabel}
           </Text>
         </TouchableOpacity>
+
+        {portalSession.status !== 'inactive' ? (
+          <TouchableOpacity
+            style={[
+              styles.secondaryButton,
+              {
+                backgroundColor: String(palette.surfaceAccent),
+                borderColor: String(palette.outlineVariant),
+              },
+            ]}
+            onPress={openPortal}>
+            <Text style={[styles.secondaryButtonText, { color: String(palette.onSurface) }]}>
+              Открыть портал
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={[

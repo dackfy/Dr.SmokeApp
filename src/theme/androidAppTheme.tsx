@@ -15,8 +15,8 @@ type AndroidThemeContextValue = {
 
 const STORAGE_KEY = 'android_design_mode_v1'
 const INTRO_STORAGE_KEY = 'android_design_intro_seen_v2'
-const THEME_EXIT_MS = 240
-const THEME_ENTER_MS = 340
+const THEME_EXIT_MS = 280
+const THEME_ENTER_MS = 420
 
 const AndroidThemeContext = React.createContext<AndroidThemeContextValue>({
   mode: 'material',

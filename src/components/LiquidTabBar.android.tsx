@@ -1,12 +1,12 @@
 import React from 'react'
 import {
   Animated,
-  Easing,
   Image,
   ImageSourcePropType,
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   Vibration,
   View,
 } from 'react-native'
@@ -47,8 +47,8 @@ const ACTIVE_BG_LIGHT = '#DCE8FF'
 const ACTIVE_BG_DARK = '#243048'
 const INACTIVE_TINT_LIGHT = '#5C6874'
 const INACTIVE_TINT_DARK = '#B5BEC7'
-const SHELL_BG_LIGHT = 'rgba(251,252,254,0.78)'
-const SHELL_BG_DARK = 'rgba(14,18,22,0.74)'
+const SHELL_BG_LIGHT = 'rgba(251,252,254,0.94)'
+const SHELL_BG_DARK = 'rgba(14,18,22,0.9)'
 const SHELL_BORDER_LIGHT = 'rgba(16,24,32,0.08)'
 const SHELL_BORDER_DARK = 'rgba(203,213,225,0.12)'
 
@@ -56,20 +56,6 @@ function pulseHaptic() {
   if (Platform.OS === 'android') {
     Vibration.vibrate(8)
   }
-}
-
-function TrashGlyph({ color, active }: { color: string; active: boolean }) {
-  return (
-    <View style={[styles.trashGlyph, active ? styles.trashGlyphActive : null]}>
-      <View style={[styles.trashLid, { borderColor: color }]} />
-      <View style={[styles.trashHandle, { backgroundColor: color }]} />
-      <View style={[styles.trashBody, { borderColor: color }]}>
-        <View style={[styles.trashColumn, { backgroundColor: color }]} />
-        <View style={[styles.trashColumn, { backgroundColor: color }]} />
-        <View style={[styles.trashColumn, { backgroundColor: color }]} />
-      </View>
-    </View>
-  )
 }
 
 export default function LiquidTabBarAndroid({
@@ -108,7 +94,7 @@ export default function LiquidTabBarAndroid({
       mailIcon && trashIcon
         ? [
             { key: 'home', icon: homeIcon, label: homeLabel },
-            { key: 'mail', icon: mailIcon, label: 'Сертификаты' },
+            { key: 'mail', icon: mailIcon, label: 'Почта' },
             { key: 'trash', icon: trashIcon, label: 'Корзина' },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ]
@@ -124,30 +110,18 @@ export default function LiquidTabBarAndroid({
     barWidth > 0 ? (barWidth - INNER_PADDING * 2) / tabs.length : 0
 
   const activeIndex = Math.max(0, tabs.findIndex(tab => tab.key === activeTab))
-  const activeProgress = React.useRef(new Animated.Value(activeIndex)).current
-
-  const inputRange = tabs.map((_, index) => index)
-  const outputRange = tabs.map((_, index) => INNER_PADDING + itemWidth * index)
+  const indicatorX = React.useRef(new Animated.Value(0)).current
 
   React.useEffect(() => {
     if (!itemWidth) return
 
-    Animated.timing(activeProgress, {
-      toValue: activeIndex,
-      useNativeDriver: true,
-      duration: 320,
-      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+    Animated.spring(indicatorX, {
+      toValue: INNER_PADDING + itemWidth * activeIndex,
+      useNativeDriver: false,
+      speed: 20,
+      bounciness: 8,
     }).start()
-  }, [activeIndex, activeProgress, itemWidth])
-
-  const indicatorX =
-    itemWidth > 0
-      ? activeProgress.interpolate({
-          inputRange,
-          outputRange,
-          extrapolate: 'clamp',
-        })
-      : 0
+  }, [activeIndex, indicatorX, itemWidth])
 
   return (
     <View
@@ -177,12 +151,11 @@ export default function LiquidTabBarAndroid({
                 borderColor: shellBorder,
               },
             ]}
-            renderToHardwareTextureAndroid
           />
         ) : null}
 
         <View style={styles.row}>
-          {tabs.map((tab, index) => {
+          {tabs.map(tab => {
             const isActive = tab.key === activeTab
             return (
               <Pressable
@@ -195,78 +168,21 @@ export default function LiquidTabBarAndroid({
                 }}
                 style={styles.tabButton}
               >
-                <Animated.View
+                <Image
+                  source={tab.icon}
                   style={[
-                    styles.tabContent,
-                    itemWidth > 0
-                      ? {
-                          opacity: activeProgress.interpolate({
-                            inputRange: [index - 1, index, index + 1],
-                            outputRange: [0.94, 1, 0.94],
-                            extrapolate: 'clamp',
-                          }),
-                        }
-                      : null,
+                    styles.icon,
+                    { tintColor: isActive ? activeForeground : inactiveTint },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.label,
+                    { color: isActive ? activeForeground : inactiveTint },
+                    isActive ? styles.labelActive : null,
                   ]}>
-                  <Animated.View
-                    style={
-                      itemWidth > 0
-                        ? {
-                          transform: [
-                            {
-                              scale: activeProgress.interpolate({
-                                inputRange: [index - 1, index, index + 1],
-                                outputRange: [0.985, 1.015, 0.985],
-                                extrapolate: 'clamp',
-                              }),
-                            },
-                          ],
-                          opacity: activeProgress.interpolate({
-                            inputRange: [index - 1, index, index + 1],
-                            outputRange: [0.92, 1, 0.92],
-                            extrapolate: 'clamp',
-                          }),
-                        }
-                        : null
-                    }
-                    renderToHardwareTextureAndroid>
-                    {tab.key === 'trash' ? (
-                      <TrashGlyph
-                        color={isActive ? activeForeground : inactiveTint}
-                        active={isActive}
-                      />
-                    ) : (
-                      <Image
-                        source={tab.icon}
-                        style={[
-                          styles.icon,
-                          { tintColor: isActive ? activeForeground : inactiveTint },
-                        ]}
-                      />
-                    )}
-                  </Animated.View>
-                  <Animated.Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.72}
-                    style={[
-                      styles.label,
-                      tab.key === 'mail' ? styles.labelLong : null,
-                      { color: isActive ? activeForeground : inactiveTint },
-                      isActive ? styles.labelActive : null,
-                      itemWidth > 0
-                        ? {
-                          opacity: activeProgress.interpolate({
-                            inputRange: [index - 1, index, index + 1],
-                            outputRange: [0.82, 1, 0.82],
-                            extrapolate: 'clamp',
-                          }),
-                        }
-                        : null,
-                    ]}>
-                    {tab.label}
-                  </Animated.Text>
-                </Animated.View>
+                  {tab.label}
+                </Text>
               </Pressable>
             )
           })}
@@ -290,10 +206,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: INNER_PADDING,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 10,
     overflow: 'hidden',
   },
   row: {
@@ -308,17 +224,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
   tabButton: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
@@ -331,55 +243,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '700',
-    textAlign: 'center',
-    width: '100%',
-  },
-  labelLong: {
-    fontSize: 10,
-    letterSpacing: -0.2,
   },
   labelActive: {
     fontWeight: '800',
-  },
-  trashGlyph: {
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trashGlyphActive: {
-    transform: [{ translateY: -0.5 }],
-  },
-  trashLid: {
-    position: 'absolute',
-    top: 4,
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    borderWidth: 1.8,
-  },
-  trashHandle: {
-    position: 'absolute',
-    top: 1,
-    width: 6,
-    height: 2.5,
-    borderRadius: 2,
-  },
-  trashBody: {
-    position: 'absolute',
-    top: 7,
-    width: 13,
-    height: 10,
-    borderRadius: 3,
-    borderWidth: 1.8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-    paddingHorizontal: 1.5,
-  },
-  trashColumn: {
-    width: 1.4,
-    height: 5.5,
-    borderRadius: 1,
   },
 })

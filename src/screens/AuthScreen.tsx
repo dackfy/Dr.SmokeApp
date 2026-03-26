@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Easing,
   View,
   Text,
   TouchableOpacity,
@@ -22,7 +21,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
 import MoreScreen from './MoreScreen';
-import CertificatesScreen from './CertificatesScreen';
 import HomeScreenRouter from './HomeScreenRouter';
 import { authApi } from '../features/auth/authApi';
 import { buildApiUrl } from '../config/api';
@@ -50,6 +48,14 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const MESSAGE_VISIBLE_MS = 2550;
 const MESSAGE_FADE_MS = 450;
 const MESSAGE_FADE_IN_MS = 120;
+
+function formatTodayLabel(timezone?: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone || undefined,
+  }).format(new Date());
+}
 
 function validateStrongPassword(value: string): string | null {
   if (value.length < 8) {
@@ -260,7 +266,7 @@ export default function AuthScreen() {
 
   const switchTab = React.useCallback(
     (nextTab: AuthTab) => {
-      if (nextTab === activeTab || isTabTransitioning) {
+      if (nextTab === activeTab) {
         return;
       }
 
@@ -286,11 +292,7 @@ export default function AuthScreen() {
 
       Animated.timing(tabTransitionProgress, {
         toValue: 1,
-        duration: Platform.OS === 'android' ? 240 : 300,
-        easing:
-          Platform.OS === 'android'
-            ? Easing.out(Easing.cubic)
-            : Easing.bezier(0.22, 1, 0.36, 1),
+        duration: 300,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) {
@@ -298,7 +300,7 @@ export default function AuthScreen() {
         }
       });
     },
-    [activeTab, isTabTransitioning, tabTransitionProgress],
+    [activeTab, tabTransitionProgress],
   );
 
   useEffect(() => {
@@ -704,6 +706,7 @@ export default function AuthScreen() {
       .join(' ');
     const displayName = fullName || session.user.email;
     const profileEmail = session.user.email || 'Почта не указана';
+    const todayLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`;
     const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase();
     const isHrManager = Number(session.user.userRole ?? 3) === 10;
     const profileStatusBarStyle =
@@ -778,7 +781,7 @@ export default function AuthScreen() {
     const previousIndex = tabIndexMap[previousTab];
     const activeIndex = tabIndexMap[activeTab];
     const direction = activeIndex > previousIndex ? 1 : -1;
-    const travelDistance = Platform.OS === 'android' ? SCREEN_WIDTH * 0.045 : SCREEN_WIDTH * 0.14;
+    const travelDistance = SCREEN_WIDTH * 0.14;
 
     const createTabAnimatedStyle = (tab: AuthTab) => {
       const isIncoming = tab === activeTab;
@@ -788,24 +791,25 @@ export default function AuthScreen() {
       if (isStaticActive) {
         return {
           opacity: 1,
-          zIndex: 3,
-          transform: [{ translateX: 0 }],
+          transform: [{ translateX: 0 }, { scale: 1 }],
         };
       }
 
       if (isIncoming) {
         return {
-          opacity: tabTransitionProgress.interpolate({
-            inputRange: [0, 0.12, 1],
-            outputRange: [0, Platform.OS === 'android' ? 0.22 : 0.1, 1],
-            extrapolate: 'clamp',
-          }),
-          zIndex: 3,
+          opacity: tabTransitionProgress,
           transform: [
             {
               translateX: tabTransitionProgress.interpolate({
                 inputRange: [0, 1],
                 outputRange: [direction * travelDistance, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.992, 1],
                 extrapolate: 'clamp',
               }),
             },
@@ -817,15 +821,21 @@ export default function AuthScreen() {
         return {
           opacity: tabTransitionProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: [1, Platform.OS === 'android' ? 0 : 0],
+            outputRange: [1, 0],
             extrapolate: 'clamp',
           }),
-          zIndex: 2,
           transform: [
             {
               translateX: tabTransitionProgress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0, Platform.OS === 'android' ? -direction * travelDistance * 0.35 : -direction * travelDistance * 0.7],
+                outputRange: [0, -direction * travelDistance * 0.7],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: tabTransitionProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0.996],
                 extrapolate: 'clamp',
               }),
             },
@@ -835,8 +845,7 @@ export default function AuthScreen() {
 
       return {
         opacity: 0,
-        zIndex: 0,
-        transform: [{ translateX: 0 }],
+        transform: [{ translateX: 0 }, { scale: 1 }],
       };
     };
 
@@ -849,7 +858,6 @@ export default function AuthScreen() {
       <View style={styles.authenticatedScreen}>
         <Animated.View
           style={[styles.homeLayer, homeTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
           <HomeScreenRouter
             session={session}
@@ -872,19 +880,45 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, mailTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showMail ? 'auto' : 'none'}>
-          <CertificatesScreen employeeId={session.user.id} />
+            {isAndroid ? (
+              <SafeAreaView
+                style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
+                edges={['top', 'bottom']}>
+                <View style={styles.tabHeaderContainer}>
+                  <View style={styles.tabHeaderRow}>
+                    <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.comingSoonWrap}>
+                  <Image
+                    source={lockIcon}
+                    defaultSource={lockIcon}
+                    fadeDuration={0}
+                    style={styles.comingSoonIcon}
+                  />
+                  <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
+                </View>
+              </SafeAreaView>
+            ) : (
+              <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
+            )}
           </Animated.View>
 
         <Animated.View
           style={[styles.tabLayer, trashTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showTrash ? 'auto' : 'none'}>
             {isAndroid ? (
               <SafeAreaView
                 style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
                 edges={['top', 'bottom']}>
+                <View style={styles.tabHeaderContainer}>
+                  <View style={styles.tabHeaderRow}>
+                    <Text style={styles.tabHeaderTitle}>{todayLabel}</Text>
+                  </View>
+                </View>
+
                 <View style={styles.comingSoonWrap}>
                   <Image
                     source={lockIcon}
@@ -905,7 +939,7 @@ export default function AuthScreen() {
             pointerEvents="none"
             style={[
               styles.iosComingSoonOverlay,
-              { opacity: showTrash ? 1 : 0 },
+              { opacity: showMail || showTrash ? 1 : 0 },
             ]}>
             <View style={styles.comingSoonWrap}>
               <Image
@@ -919,7 +953,7 @@ export default function AuthScreen() {
           </View>
         ) : null}
 
-        {!isAndroid && showTrash ? (
+        {!isAndroid && (showMail || showTrash) ? (
           <View pointerEvents="box-none" style={styles.iosFloatingHeaderWrap}>
               <View
                 style={[
@@ -940,7 +974,6 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, profileTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showProfile ? 'auto' : 'none'}>
             <SafeAreaView
               style={[

@@ -3,12 +3,10 @@ import {
   Animated,
   Platform,
   Pressable,
-  ScrollView,
-  StatusBar,
   StyleSheet,
+  StatusBar,
   Text,
   useColorScheme,
-  Vibration,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -19,16 +17,11 @@ import {
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
 
-type ThemeMode = 'company' | 'material'
-
 export default function AndroidThemeIntro() {
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
   const progress = React.useRef(new Animated.Value(0)).current
-  const previewPulse = React.useRef(new Animated.Value(1)).current
-  const footerPulse = React.useRef(new Animated.Value(1)).current
-  const [selectedMode, setSelectedMode] = React.useState<ThemeMode>('material')
-  const [isCompleting, setIsCompleting] = React.useState(false)
+  const [selectedMode, setSelectedMode] = React.useState<'company' | 'material'>('material')
 
   React.useEffect(() => {
     if (!androidTheme.shouldShowIntro || Platform.OS !== 'android') {
@@ -39,38 +32,12 @@ export default function AndroidThemeIntro() {
     progress.setValue(0)
     Animated.spring(progress, {
       toValue: 1,
-      stiffness: 170,
-      damping: 22,
-      mass: 0.92,
+      stiffness: 180,
+      damping: 20,
+      mass: 0.9,
       useNativeDriver: true,
     }).start()
   }, [androidTheme.mode, androidTheme.shouldShowIntro, progress])
-
-  React.useEffect(() => {
-    if (!androidTheme.shouldShowIntro || Platform.OS !== 'android') {
-      return
-    }
-
-    previewPulse.setValue(0.985)
-    footerPulse.setValue(0.97)
-
-    Animated.parallel([
-      Animated.spring(previewPulse, {
-        toValue: 1,
-        stiffness: 220,
-        damping: 16,
-        mass: 0.72,
-        useNativeDriver: true,
-      }),
-      Animated.spring(footerPulse, {
-        toValue: 1,
-        stiffness: 210,
-        damping: 17,
-        mass: 0.78,
-        useNativeDriver: true,
-      }),
-    ]).start()
-  }, [androidTheme.shouldShowIntro, footerPulse, previewPulse, selectedMode])
 
   if (Platform.OS !== 'android' || !androidTheme.shouldShowIntro) {
     return null
@@ -78,31 +45,10 @@ export default function AndroidThemeIntro() {
 
   const materialPalette = getAndroidThemePalette(colorScheme === 'dark')
   const companyPalette = getAndroidCompanyPalette()
-  const activePalette = selectedMode === 'company' ? companyPalette : materialPalette
-  const activeAccent = selectedMode === 'company' ? '#FF6A00' : String(materialPalette.primary)
-  const activeAccentStrong =
-    selectedMode === 'company' ? '#FF8C38' : String(materialPalette.primaryStrong)
-  const activeOnPrimary = '#FFFFFF'
   const statusBarStyle = getAndroidStatusBarStyle(String(materialPalette.background))
-  const isDarkMaterial = colorScheme === 'dark'
-  const materialReadableText = isDarkMaterial
-    ? '#F3F6F8'
-    : String(materialPalette.onSurface)
-  const materialReadableMuted = isDarkMaterial
-    ? '#B2BCC4'
-    : String(materialPalette.onSurfaceMuted)
-  const materialReadableChip = isDarkMaterial
-    ? '#DCE6EE'
-    : String(materialPalette.onSurface)
-  const materialReadableBadge = isDarkMaterial
-    ? '#D7E3EC'
-    : String(materialPalette.primaryStrong)
-  const materialReadablePrimarySurface = isDarkMaterial ? '#212A33' : String(materialPalette.surfaceMuted)
-  const materialReadableSecondarySurface = isDarkMaterial ? '#181F26' : String(materialPalette.surface)
-
   const sheetTranslateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [42, 0],
+    outputRange: [52, 0],
     extrapolate: 'clamp',
   })
   const sheetOpacity = progress.interpolate({
@@ -112,243 +58,80 @@ export default function AndroidThemeIntro() {
   })
   const sheetScale = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.97, 1],
-    extrapolate: 'clamp',
-  })
-  const continueScale = footerPulse.interpolate({
-    inputRange: [0.97, 1],
-    outputRange: [0.985, 1],
-    extrapolate: 'clamp',
-  })
-  const continueOpacity = footerPulse.interpolate({
-    inputRange: [0.97, 1],
-    outputRange: [0.88, 1],
+    outputRange: [0.96, 1],
     extrapolate: 'clamp',
   })
 
-  const optionData: Array<{
-    mode: ThemeMode
-    eyebrow: string
-    title: string
-    badge: string
-    description: string
-  }> = [
-    {
-      mode: 'company',
-      eyebrow: 'Фирменный стиль',
-      title: 'Код компании',
-      badge: 'Черный и оранжевый',
-      description:
-        'Контрастный интерфейс с плотными карточками и фирменным оранжевым акцентом.',
-    },
-    {
-      mode: 'material',
-      eyebrow: 'Системная тема',
-      title: 'Material You',
-      badge: colorScheme === 'dark' ? 'Под твою темную тему' : 'Под твою светлую тему',
-      description:
-        'Подстраивается под системную тему Android и использует системный акцент без резких цветов.',
-    },
-  ]
-
-  const renderLivePreview = () => (
-    <Animated.View
-      style={[
-        styles.previewShell,
-        {
-          backgroundColor: String(activePalette.surfaceRaised),
-          borderColor: String(activePalette.outlineVariant),
-          transform: [{ scale: previewPulse }],
-        },
-      ]}>
-      <View style={styles.previewTopRow}>
-        <View
-          style={[
-            styles.previewChip,
-            {
-              backgroundColor:
-                selectedMode === 'company'
-                  ? String(companyPalette.primaryContainer)
-                  : materialReadablePrimarySurface,
-              borderColor:
-                selectedMode === 'company'
-                  ? '#503016'
-                  : String(materialPalette.outlineVariant),
-            },
-          ]}>
-          <Text
-            style={[
-              styles.previewChipText,
-              {
-                color:
-                  selectedMode === 'company' ? activeAccentStrong : materialReadableChip,
-              },
-            ]}>
-            {selectedMode === 'company' ? 'Код компании' : 'Material You'}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.previewAvatar,
-            { backgroundColor: String(activePalette.primaryContainer) },
-          ]}>
-          <Text
-            style={[
-              styles.previewAvatarText,
-              {
-                color:
-                  selectedMode === 'company' ? activeAccentStrong : materialReadableText,
-              },
-            ]}>
-            D
-          </Text>
-        </View>
-      </View>
-
+  const renderPreview = (
+    palette: ReturnType<typeof getAndroidThemePalette>,
+    isCompany: boolean,
+  ) => (
+    <View style={introStyles.previewRow}>
       <View
         style={[
-          styles.previewHeroCard,
+          introStyles.previewPanel,
           {
-            backgroundColor: String(activePalette.surface),
-            borderColor: String(activePalette.outlineVariant),
+            backgroundColor: String(palette.surfaceRaised),
+            borderColor: String(palette.outlineVariant),
           },
         ]}>
         <View
           style={[
-            styles.previewBadge,
-            {
-              backgroundColor:
-                selectedMode === 'company'
-                  ? String(companyPalette.closedBadge)
-                  : materialReadablePrimarySurface,
-              borderColor:
-                selectedMode === 'company'
-                  ? String(companyPalette.closedBadgeBorder)
-                  : String(activePalette.outlineVariant),
-            },
-          ]}>
-          <Text
-            style={[
-              styles.previewBadgeText,
-              {
-                color:
-                  selectedMode === 'company'
-                    ? String(companyPalette.primaryStrong)
-                    : materialReadableChip,
-              },
-            ]}>
-            {selectedMode === 'company' ? 'Фирменный режим' : 'Системный режим'}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.previewLineLong,
-            { backgroundColor: String(activePalette.onSurface) },
+            introStyles.previewOrb,
+            { backgroundColor: isCompany ? '#FF6A00' : String(palette.primary) },
           ]}
         />
         <View
           style={[
-            styles.previewLineMedium,
-            { backgroundColor: String(activePalette.onSurfaceMuted) },
+            introStyles.previewLine,
+            { backgroundColor: String(palette.onSurface) },
+          ]}
+        />
+        <View
+          style={[
+            introStyles.previewLineMuted,
+            { backgroundColor: String(palette.onSurfaceMuted) },
           ]}
         />
       </View>
-
-      <View style={styles.previewBottomRow}>
+      <View
+        style={[
+          introStyles.previewAccentBar,
+          {
+            backgroundColor: isCompany ? '#FF6A00' : String(palette.primary),
+          },
+        ]}
+      />
+      <View
+        style={[
+          introStyles.previewPanel,
+          {
+            backgroundColor: String(palette.primaryContainer),
+            borderColor: String(palette.outlineVariant),
+          },
+        ]}>
         <View
           style={[
-            styles.previewMiniCard,
-            {
-              backgroundColor: String(activePalette.surface),
-              borderColor: String(activePalette.outlineVariant),
-            },
-          ]}>
-          <View
-            style={[styles.previewMiniDot, { backgroundColor: activeAccent }]}
-          />
-          <View
-            style={[
-              styles.previewMiniLineWide,
-              { backgroundColor: String(activePalette.onSurface) },
-            ]}
-          />
-        </View>
+            introStyles.previewLine,
+            { backgroundColor: isCompany ? '#FFFFFF' : String(palette.primaryStrong) },
+          ]}
+        />
         <View
           style={[
-            styles.previewMiniCard,
-            {
-              backgroundColor:
-                selectedMode === 'company'
-                  ? String(companyPalette.primaryContainer)
-                  : materialReadablePrimarySurface,
-              borderColor: String(activePalette.outlineVariant),
-            },
-          ]}>
-          <View
-            style={[
-              styles.previewMiniLineWide,
-              {
-                backgroundColor:
-                  selectedMode === 'company'
-                    ? '#FFFFFF'
-                    : materialReadableBadge,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.previewMiniLineShort,
-              { backgroundColor: String(activePalette.onSurfaceMuted) },
-            ]}
-          />
-        </View>
+            introStyles.previewLineShort,
+            { backgroundColor: String(palette.onSurfaceMuted) },
+          ]}
+        />
       </View>
-    </Animated.View>
+    </View>
   )
-  const selectedOption = optionData.find(option => option.mode === selectedMode) ?? optionData[0]
-  const handleSelectMode = (mode: ThemeMode) => {
-    if (mode === selectedMode || isCompleting) {
-      return
-    }
-
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(mode === 'company' ? 7 : 5)
-    }
-    setSelectedMode(mode)
-  }
-
-  const handleComplete = () => {
-    if (isCompleting) {
-      return
-    }
-
-    if (Platform.OS === 'android') {
-      Vibration.vibrate([0, 10, 24, 16])
-    }
-    setIsCompleting(true)
-    Animated.parallel([
-      Animated.timing(progress, {
-        toValue: 0,
-        duration: 240,
-        useNativeDriver: true,
-      }),
-      Animated.timing(footerPulse, {
-        toValue: 0.94,
-        duration: 190,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      androidTheme.completeIntro(selectedMode)
-      setIsCompleting(false)
-    })
-  }
 
   return (
-    <View style={styles.root} pointerEvents="box-none">
-      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
+    <View style={introStyles.root} pointerEvents="box-none">
+      <SafeAreaView style={introStyles.overlay} edges={['top', 'bottom']}>
         <Animated.View
           style={[
-            styles.sheet,
+            introStyles.sheet,
             {
               backgroundColor: String(materialPalette.background),
               opacity: sheetOpacity,
@@ -359,165 +142,127 @@ export default function AndroidThemeIntro() {
             barStyle={statusBarStyle}
             backgroundColor={String(materialPalette.background)}
           />
-
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            bounces={false}>
-            <View style={styles.heroBlock}>
-              <Text
-                style={[
-                  styles.kicker,
-                  {
-                    color:
-                      selectedMode === 'company'
-                        ? '#FF8C38'
-                        : materialReadableBadge,
-                  },
-                ]}>
-                Первый запуск
-              </Text>
-              <Text style={[styles.title, { color: String(materialPalette.onSurface) }]}>
-                Выбери стиль приложения
-              </Text>
-              <Text
-                style={[
-                  styles.subtitle,
-                  { color: String(materialPalette.onSurfaceMuted) },
-                ]}>
-                Выбери один из двух режимов. Настройку потом можно поменять во вкладке
-                «Ещё».
-              </Text>
-            </View>
-
-            {renderLivePreview()}
-
-            <View style={styles.optionRow}>
-              {optionData.map(option => {
-                const isSelected = selectedMode === option.mode
-                const optionAccent =
-                  option.mode === 'company'
-                    ? '#FF6A00'
-                    : String(materialPalette.primary)
-
-                return (
-                  <Pressable
-                    key={option.mode}
-                    style={[
-                      styles.optionCard,
-                      {
-                        backgroundColor: isSelected
-                          ? option.mode === 'material'
-                            ? materialReadablePrimarySurface
-                            : String(materialPalette.surfaceRaised)
-                          : option.mode === 'material'
-                            ? materialReadableSecondarySurface
-                            : String(materialPalette.surface),
-                        borderColor: isSelected
-                          ? optionAccent
-                          : String(materialPalette.outlineVariant),
-                      },
-                    ]}
-                    onPress={() => handleSelectMode(option.mode)}>
-                    <View style={styles.optionTop}>
-                      <View style={styles.optionCopy}>
-                        <Text
-                          style={[
-                            styles.optionTitle,
-                            {
-                        color: isSelected
-                                ? option.mode === 'material'
-                                  ? materialReadableText
-                                  : String(materialPalette.onSurface)
-                                : option.mode === 'material'
-                                  ? materialReadableMuted
-                                  : String(materialPalette.onSurfaceMuted),
-                            },
-                          ]}>
-                          {option.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.optionMeta,
-                            {
-                              color: isSelected
-                                ? option.mode === 'company'
-                                  ? '#FF8C38'
-                                  : materialReadableBadge
-                                : option.mode === 'material'
-                                  ? materialReadableMuted
-                                  : String(materialPalette.onSurfaceMuted),
-                            },
-                          ]}>
-                          {option.mode === 'company' ? 'Фирменный' : 'Системная'}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.optionRadio,
-                          {
-                            backgroundColor: isSelected ? optionAccent : 'transparent',
-                            borderColor: isSelected
-                              ? optionAccent
-                              : String(materialPalette.outline),
-                          },
-                        ]}>
-                        {isSelected ? <View style={styles.optionRadioInner} /> : null}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
-            </View>
-          </ScrollView>
-
-          <View
-            style={[
-              styles.footer,
-              {
-                backgroundColor: String(materialPalette.background),
-                borderTopColor: String(materialPalette.outlineVariant),
-              },
-            ]}>
+          <View style={introStyles.heroBlock}>
+            <Text style={[introStyles.kicker, { color: String(materialPalette.primary) }]}>
+              Первый запуск
+            </Text>
+            <Text style={[introStyles.title, { color: String(materialPalette.onSurface) }]}>
+              Выбери стиль приложения
+            </Text>
             <Text
               style={[
-                styles.footerCaption,
+                introStyles.subtitle,
                 { color: String(materialPalette.onSurfaceMuted) },
               ]}>
-              Выбран режим:{' '}
-              <Text style={{ color: String(materialPalette.onSurface), fontWeight: '800' }}>
-                {selectedOption.title}
-              </Text>
+              Можно оставить фирменный код-дизайн или включить Material You, чтобы интерфейс
+              подстраивался под систему.
             </Text>
+          </View>
+
+          <View style={introStyles.optionList}>
+            <Pressable
+              style={[
+                introStyles.optionCard,
+                selectedMode === 'company' ? introStyles.optionCardSelected : null,
+                {
+                  backgroundColor: String(companyPalette.surfaceRaised),
+                  borderColor:
+                    selectedMode === 'company'
+                      ? '#FF6A00'
+                      : String(companyPalette.outlineVariant),
+                },
+              ]}
+              onPress={() => setSelectedMode('company')}>
+              <View style={introStyles.optionHeader}>
+                <Text style={[introStyles.optionBadge, { color: '#FFB273' }]}>Brand code</Text>
+                <Text style={[introStyles.optionTitle, { color: '#FFFFFF' }]}>
+                  Код компании
+                </Text>
+                <Text style={[introStyles.optionText, { color: '#A8A8A8' }]}>
+                  Контрастный тёмный интерфейс с плотной типографикой и ярким акцентом.
+                </Text>
+              </View>
+              {renderPreview(companyPalette, true)}
+            </Pressable>
 
             <Pressable
               style={[
-                styles.continueButton,
+                introStyles.optionCard,
+                selectedMode === 'material' ? introStyles.optionCardSelected : null,
                 {
-                  backgroundColor: activeAccent,
-                  borderColor: selectedMode === 'company' ? '#FF8C38' : materialReadablePrimarySurface,
+                  backgroundColor: String(materialPalette.surfaceRaised),
+                  borderColor:
+                    selectedMode === 'material'
+                      ? String(materialPalette.primary)
+                      : String(materialPalette.outlineVariant),
                 },
               ]}
-              onPress={handleComplete}>
-              <Animated.View
-                style={{
-                  transform: [{ scale: continueScale }],
-                  opacity: continueOpacity,
-                }}>
-                <Text style={[styles.continueButtonText, { color: activeOnPrimary }]}>
-                  Продолжить
+              onPress={() => setSelectedMode('material')}>
+              <View style={introStyles.optionHeader}>
+                <Text
+                  style={[
+                    introStyles.optionBadge,
+                    { color: String(materialPalette.primary) },
+                  ]}>
+                  System adaptive
                 </Text>
-              </Animated.View>
+                <Text
+                  style={[
+                    introStyles.optionTitle,
+                    { color: String(materialPalette.onSurface) },
+                  ]}>
+                  Material You
+                </Text>
+                <Text
+                  style={[
+                    introStyles.optionText,
+                    { color: String(materialPalette.onSurfaceMuted) },
+                  ]}>
+                  Подхватывает системную светлую или тёмную тему и системные акцентные цвета.
+                </Text>
+              </View>
+              {renderPreview(materialPalette, false)}
             </Pressable>
           </View>
+
+          <Text
+            style={[
+              introStyles.footerHint,
+              { color: String(materialPalette.onSurfaceMuted) },
+            ]}>
+            Настройку можно изменить позже во вкладке «Ещё».
+          </Text>
+          <Pressable
+            style={[
+              introStyles.continueButton,
+              {
+                backgroundColor:
+                  selectedMode === 'company'
+                    ? '#FF6A00'
+                    : String(materialPalette.primary),
+              },
+            ]}
+            onPress={() => androidTheme.completeIntro(selectedMode)}>
+            <Text
+              style={[
+                introStyles.continueButtonText,
+                {
+                  color:
+                    selectedMode === 'company'
+                      ? '#FFFFFF'
+                      : String(materialPalette.onPrimary),
+                },
+              ]}>
+              Дальше
+            </Text>
+          </Pressable>
         </Animated.View>
       </SafeAreaView>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+const introStyles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 400,
@@ -525,32 +270,25 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(4,7,10,0.62)',
+    backgroundColor: 'rgba(5,8,12,0.56)',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
   },
   sheet: {
-    maxHeight: '74%',
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.28,
-    shadowRadius: 34,
-    elevation: 14,
-  },
-  scrollView: {
-    flexGrow: 0,
-  },
-  scrollContent: {
+    borderRadius: 34,
     paddingHorizontal: 18,
     paddingTop: 20,
-    paddingBottom: 12,
-    gap: 10,
+    paddingBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.24,
+    shadowRadius: 32,
+    elevation: 12,
   },
   heroBlock: {
+    marginBottom: 18,
     gap: 8,
   },
   kicker: {
@@ -560,190 +298,102 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    fontSize: 25,
-    lineHeight: 29,
+    fontSize: 30,
     fontWeight: '900',
+    lineHeight: 34,
   },
   subtitle: {
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: '500',
   },
-  previewShell: {
-    borderRadius: 20,
+  optionList: {
+    gap: 12,
+  },
+  optionCard: {
+    borderRadius: 28,
     borderWidth: 1,
-    padding: 12,
-    gap: 10,
-    overflow: 'hidden',
+    padding: 16,
+    gap: 14,
+  },
+  optionCardSelected: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    elevation: 6,
   },
-  previewTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  optionHeader: {
+    gap: 6,
   },
-  previewChip: {
-    minHeight: 28,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewChipText: {
+  optionBadge: {
     fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
-  previewAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewAvatarText: {
-    fontSize: 17,
+  optionTitle: {
+    fontSize: 22,
     fontWeight: '900',
   },
-  previewHeroCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 12,
-    gap: 8,
-    overflow: 'hidden',
+  optionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
-  previewBadge: {
-    alignSelf: 'flex-start',
-    minHeight: 26,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.25,
-  },
-  previewLineLong: {
-    width: '88%',
-    height: 7,
-    borderRadius: 999,
-  },
-  previewLineMedium: {
-    width: '64%',
-    height: 7,
-    borderRadius: 999,
-    opacity: 0.76,
-  },
-  previewBottomRow: {
+  previewRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 10,
+    height: 72,
   },
-  previewMiniCard: {
+  previewPanel: {
     flex: 1,
-    minHeight: 52,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 10,
-    justifyContent: 'center',
-    gap: 8,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: 'space-between',
   },
-  previewMiniDot: {
+  previewAccentBar: {
+    width: 24,
+    borderRadius: 16,
+  },
+  previewOrb: {
     width: 14,
     height: 14,
     borderRadius: 7,
   },
-  previewMiniLineWide: {
-    width: '84%',
-    height: 7,
+  previewLine: {
+    width: '92%',
+    height: 8,
     borderRadius: 999,
   },
-  previewMiniLineShort: {
-    width: '56%',
+  previewLineMuted: {
+    width: '66%',
     height: 7,
     borderRadius: 999,
-    opacity: 0.76,
+    opacity: 0.45,
   },
-  optionRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  optionCard: {
-    flex: 1,
-    minHeight: 64,
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 2,
-  },
-  optionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  optionCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  optionTitle: {
-    fontSize: 16,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  optionMeta: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.25,
-  },
-  optionRadio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionRadioInner: {
-    width: 7,
+  previewLineShort: {
+    width: '52%',
     height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    opacity: 0.7,
   },
-  footer: {
-    borderTopWidth: 1,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  footerCaption: {
-    fontSize: 12,
-    lineHeight: 16,
+  footerHint: {
+    marginTop: 16,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
     fontWeight: '500',
   },
   continueButton: {
-    minHeight: 52,
-    borderRadius: 20,
-    borderWidth: 1,
+    minHeight: 56,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 16,
   },
   continueButtonText: {
     fontSize: 17,
