@@ -163,6 +163,35 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  phoneInputWrap: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2B2B2B',
+    borderRadius: 12,
+    paddingLeft: 42,
+    paddingRight: 14,
+    minHeight: 49,
+    marginBottom: 12,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+
+  phonePrefix: {
+    position: 'absolute',
+    left: 14,
+    color: '#7A7A7A',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+
+  phoneInputControl: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 15,
+    paddingVertical: 10,
+    fontVariant: ['tabular-nums'],
+  },
+
   inputFocused: {
     borderColor: '#FF6A00',
     borderWidth: 1,
@@ -183,6 +212,10 @@ export const styles = StyleSheet.create({
 
   passwordInput: {
     paddingRight: 48,
+    paddingTop: 12,
+    paddingBottom: 12,
+    lineHeight: 20,
+    fontVariant: [],
   },
 
   eyeButton: {
@@ -547,6 +580,65 @@ export const styles = StyleSheet.create({
     color: '#F2F2F7',
     fontSize: 17,
     fontWeight: '600',
+  },
+
+  profileNotificationsCard: {
+    minHeight: 82,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 24,
+    backgroundColor: '#2C2C2E',
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  profileNotificationsTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+
+  profileNotificationsTitle: {
+    color: '#F2F2F7',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  profileNotificationsSubtitle: {
+    color: '#8E8E93',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  profileNotificationsMetaBlock: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+
+  profileNotificationCountBadge: {
+    minWidth: 30,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    backgroundColor: '#FF6A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  profileRowMutedMeta: {
+    color: '#FFB27A',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   profileRowStatic: {

@@ -949,7 +949,8 @@ export default function ShiftScreen({
   const salaryZoneLabel = getZoneLabel(salarySummary?.employee_zone)
   const salaryZoneColor = getZoneColor(salarySummary?.employee_zone)
   const salaryZoneBadgeStyle = getZoneBadgeStyle(salarySummary?.employee_zone)
-  const isSalaryCardActive = isSalaryExpanded || isSalaryClosing
+  const hasLoadedSalarySummary = salarySummaries[selectedSalaryPeriod] !== undefined
+  const showSalaryRefreshOverlay = isSalaryLoading && hasLoadedSalarySummary
   const salaryPreviewValue = formatCurrency(salarySummary?.preview_salary ?? salarySummary?.final_salary ?? 0)
   const salaryShiftCount =
     toSafeNumber(salarySummary?.zones?.green?.shift_count) +
@@ -960,6 +961,7 @@ export default function ShiftScreen({
     toSafeNumber(salarySummary?.bonuses) > 0 ||
     toSafeNumber(salarySummary?.penalties) > 0 ||
     toSafeNumber(salarySummary?.preview_salary ?? salarySummary?.final_salary) > 0
+  const isSalaryCardActive = (isSalaryExpanded || isSalaryClosing) && hasSalaryAccruals
   const salaryZoneBreakdowns = [
     { key: 'green', label: 'Зеленая зона', value: salarySummary?.zones?.green?.final_salary ?? 0 },
     { key: 'blue', label: 'Синяя зона', value: salarySummary?.zones?.blue?.final_salary ?? 0 },
@@ -1858,221 +1860,240 @@ export default function ShiftScreen({
           </Animated.View>
         ) : null}
 
-        {!isSalaryLoading ? (
+        <View
+          style={styles.salarySection}
+          onLayout={event => {
+            salarySectionYRef.current = event.nativeEvent.layout.y
+          }}>
+          <View style={styles.scheduleSectionHeader}>
+            <Text style={styles.sectionTitle}>Информация о зарплате</Text>
+          </View>
+
           <View
-            style={styles.salarySection}
-            onLayout={event => {
-              salarySectionYRef.current = event.nativeEvent.layout.y
-            }}>
-            <View style={styles.scheduleSectionHeader}>
-              <Text style={styles.sectionTitle}>Информация о зарплате</Text>
-            </View>
-
-            <View
-              style={[
-                styles.salaryCard,
-                isSalaryCardActive && {
-                  borderColor: salaryZoneColor,
-                  shadowColor: salaryZoneColor,
-                  shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0,
-                  shadowRadius: 14,
-                  shadowOffset: { width: 0, height: 0 },
-                },
-              ]}>
-              <View style={styles.salaryCardHeader}>
-                <View style={styles.salaryPeriodSwitch}>
-                  <TouchableOpacity
-                    style={[
-                      styles.salaryPeriodTab,
-                      selectedSalaryPeriod === 'current' && styles.salaryPeriodTabActive,
-                    ]}
-                    onPress={() => handleSalaryPeriodChange('current')}
-                    disabled={selectedSalaryPeriod === 'current'}
-                    accessibilityRole="button"
-                    accessibilityLabel="Показать зарплату за текущий период">
-                    <Text
-                      style={[
-                        styles.salaryPeriodTabText,
-                        selectedSalaryPeriod === 'current'
-                          ? styles.salaryPeriodTabTextActive
-                          : styles.salaryPeriodTabTextInactive,
-                      ]}>
-                      {salaryPeriodOptions.current}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.salaryPeriodTab,
-                      selectedSalaryPeriod === 'previous' && styles.salaryPeriodTabActive,
-                    ]}
-                    onPress={() => handleSalaryPeriodChange('previous')}
-                    disabled={selectedSalaryPeriod === 'previous'}
-                    accessibilityRole="button"
-                    accessibilityLabel="Показать зарплату за прошлый период">
-                    <Text
-                      style={[
-                        styles.salaryPeriodTabText,
-                        selectedSalaryPeriod === 'previous'
-                          ? styles.salaryPeriodTabTextActive
-                          : styles.salaryPeriodTabTextInactive,
-                      ]}>
-                      {salaryPeriodOptions.previous}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <View
-                  style={[
-                    styles.salaryZoneBadge,
-                    {
-                      backgroundColor: salaryZoneBadgeStyle.backgroundColor,
-                      borderColor: salaryZoneBadgeStyle.borderColor,
-                    },
-                  ]}>
-                  <Text style={[styles.salaryZoneText, { color: salaryZoneColor }]}>
-                    {salaryZoneLabel}
-                  </Text>
-                </View>
+            style={[
+              styles.salaryCard,
+              isSalaryCardActive && {
+                borderColor: salaryZoneColor,
+                shadowColor: salaryZoneColor,
+                shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 0 },
+              },
+            ]}>
+            {showSalaryRefreshOverlay ? (
+              <View style={styles.salaryCardLoaderOverlay} pointerEvents="none">
+                <ActivityIndicator color="#FF6A00" size="small" />
               </View>
+            ) : null}
 
-              {hasSalaryAccruals ? (
-                <>
-                  <Text style={styles.salaryValue}>{salaryPreviewValue}</Text>
-                  <Text style={styles.salaryCaption}>
-                    Сумма за расчетный период
-                  </Text>
-
-                  <View style={styles.salaryMetaRow}>
-                    <View style={styles.salaryMetaInfo}>
-                      <Text style={styles.salaryMetaText}>
-                        Премии: {formatCurrency(salarySummary?.bonuses ?? 0)}
+            {hasLoadedSalarySummary ? (
+              <View style={showSalaryRefreshOverlay ? styles.salaryCardContentLoading : undefined}>
+                <View style={styles.salaryCardHeader}>
+                  <View style={styles.salaryPeriodSwitch}>
+                    <TouchableOpacity
+                      style={[
+                        styles.salaryPeriodTab,
+                        selectedSalaryPeriod === 'current' && styles.salaryPeriodTabActive,
+                      ]}
+                      onPress={() => handleSalaryPeriodChange('current')}
+                      disabled={selectedSalaryPeriod === 'current'}
+                      accessibilityRole="button"
+                      accessibilityLabel="Показать зарплату за текущий период">
+                      <Text
+                        style={[
+                          styles.salaryPeriodTabText,
+                          selectedSalaryPeriod === 'current'
+                            ? styles.salaryPeriodTabTextActive
+                            : styles.salaryPeriodTabTextInactive,
+                        ]}>
+                        {salaryPeriodOptions.current}
                       </Text>
-                      <Text style={styles.salaryMetaText}>
-                        Депремирование: {formatCurrency(salarySummary?.penalties ?? 0)}
-                      </Text>
-                    </View>
+                    </TouchableOpacity>
 
-                    {!isSalaryExpanded && !isSalaryClosing ? (
-                      <TouchableOpacity
-                        style={styles.salaryExpandButton}
-                        onPress={toggleSalary}
-                        accessibilityRole="button"
-                        accessibilityLabel="Показать детали зарплаты">
-                        <Text style={styles.salaryExpandIcon}>›</Text>
-                      </TouchableOpacity>
-                    ) : null}
+                    <TouchableOpacity
+                      style={[
+                        styles.salaryPeriodTab,
+                        selectedSalaryPeriod === 'previous' && styles.salaryPeriodTabActive,
+                      ]}
+                      onPress={() => handleSalaryPeriodChange('previous')}
+                      disabled={selectedSalaryPeriod === 'previous'}
+                      accessibilityRole="button"
+                      accessibilityLabel="Показать зарплату за прошлый период">
+                      <Text
+                        style={[
+                          styles.salaryPeriodTabText,
+                          selectedSalaryPeriod === 'previous'
+                            ? styles.salaryPeriodTabTextActive
+                            : styles.salaryPeriodTabTextInactive,
+                        ]}>
+                        {salaryPeriodOptions.previous}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
+                  <View
+                    style={[
+                      styles.salaryZoneBadge,
+                      {
+                        backgroundColor: salaryZoneBadgeStyle.backgroundColor,
+                        borderColor: salaryZoneBadgeStyle.borderColor,
+                      },
+                    ]}>
+                    <Text style={[styles.salaryZoneText, { color: salaryZoneColor }]}>
+                      {salaryZoneLabel}
+                    </Text>
+                  </View>
+                </View>
 
-                  {isSalaryExpanded || isSalaryClosing ? (
-                    <Animated.View style={[styles.salaryDetailsWrap, salaryAnimatedStyle]}>
-                      <View style={styles.salaryDetails}>
-                      <View style={styles.salaryZoneList}>
-                        {salaryZoneBreakdowns.map(zone => (
-                          <View key={zone.key} style={styles.salaryZoneRow}>
-                            <Text style={styles.salaryZoneRowLabel}>{zone.label}</Text>
-                            <Text style={styles.salaryZoneRowValue}>{formatCurrency(zone.value)}</Text>
-                          </View>
-                        ))}
-                      </View>
+                {hasSalaryAccruals ? (
+                  <>
+                    <View
+                      style={[
+                        styles.salarySummaryContent,
+                        !isSalaryExpanded && !isSalaryClosing
+                          ? styles.salarySummaryContentCollapsed
+                          : null,
+                      ]}>
+                      <Text style={styles.salaryValue}>{salaryPreviewValue}</Text>
+                      <Text style={styles.salaryCaption}>
+                        Сумма за расчетный период
+                      </Text>
 
-                      {salaryShiftComparisons.length > 0 ? (
-                        <View style={styles.salaryDetailsSection}>
-                          <Text style={styles.salaryDetailsTitle}>Смены и сравнение по зонам</Text>
-                          {salaryShiftComparisons.map(shift => (
-                            <View key={shift.id} style={styles.salaryShiftComparisonCard}>
-                              <Text style={styles.salaryShiftSummaryLine}>
-                                {shift.date ? formatScheduleDate(shift.date) : 'Дата не указана'}{' '}
-                                {shift.shop_name || 'Магазин'}
-                              </Text>
-                              <Text style={styles.salaryShiftSummaryCaption}>
-                                Зарплата за эту смену по каждой зоне
-                              </Text>
-
-                              <View style={styles.salaryShiftComparisonList}>
-                                <View style={styles.salaryShiftComparisonRow}>
-                                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelGreen]}>
-                                    Зеленая
-                                  </Text>
-                                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.green)}</Text>
-                                </View>
-                                <View style={styles.salaryShiftComparisonRow}>
-                                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelBlue]}>
-                                    Синяя
-                                  </Text>
-                                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.blue)}</Text>
-                                </View>
-                                <View style={styles.salaryShiftComparisonRow}>
-                                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelRed]}>
-                                    Красная
-                                  </Text>
-                                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.red)}</Text>
-                                </View>
-                              </View>
-                            </View>
-                          ))}
+                      <View style={styles.salaryMetaRow}>
+                        <View style={styles.salaryMetaInfo}>
+                          <Text style={styles.salaryMetaText}>
+                            Премии: {formatCurrency(salarySummary?.bonuses ?? 0)}
+                          </Text>
+                          <Text style={styles.salaryMetaText}>
+                            Депремирование: {formatCurrency(salarySummary?.penalties ?? 0)}
+                          </Text>
                         </View>
-                      ) : null}
-
-                      {Array.isArray(salarySummary?.fines_and_bonuses) && salarySummary.fines_and_bonuses.length > 0 ? (
-                        <View style={styles.salaryDetailsSection}>
-                          {salarySummary.fines_and_bonuses.map((item, index) => {
-                            const amount = toSafeNumber(item.amount)
-                            const isBonus = amount > 0
-                            const itemDateLabel = item.date ? formatScheduleDate(item.date) : 'Дата не указана'
-                            const itemReason = normalizeDatesInText(String(item.comment || '').trim()) || 'Причина не указана'
-                            return (
-                              <View key={`${item.name || 'salary-item'}:${item.date || index}:${index}`} style={styles.salaryShiftRow}>
-                                <View style={styles.salaryFineTextBlock}>
-                                  <Text style={styles.salaryFineTitle}>
-                                    {itemDateLabel} {isBonus ? 'Премия' : 'Депремирование'}
-                                  </Text>
-                                  <Text style={styles.salaryFineReason}>
-                                    За что: {itemReason}
-                                  </Text>
-                                </View>
-                                <Text
-                                  style={[
-                                    styles.salaryShiftValue,
-                                    isBonus ? styles.salaryShiftValueBonus : styles.salaryShiftValuePenalty,
-                                  ]}>
-                                  {isBonus ? '+' : '-'}{formatCurrency(Math.abs(amount))}
-                                </Text>
-                              </View>
-                            )
-                          })}
-                        </View>
-                      ) : null}
-
-                        <View style={styles.salaryExpandFooter}>
+                        {!isSalaryExpanded && !isSalaryClosing ? (
                           <TouchableOpacity
                             style={styles.salaryExpandButton}
                             onPress={toggleSalary}
                             accessibilityRole="button"
-                            accessibilityLabel="Скрыть детали зарплаты">
-                            <Text style={[styles.salaryExpandIcon, styles.salaryExpandIconOpen]}>›</Text>
+                            accessibilityLabel="Показать детали зарплаты">
+                            <Text style={styles.salaryExpandIcon}>›</Text>
                           </TouchableOpacity>
-                        </View>
+                        ) : null}
                       </View>
-                    </Animated.View>
-                  ) : null}
+                    </View>
+
+                    {isSalaryExpanded || isSalaryClosing ? (
+                      <Animated.View style={[styles.salaryDetailsWrap, salaryAnimatedStyle]}>
+                        <View style={styles.salaryDetails}>
+                        <View style={styles.salaryZoneList}>
+                          {salaryZoneBreakdowns.map(zone => (
+                            <View key={zone.key} style={styles.salaryZoneRow}>
+                              <Text style={styles.salaryZoneRowLabel}>{zone.label}</Text>
+                              <Text style={styles.salaryZoneRowValue}>{formatCurrency(zone.value)}</Text>
+                            </View>
+                          ))}
+                        </View>
+
+                        {salaryShiftComparisons.length > 0 ? (
+                          <View style={styles.salaryDetailsSection}>
+                            <Text style={styles.salaryDetailsTitle}>Смены и сравнение по зонам</Text>
+                            {salaryShiftComparisons.map(shift => (
+                              <View key={shift.id} style={styles.salaryShiftComparisonCard}>
+                                <Text style={styles.salaryShiftSummaryLine}>
+                                  {shift.date ? formatScheduleDate(shift.date) : 'Дата не указана'}{' '}
+                                  {shift.shop_name || 'Магазин'}
+                                </Text>
+                                <Text style={styles.salaryShiftSummaryCaption}>
+                                  Зарплата за эту смену по каждой зоне
+                                </Text>
+
+                                <View style={styles.salaryShiftComparisonList}>
+                                  <View style={styles.salaryShiftComparisonRow}>
+                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelGreen]}>
+                                      Зеленая
+                                    </Text>
+                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.green)}</Text>
+                                  </View>
+                                  <View style={styles.salaryShiftComparisonRow}>
+                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelBlue]}>
+                                      Синяя
+                                    </Text>
+                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.blue)}</Text>
+                                  </View>
+                                  <View style={styles.salaryShiftComparisonRow}>
+                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelRed]}>
+                                      Красная
+                                    </Text>
+                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.red)}</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+
+                        {Array.isArray(salarySummary?.fines_and_bonuses) && salarySummary.fines_and_bonuses.length > 0 ? (
+                          <View style={styles.salaryDetailsSection}>
+                            {salarySummary.fines_and_bonuses.map((item, index) => {
+                              const amount = toSafeNumber(item.amount)
+                              const isBonus = amount > 0
+                              const itemDateLabel = item.date ? formatScheduleDate(item.date) : 'Дата не указана'
+                              const itemReason = normalizeDatesInText(String(item.comment || '').trim()) || 'Причина не указана'
+                              return (
+                                <View key={`${item.name || 'salary-item'}:${item.date || index}:${index}`} style={styles.salaryShiftRow}>
+                                  <View style={styles.salaryFineTextBlock}>
+                                    <Text style={styles.salaryFineTitle}>
+                                      {itemDateLabel} {isBonus ? 'Премия' : 'Депремирование'}
+                                    </Text>
+                                    <Text style={styles.salaryFineReason}>
+                                      За что: {itemReason}
+                                    </Text>
+                                  </View>
+                                  <Text
+                                    style={[
+                                      styles.salaryShiftValue,
+                                      isBonus ? styles.salaryShiftValueBonus : styles.salaryShiftValuePenalty,
+                                    ]}>
+                                    {isBonus ? '+' : '-'}{formatCurrency(Math.abs(amount))}
+                                  </Text>
+                                </View>
+                              )
+                            })}
+                          </View>
+                        ) : null}
+
+                          <View style={styles.salaryExpandFooter}>
+                            <TouchableOpacity
+                              style={styles.salaryExpandButton}
+                              onPress={toggleSalary}
+                              accessibilityRole="button"
+                              accessibilityLabel="Скрыть детали зарплаты">
+                              <Text style={[styles.salaryExpandIcon, styles.salaryExpandIconOpen]}>›</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                        </View>
+                      </Animated.View>
+                    ) : null}
                   </>
                 ) : (
-                <View style={styles.salaryEmptyState}>
-                  <View style={styles.salaryEmptyIcon}>
-                    <Image source={rubleIcon} style={styles.salaryEmptyIconImage} />
+                  <View style={styles.salaryEmptyState}>
+                    <View style={styles.salaryEmptyIcon}>
+                      <Image source={rubleIcon} style={styles.salaryEmptyIconImage} />
+                    </View>
+                    <Text style={styles.salaryEmptyTitle}>
+                      За этот период вы не отработали ни одной смены
+                    </Text>
+                    <Text style={styles.salaryEmptyText}>
+                      Начислений по зарплате пока нет
+                    </Text>
                   </View>
-                  <Text style={styles.salaryEmptyTitle}>
-                    За этот период вы не отработали ни одной смены
-                  </Text>
-                  <Text style={styles.salaryEmptyText}>
-                    Начислений по зарплате пока нет
-                  </Text>
-                </View>
-              )}
-
-            </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.salaryLoadingState}>
+                <Text style={styles.salaryLoadingText}>Загружаем информацию о зарплате</Text>
+              </View>
+            )}
           </View>
-        ) : null}
+        </View>
 
         {!isTodayShiftsLoading ? (
           <View style={styles.todayShiftSection}>

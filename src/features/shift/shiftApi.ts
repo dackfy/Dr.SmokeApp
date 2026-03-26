@@ -245,14 +245,47 @@ export const shiftApi: ShiftApi = {
     }
   },
   async openShift(userId, payload) {
+    const employeeId = Number(userId)
+    if (!Number.isFinite(employeeId) || employeeId <= 0) {
+      throw new Error('Некорректный employee_id.')
+    }
+
+    const formData = new FormData()
+    formData.append('employee_id', String(employeeId))
+    formData.append('shop_id', String(payload.shopId))
+    formData.append('cash_at_opening', String(payload.cashAtOpening))
+
+    const openingCheckValue = payload.openingReceiptPhotoId.trim()
+    const isLocalOpeningCheck =
+      openingCheckValue.startsWith('file://') || openingCheckValue.startsWith('content://')
+
+    if (isLocalOpeningCheck) {
+      formData.append('photo_opening_check', {
+        uri: openingCheckValue,
+        type: 'image/jpeg',
+        name: `opening-check-${Date.now()}.jpg`,
+      } as unknown as Blob)
+    } else if (openingCheckValue) {
+      formData.append('photo_opening_check_path', openingCheckValue)
+    }
+
+    const openingUniformValue = payload.uniformPhotoId.trim()
+    const isLocalOpeningUniform =
+      openingUniformValue.startsWith('file://') || openingUniformValue.startsWith('content://')
+
+    if (isLocalOpeningUniform) {
+      formData.append('photo_opening_em', {
+        uri: openingUniformValue,
+        type: 'image/jpeg',
+        name: `opening-uniform-${Date.now()}.jpg`,
+      } as unknown as Blob)
+    } else if (openingUniformValue) {
+      formData.append('photo_opening_em_path', openingUniformValue)
+    }
+
     const res = await fetch(buildApiUrl('/shifts/open'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        employee_id: Number(userId),
-        shop_id: payload.shopId,
-        cash_at_opening: payload.cashAtOpening,
-      }),
+      body: formData,
     })
 
     let data: OpenShiftResponse | null = null
@@ -273,6 +306,15 @@ export const shiftApi: ShiftApi = {
       }
       if (res.status === 400 && code === 'shop_closed') {
         throw new Error('Выбранный магазин сейчас закрыт.')
+      }
+      if (res.status === 400 && code === 'opening_photos_required') {
+        throw new Error('Добавьте фото формы и фото чека открытия.')
+      }
+      if (res.status === 400 && code === 'opening_receipt_photo_required') {
+        throw new Error('Добавьте фото чека открытия.')
+      }
+      if (res.status === 400 && code === 'opening_uniform_photo_required') {
+        throw new Error('Добавьте фото формы.')
       }
       if (res.status === 404 && code === 'shop_not_found') {
         throw new Error('Магазин не найден.')

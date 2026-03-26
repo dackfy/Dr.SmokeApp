@@ -25,6 +25,7 @@ import MoreScreen from './MoreScreen';
 import CertificatesScreen from './CertificatesScreen';
 import HomeScreenRouter from './HomeScreenRouter';
 import { authApi } from '../features/auth/authApi';
+import { buildApiUrl } from '../config/api';
 import LiquidTabBar from '../components/LiquidTabBar';
 import type { TabKey } from '../components/LiquidTabBar';
 import { useAndroidThemeMode } from '../theme/androidAppTheme';
@@ -87,13 +88,48 @@ function formatPhoneInput(value: string) {
   const p4 = local.slice(8, 10);
 
   let out = '+7';
-  if (p1) out += ` (${p1}`;
-  if (p1.length === 3) out += ')';
+  if (p1) out += ` ${p1}`;
   if (p2) out += ` ${p2}`;
   if (p3) out += `-${p3}`;
   if (p4) out += `-${p4}`;
 
   return out;
+}
+
+function formatLocalPhoneDisplay(value: string) {
+  const local = extractLocalPhoneDigits(value);
+
+  if (!local) {
+    return '';
+  }
+
+  const p1 = local.slice(0, 3);
+  const p2 = local.slice(3, 6);
+  const p3 = local.slice(6, 8);
+  const p4 = local.slice(8, 10);
+
+  let out = '';
+  if (p1) out += p1;
+  if (p2) out += ` ${p2}`;
+  if (p3) out += `-${p3}`;
+  if (p4) out += `-${p4}`;
+
+  return out;
+}
+
+function formatLocalPhoneInputWithBackspace(prevValue: string, nextValue: string) {
+  const prevLocal = extractLocalPhoneDigits(prevValue);
+  const nextLocal = extractLocalPhoneDigits(nextValue);
+
+  if (nextLocal.length > 10) {
+    return formatLocalPhoneDisplay(prevLocal);
+  }
+
+  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
+    return formatLocalPhoneDisplay(prevLocal.slice(0, -1));
+  }
+
+  return formatLocalPhoneDisplay(nextLocal);
 }
 
 function extractLocalPhoneDigits(value: string) {
@@ -125,6 +161,8 @@ export default function AuthScreen() {
     : null;
   const authAccessoryId = 'auth-keyboard-accessory';
   const insets = useSafeAreaInsets();
+  const loginPhoneInputRef = useRef<TextInput>(null);
+  const forgotPhoneInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isOldPasswordVisible, setIsOldPasswordVisible] = useState(false);
@@ -137,11 +175,11 @@ export default function AuthScreen() {
   const [focusedLoginField, setFocusedLoginField] = useState<
     'identifier' | 'password' | null
   >(null);
-  const [loginPhoneSelection, setLoginPhoneSelection] = useState({ start: 2, end: 2 });
+  const [loginPhoneSelection, setLoginPhoneSelection] = useState({ start: 0, end: 0 });
   const [focusedForgotField, setFocusedForgotField] = useState<
     'identity' | 'code' | 'newPassword' | null
   >(null);
-  const [forgotPhoneSelection, setForgotPhoneSelection] = useState({ start: 2, end: 2 });
+  const [forgotPhoneSelection, setForgotPhoneSelection] = useState({ start: 0, end: 0 });
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -163,6 +201,8 @@ export default function AuthScreen() {
   const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
   const [previousTab, setPreviousTab] = useState<AuthTab>('home');
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
+  const [profileNotificationsCount, setProfileNotificationsCount] = useState(0);
+  const [isProfileNotificationsLoading, setIsProfileNotificationsLoading] = useState(false);
   const profileSheetProgress = useRef(new Animated.Value(0)).current;
   const tabTransitionProgress = useRef(new Animated.Value(1)).current;
   const authNoticeOpacity = useRef(new Animated.Value(0)).current;
@@ -353,6 +393,68 @@ export default function AuthScreen() {
       changePasswordSuccessOpacity.stopAnimation();
     };
   }, [changePasswordSuccess, changePasswordSuccessOpacity]);
+
+  useEffect(() => {
+    if (!session || !isProfileSheetOpen || Number(session.user.userRole ?? 3) !== 10) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadProfileNotificationsCount() {
+      setIsProfileNotificationsLoading(true);
+
+      try {
+        const res = await fetch(
+          buildApiUrl(`/employees/${encodeURIComponent(session.user.id)}/hr/regions`),
+        );
+
+        if (res.status === 404 || res.status === 501) {
+          if (isMounted) {
+            setProfileNotificationsCount(0);
+          }
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`HR regions HTTP ${res.status}`);
+        }
+
+        const data = (await res.json()) as {
+          regions?: Array<{
+            employee_count?: number | null;
+            shop_count?: number | null;
+          }>;
+        };
+
+        const nextCount = Array.isArray(data.regions)
+          ? data.regions.filter(region => {
+              const employeeCount = Number(region.employee_count ?? 0);
+              const shopCount = Number(region.shop_count ?? 0);
+              return employeeCount > 0 || shopCount > 0;
+            }).length
+          : 0;
+
+        if (isMounted) {
+          setProfileNotificationsCount(nextCount);
+        }
+      } catch {
+        if (isMounted) {
+          setProfileNotificationsCount(0);
+        }
+      } finally {
+        if (isMounted) {
+          setIsProfileNotificationsLoading(false);
+        }
+      }
+    }
+
+    void loadProfileNotificationsCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isProfileSheetOpen, session]);
 
   useEffect(() => {
     if (!forgotError) {
@@ -603,6 +705,7 @@ export default function AuthScreen() {
     const displayName = fullName || session.user.email;
     const profileEmail = session.user.email || 'Почта не указана';
     const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase();
+    const isHrManager = Number(session.user.userRole ?? 3) === 10;
     const profileStatusBarStyle =
       isAndroid && androidPalette
         ? getAndroidStatusBarStyle(String(androidPalette.background))
@@ -896,6 +999,38 @@ export default function AuthScreen() {
                     </View>
                   </View>
 
+                  {!isPasswordSectionOpen && isHrManager ? (
+                    <TouchableOpacity
+                      style={styles.profileNotificationsCard}
+                      onPress={() => {
+                        setAuthNotice(
+                          profileNotificationsCount > 0
+                            ? `Новых уведомлений по открытиям смен: ${profileNotificationsCount}`
+                            : 'Пока новых уведомлений по открытиям смен нет',
+                        );
+                      }}>
+                      <View style={styles.profileNotificationsTextBlock}>
+                        <Text style={styles.profileNotificationsTitle}>Уведомления</Text>
+                        <Text style={styles.profileNotificationsSubtitle}>
+                          Открытия смен для HR-менеджеров
+                        </Text>
+                      </View>
+                      <View style={styles.profileNotificationsMetaBlock}>
+                        {isProfileNotificationsLoading ? (
+                          <ActivityIndicator size="small" color="#FF6A00" />
+                        ) : profileNotificationsCount > 0 ? (
+                          <View style={styles.profileNotificationCountBadge}>
+                            <Text style={styles.profileNotificationCountBadgeText}>
+                              {profileNotificationsCount > 99 ? '99+' : profileNotificationsCount}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.profileRowMutedMeta}>Нет новых</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ) : null}
+
                   {!isPasswordSectionOpen ? (
                     <View style={styles.profileActionsCard}>
                       <TouchableOpacity
@@ -911,9 +1046,12 @@ export default function AuthScreen() {
                       </TouchableOpacity>
 
                       <View style={styles.profileDivider} />
-
                       <View style={styles.profileRowStatic}>
-                        <Text style={styles.profileRowMutedText}>Тут скоро что-то будет</Text>
+                        <Text style={styles.profileRowMutedText}>
+                          {isHrManager
+                            ? 'Лента уведомлений появится здесь следующим шагом'
+                            : 'Тут скоро что-то будет'}
+                        </Text>
                       </View>
                     </View>
                   ) : (
@@ -1118,45 +1256,52 @@ export default function AuthScreen() {
           <>
             <Text style={styles.sectionTitle}>Восстановление пароля</Text>
             {!isCodeSent ? (
-              <TextInput
+              <Pressable
                 style={[
-                  styles.input,
+                  styles.phoneInputWrap,
                   focusedForgotField === 'identity' && styles.inputFocused,
                 ]}
-                placeholder="Номер телефона"
-                placeholderTextColor="#7A7A7A"
-                keyboardType="phone-pad"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={forgotIdentity}
-                selection={forgotPhoneSelection}
-                onFocus={() => {
-                  setFocusedForgotField('identity');
-                  const caret = forgotIdentity.length;
-                  setForgotPhoneSelection({ start: caret, end: caret });
-                }}
-                onBlur={() => setFocusedForgotField(null)}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  Keyboard.dismiss();
-                  if (!isForgotSubmitting) {
-                    sendResetCode();
-                  }
-                }}
-                inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-                onChangeText={text => {
-                  setForgotIdentity(prev => {
-                    const nextValue = formatPhoneInputWithBackspace(prev, text);
-                    const caret = nextValue.length;
+                onPress={() => forgotPhoneInputRef.current?.focus()}>
+                <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
+                <TextInput
+                  ref={forgotPhoneInputRef}
+                  style={styles.phoneInputControl}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={formatLocalPhoneDisplay(forgotIdentity)}
+                  maxLength={13}
+                  selection={forgotPhoneSelection}
+                  onFocus={() => {
+                    setFocusedForgotField('identity');
+                    const caret = formatLocalPhoneDisplay(forgotIdentity).length;
                     setForgotPhoneSelection({ start: caret, end: caret });
-                    return nextValue;
-                  });
-                  if (forgotError) {
-                    setForgotError(null);
-                  }
-                }}
-                editable={!isForgotSubmitting}
-              />
+                  }}
+                  onBlur={() => setFocusedForgotField(null)}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    Keyboard.dismiss();
+                    if (!isForgotSubmitting) {
+                      sendResetCode();
+                    }
+                  }}
+                  inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
+                  onChangeText={text => {
+                    const nextDisplay = formatLocalPhoneInputWithBackspace(
+                      formatLocalPhoneDisplay(forgotIdentity),
+                      text,
+                    );
+                    const nextIdentifier = formatPhoneInput(`+7${nextDisplay}`);
+                    setForgotIdentity(nextIdentifier);
+                    const caret = nextDisplay.length;
+                    setForgotPhoneSelection({ start: caret, end: caret });
+                    if (forgotError) {
+                      setForgotError(null);
+                    }
+                  }}
+                  editable={!isForgotSubmitting}
+                />
+              </Pressable>
             ) : null}
 
             <View style={styles.forgotFlashSlot}>
@@ -1286,38 +1431,46 @@ export default function AuthScreen() {
           </>
         ) : (
           <>
-        <TextInput
+        <Pressable
           style={[
-            styles.input,
+            styles.phoneInputWrap,
             focusedLoginField === 'identifier' && styles.inputFocused,
           ]}
-          placeholder="Номер телефона"
-          placeholderTextColor="#7A7A7A"
-          keyboardType="phone-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-          inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-          returnKeyType="next"
-          value={form.identifier}
-          selection={loginPhoneSelection}
-          onChangeText={text => {
-            const nextValue = formatPhoneInputWithBackspace(form.identifier, text);
-            updateField('identifier', nextValue);
-            const caret = nextValue.length;
-            setLoginPhoneSelection({ start: caret, end: caret });
-            if (authNotice) {
-              setAuthNotice(null);
-            }
-          }}
-          onSubmitEditing={() => passwordInputRef.current?.focus()}
-          onFocus={() => {
-            setFocusedLoginField('identifier');
-            const caret = form.identifier.length;
-            setLoginPhoneSelection({ start: caret, end: caret });
-          }}
-          onBlur={() => setFocusedLoginField(null)}
-          editable={!isSubmitting}
-        />
+          onPress={() => loginPhoneInputRef.current?.focus()}>
+          <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
+          <TextInput
+            ref={loginPhoneInputRef}
+            style={styles.phoneInputControl}
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+            autoCorrect={false}
+            inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
+            returnKeyType="next"
+            value={formatLocalPhoneDisplay(form.identifier)}
+            maxLength={13}
+            selection={loginPhoneSelection}
+            onChangeText={text => {
+              const nextDisplay = formatLocalPhoneInputWithBackspace(
+                formatLocalPhoneDisplay(form.identifier),
+                text,
+              );
+              updateField('identifier', formatPhoneInput(`+7${nextDisplay}`));
+              const caret = nextDisplay.length;
+              setLoginPhoneSelection({ start: caret, end: caret });
+              if (authNotice) {
+                setAuthNotice(null);
+              }
+            }}
+            onSubmitEditing={() => passwordInputRef.current?.focus()}
+            onFocus={() => {
+              setFocusedLoginField('identifier');
+              const caret = formatLocalPhoneDisplay(form.identifier).length;
+              setLoginPhoneSelection({ start: caret, end: caret });
+            }}
+            onBlur={() => setFocusedLoginField(null)}
+            editable={!isSubmitting}
+          />
+        </Pressable>
 
         <View style={styles.passwordField}>
           <TextInput

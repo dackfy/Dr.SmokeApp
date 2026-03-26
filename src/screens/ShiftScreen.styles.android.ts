@@ -261,6 +261,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderWidth: 1,
       borderColor: palette.outlineVariant,
       borderRadius: 28,
+      overflow: 'hidden',
       paddingHorizontal: 18,
       paddingTop: 18,
       paddingBottom: 18,
@@ -270,6 +271,32 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       shadowOpacity: isDark ? 0.18 : 0.05,
       shadowRadius: 22,
       elevation: 6,
+    },
+    salaryCardLoaderOverlay: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 2,
+      backgroundColor: 'rgba(0, 0, 0, 0.16)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    salaryCardContentLoading: {
+      opacity: 0.42,
+    },
+    salaryLoadingState: {
+      minHeight: 168,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    salaryLoadingText: {
+      color: palette.onSurfaceMuted,
+      fontSize: 13,
+      fontWeight: '600',
+      textAlign: 'center',
     },
     salaryCardHeader: {
       flexDirection: 'row',
@@ -347,6 +374,13 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       fontSize: 13,
       lineHeight: 18,
     },
+    salarySummaryContent: {
+      gap: 12,
+    },
+    salarySummaryContentCollapsed: {
+      minHeight: 148,
+      justifyContent: 'center',
+    },
     salaryMetaRow: {
       marginTop: 2,
       paddingTop: 10,
@@ -396,9 +430,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     },
     salaryExpandFooter: {
       marginTop: 4,
-      width: '100%',
-      alignItems: 'flex-end',
-      justifyContent: 'flex-end',
+      alignSelf: 'flex-end',
     },
     salaryDetails: {
       marginTop: 12,

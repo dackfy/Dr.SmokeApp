@@ -378,10 +378,37 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: isAndroid ? '#33405A' : '#1F1F1F',
     borderRadius: isAndroid ? 28 : 20,
+    overflow: 'hidden',
     paddingHorizontal: isAndroid ? 18 : 17,
     paddingTop: isAndroid ? 18 : 16,
     paddingBottom: isAndroid ? 18 : 16,
     gap: isAndroid ? 14 : 12,
+  },
+  salaryCardLoaderOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  salaryCardContentLoading: {
+    opacity: 0.42,
+  },
+  salaryLoadingState: {
+    minHeight: isAndroid ? 168 : 156,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  salaryLoadingText: {
+    color: isAndroid ? '#97A6C4' : '#AFAFAF',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
   salaryCardHeader: {
@@ -458,7 +485,6 @@ export const styles = StyleSheet.create({
     paddingVertical: 4,
     alignSelf: 'flex-start',
   },
-
   salaryValue: {
     color: '#FFFFFF',
     fontSize: isAndroid ? 28 : 26,
@@ -471,6 +497,13 @@ export const styles = StyleSheet.create({
     color: isAndroid ? '#97A6C4' : '#AFAFAF',
     fontSize: 13,
     lineHeight: 18,
+  },
+  salarySummaryContent: {
+    gap: 12,
+  },
+  salarySummaryContentCollapsed: {
+    minHeight: isAndroid ? 148 : 144,
+    justifyContent: 'center',
   },
 
   salaryMetaRow: {
@@ -529,9 +562,7 @@ export const styles = StyleSheet.create({
 
   salaryExpandFooter: {
     marginTop: 4,
-    width: '100%',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
   },
 
   salaryDetails: {
