@@ -43,6 +43,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Izambane3D.ttf</string>
+		<string>OpenLukyanov.otf</string>
 		<string>ThirdStreet-Regular.otf</string>
 	</array>
 	<key>UILaunchStoryboardName</key>

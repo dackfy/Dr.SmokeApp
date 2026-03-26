@@ -1,6 +1,7 @@
 import React from 'react'
 import type { AuthSession } from '../features/auth/types'
 import EmployeeHomeScreen from './EmployeeHomeScreen'
+import DirectorHomeScreen from './DirectorHomeScreen'
 import SuperHrHomeScreen from './SuperHrHomeScreen'
 import RolePlaceholderHomeScreen from './RolePlaceholderHomeScreen'
 
@@ -25,6 +26,17 @@ export default function HomeScreenRouter({
         isRefreshingSession={isRefreshingSession}
         onRefreshSession={onRefreshSession}
         {...rest}
+      />
+    )
+  }
+
+  if (role === 7) {
+    return (
+      <DirectorHomeScreen
+        session={session}
+        onLogout={rest.onLogout}
+        onRefreshSession={onRefreshSession}
+        onGoProfile={rest.onGoProfile}
       />
     )
   }
