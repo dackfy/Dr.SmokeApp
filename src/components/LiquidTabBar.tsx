@@ -95,7 +95,7 @@ function SharedLiquidTabBar({
       hasExtraTabs
         ? [
             { key: 'home', icon: homeIcon, label: homeLabel },
-            { key: 'mail', icon: mailIcon as ImageSourcePropType, label: 'Почта' },
+            { key: 'mail', icon: mailIcon as ImageSourcePropType, label: 'Сертификаты' },
             { key: 'trash', icon: trashIcon as ImageSourcePropType, label: 'Корзина' },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ]
@@ -137,7 +137,11 @@ function SharedLiquidTabBar({
   const slotUnit = itemWidth + TAB_GAP;
   const maxX = itemWidth > 0 ? maxSlotIndex * slotUnit : 0;
 
-  const bubbleBaseWidth = itemWidth > 0 ? clamp(itemWidth * 0.84, 52, 74) : 0;
+  const bubbleWidthRatio = activeTab === 'mail' ? 1.02 : 0.84;
+  const bubbleMinWidth = activeTab === 'mail' ? 74 : 52;
+  const bubbleMaxWidth = activeTab === 'mail' && itemWidth > 0 ? itemWidth - 2 : 74;
+  const bubbleBaseWidth =
+    itemWidth > 0 ? clamp(itemWidth * bubbleWidthRatio, bubbleMinWidth, bubbleMaxWidth) : 0;
   const bubbleBaseLeft =
     itemWidth > 0 ? INNER_PADDING + (itemWidth - bubbleBaseWidth) / 2 : INNER_PADDING;
 
@@ -728,8 +732,12 @@ function SharedLiquidTabBar({
             <View key={tab.key} style={styles.tabButton} pointerEvents="none">
               <Image source={tab.icon} style={[styles.icon, { tintColor: inactiveIconTint }]} />
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
                 style={[
                   styles.tabLabel,
+                  tab.key === 'mail' ? styles.tabLabelLong : null,
                   { color: inactiveIconTint },
                   (tab.key === 'mail' || tab.key === 'trash')
                     ? [styles.tabLabelExtra, { color: extraTabLabelColor }]
@@ -771,8 +779,12 @@ function SharedLiquidTabBar({
                     style={[styles.icon, styles.iconActive, { tintColor: activeIconTint }]}
                   />
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
                     style={[
                       styles.tabLabel,
+                      tab.key === 'mail' ? styles.tabLabelLong : null,
                       styles.tabLabelActive,
                       { color: activeIconTint },
                     ]}>
@@ -894,10 +906,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: INACTIVE_ICON_TINT,
+    textAlign: 'center',
+    width: '100%',
   },
 
   tabLabelActive: {
     color: ACTIVE_ICON_TINT,
+  },
+
+  tabLabelLong: {
+    fontSize: 9,
+    letterSpacing: -0.2,
   },
 
   tabLabelExtra: {

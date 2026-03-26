@@ -770,6 +770,35 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       fontSize: 13,
       lineHeight: 18,
     },
+    shiftFlashMessageError: {
+      backgroundColor: isDark ? '#6D1C16' : '#8D2A20',
+      borderColor: isDark ? '#C24A3C' : '#B63F32',
+    },
+    shiftFlashIconCircleError: {
+      backgroundColor: isDark ? '#E86152' : '#D84C3E',
+    },
+    shiftFlashIconText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: '800',
+      lineHeight: 20,
+    },
+    shiftFlashMessageText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '700',
+      lineHeight: 19,
+    },
+    shiftFlashCloseButton: {
+      borderColor: 'rgba(255,255,255,0.28)',
+      backgroundColor: 'rgba(255,255,255,0.06)',
+    },
+    shiftFlashCloseText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '800',
+      lineHeight: 18,
+    },
     button: {
       backgroundColor: palette.primary,
       borderRadius: 22,
@@ -787,7 +816,9 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderColor: palette.outlineVariant,
     },
     buttonDisabled: {
-      opacity: 0.5,
+      opacity: 1,
+      backgroundColor: palette.surfaceMuted,
+      borderColor: palette.outlineVariant,
     },
     buttonText: {
       color: palette.buttonText,
@@ -795,10 +826,89 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       fontWeight: '800',
       letterSpacing: 0.15,
     },
+    buttonTextSecondary: {
+      color: palette.onSurface,
+    },
+    buttonTextDisabled: {
+      color: palette.onSurfaceMuted,
+    },
+    buttonTextDanger: {
+      color: '#FFFFFF',
+    },
     smallText: {
-      color: isDark ? '#C0C9D1' : palette.onSurfaceMuted,
+      color: isDark ? '#D2DAE2' : palette.onSurfaceMuted,
       fontSize: 12,
       lineHeight: 18,
+    },
+    input: {
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.outlineVariant,
+      borderRadius: 18,
+      color: palette.onSurface,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    inputFocused: {
+      borderColor: palette.primary,
+      shadowColor: '#000000',
+      shadowOpacity: isDark ? 0.14 : 0.05,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
+    },
+    sealNumberBox: {
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.primary,
+      borderRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+    },
+    sealNumberValue: {
+      color: palette.onSurface,
+      fontSize: 20,
+      fontWeight: '900',
+      letterSpacing: 1.4,
+    },
+    reviewEditButton: {
+      borderWidth: 1,
+      borderColor: palette.outlineVariant,
+      backgroundColor: palette.secondaryButton,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    reviewEditButtonText: {
+      color: palette.primaryStrong,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    photoPreview: {
+      width: '100%',
+      height: 220,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: palette.outlineVariant,
+    },
+    keyboardAccessory: {
+      backgroundColor: palette.surfaceRaised,
+      borderTopWidth: 1,
+      borderTopColor: palette.outlineVariant,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      alignItems: 'flex-end',
+    },
+    keyboardAccessoryButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    keyboardAccessoryText: {
+      color: palette.primaryStrong,
+      fontSize: 16,
+      fontWeight: '800',
     },
     shopModalOverlay: {
       flex: 1,
