@@ -11,6 +11,7 @@
 		6E2546952F4B42D900410FB4 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6E2546942F4B42D900410FB4 /* Images.xcassets */; };
 		6EC6E8F72F6EB64A00C0CA03 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 6EC6E8F62F6EB64A00C0CA03 /* GoogleService-Info.plist */; };
 		6F4B42002D2F4B4200410FB4 /* DrSmokeApp/Fonts/Izambane3D.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6F4B42012D2F4B4200410FB4 /* DrSmokeApp/Fonts/Izambane3D.ttf */; };
+		70F6E0012F6F000100410FB4 /* DrSmokeApp/Fonts/OpenLukyanov.otf in Resources */ = {isa = PBXBuildFile; fileRef = 70F6E0002F6F000100410FB4 /* DrSmokeApp/Fonts/OpenLukyanov.otf */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		800B7285E12345E21391A616 /* libPods-asst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B722686D3B707728D416437 /* libPods-asst.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
@@ -27,6 +28,7 @@
 		6E2546942F4B42D900410FB4 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		6EC6E8F62F6EB64A00C0CA03 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		6F4B42012D2F4B4200410FB4 /* DrSmokeApp/Fonts/Izambane3D.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DrSmokeApp/Fonts/Izambane3D.ttf; sourceTree = "<group>"; };
+		70F6E0002F6F000100410FB4 /* DrSmokeApp/Fonts/OpenLukyanov.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DrSmokeApp/Fonts/OpenLukyanov.otf"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DrSmokeApp/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DrSmokeApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8A8E4B712D2F4B4200410FB4 /* DrSmokeApp/Fonts/ThirdStreet-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DrSmokeApp/Fonts/ThirdStreet-Regular.otf"; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 				6EC6E8F62F6EB64A00C0CA03 /* GoogleService-Info.plist */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				6F4B42012D2F4B4200410FB4 /* DrSmokeApp/Fonts/Izambane3D.ttf */,
+				70F6E0002F6F000100410FB4 /* DrSmokeApp/Fonts/OpenLukyanov.otf */,
 				8A8E4B712D2F4B4200410FB4 /* DrSmokeApp/Fonts/ThirdStreet-Regular.otf */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -178,6 +181,7 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				6E2546952F4B42D900410FB4 /* Images.xcassets in Resources */,
 				6F4B42002D2F4B4200410FB4 /* DrSmokeApp/Fonts/Izambane3D.ttf in Resources */,
+				70F6E0012F6F000100410FB4 /* DrSmokeApp/Fonts/OpenLukyanov.otf in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				8A8E4B722D2F4B4200410FB4 /* DrSmokeApp/Fonts/ThirdStreet-Regular.otf in Resources */,
 				E5DAE29F09B73E6FBFA7937E /* PrivacyInfo.xcprivacy in Resources */,
