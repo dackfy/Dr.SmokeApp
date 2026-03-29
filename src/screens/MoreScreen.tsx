@@ -2,33 +2,45 @@ import React from 'react'
 import {
   Animated,
   BackHandler,
+  Easing,
+  type ColorValue,
+  type GestureResponderEvent,
+  Image,
+  type LayoutChangeEvent,
   Linking,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TouchableOpacity,
   useColorScheme,
-  Vibration,
   View,
 } from 'react-native'
+import Svg, { Circle, Path, Rect } from 'react-native-svg'
+import AnimatedEntranceView from '../components/AnimatedEntranceView'
 import { usePortalAccess } from '../features/portal/usePortalAccess'
 import { useAndroidThemeMode } from '../theme/androidAppTheme'
 import {
   type AndroidThemePalette,
   getAndroidCompanyPalette,
-  getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
+import {
+  androidPeakImpact,
+  androidRustleHaptic,
+} from '../utils/androidHaptics'
 import { styles } from './MoreScreen.styles'
 
-type MoreScreenRoute = 'root' | 'appearance' | 'portal'
+type MoreScreenRoute = 'root' | 'appearance' | 'portal' | 'preferences'
 
 type MoreScreenProps = {
   employeeId: string
 }
 
 const PORTAL_URL = 'https://portal.dr-smoke.ru/'
+const COMPANY_THEME_ACCENT = '#FF6A00'
+const COMPANY_PREVIEW_COLORS = ['#050505', '#FF6A00', '#252525'] as const
+const moreIcon = require('../assets/icons/more.png')
+const lockIcon = require('../assets/icons/lock.png')
 
 const iosPalette: AndroidThemePalette = {
   background: '#000000',
@@ -59,6 +71,107 @@ const iosPalette: AndroidThemePalette = {
   secondaryButton: '#1C1C1E',
 }
 
+function formatPortalExpiry(value?: string | null) {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function MoreNavGlyph({
+  kind,
+  color,
+}: {
+  kind: 'appearance' | 'preferences' | 'portal'
+  color: ColorValue
+}) {
+  const stroke = typeof color === 'string' ? color : '#FFFFFF'
+
+  if (kind === 'appearance') {
+    return (
+      <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+        <Rect x={2.5} y={5.5} width={8} height={10} rx={2.5} stroke={stroke} strokeWidth={1.7} />
+        <Rect x={9.5} y={3.5} width={8} height={10} rx={2.5} stroke={stroke} strokeWidth={1.7} />
+      </Svg>
+    )
+  }
+
+  if (kind === 'preferences') {
+    return (
+      <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+        <Path d="M4 6H16" stroke={stroke} strokeWidth={1.7} strokeLinecap="round" />
+        <Path d="M4 10H16" stroke={stroke} strokeWidth={1.7} strokeLinecap="round" />
+        <Path d="M4 14H16" stroke={stroke} strokeWidth={1.7} strokeLinecap="round" />
+        <Circle cx={7} cy={6} r={1.8} fill={stroke} />
+        <Circle cx={12.5} cy={10} r={1.8} fill={stroke} />
+        <Circle cx={9} cy={14} r={1.8} fill={stroke} />
+      </Svg>
+    )
+  }
+
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M7 4.5H5.8C4.81 4.5 4 5.31 4 6.3V13.7C4 14.69 4.81 15.5 5.8 15.5H7"
+        stroke={stroke}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 10H16"
+        stroke={stroke}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M13.2 7.2L16 10L13.2 12.8"
+        stroke={stroke}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+function MoreNavIcon({
+  kind,
+  color,
+}: {
+  kind: 'appearance' | 'preferences' | 'portal'
+  color: ColorValue
+}) {
+  if (Platform.OS === 'ios') {
+    const iconSource = kind === 'portal' ? lockIcon : moreIcon
+    return (
+      <Image
+        source={iconSource}
+        style={{
+          width: 18,
+          height: 18,
+          tintColor: typeof color === 'string' ? color : '#FFFFFF',
+          resizeMode: 'contain',
+        }}
+      />
+    )
+  }
+
+  return <MoreNavGlyph kind={kind} color={color} />
+}
+
 export default function MoreScreen({
   employeeId,
 }: MoreScreenProps) {
@@ -66,10 +179,17 @@ export default function MoreScreen({
   const androidTheme = useAndroidThemeMode()
   const isAndroid = Platform.OS === 'android'
   const [route, setRoute] = React.useState<MoreScreenRoute>('root')
-  const themeHoldProgress = React.useRef(new Animated.Value(0)).current
   const holdTimersRef = React.useRef<number[]>([])
   const holdCommittedRef = React.useRef(false)
   const [holdTarget, setHoldTarget] = React.useState<'company' | 'material' | null>(null)
+  const [holdOrigin, setHoldOrigin] = React.useState<Record<'company' | 'material', { x: number; y: number }>>({
+    company: { x: 0, y: 0 },
+    material: { x: 0, y: 0 },
+  })
+  const [holdLayout, setHoldLayout] = React.useState<Record<'company' | 'material', { width: number; height: number }>>({
+    company: { width: 1, height: 1 },
+    material: { width: 1, height: 1 },
+  })
 
   const palette = React.useMemo(() => {
     if (!isAndroid) {
@@ -78,102 +198,115 @@ export default function MoreScreen({
 
     return androidTheme.mode === 'company'
       ? getAndroidCompanyPalette()
-      : getAndroidThemePalette(colorScheme === 'dark')
-  }, [androidTheme.mode, colorScheme, isAndroid])
+      : getAndroidThemePalette(colorScheme === 'dark', androidTheme.contrastMode)
+  }, [androidTheme.contrastMode, androidTheme.mode, colorScheme, isAndroid])
+  const materialPalette = React.useMemo(() => {
+    if (!isAndroid) {
+      return iosPalette
+    }
 
-  const companyPreview = ['#050505', '#FF6A00', '#252525']
-  const materialPreview = [
-    String(palette.primary),
-    String(palette.secondary),
-    String(palette.tertiary),
-  ]
+    return getAndroidThemePalette(colorScheme === 'dark', androidTheme.contrastMode)
+  }, [androidTheme.contrastMode, colorScheme, isAndroid])
   const isCompanyMode = isAndroid && androidTheme.mode === 'company'
   const isMaterialMode = isAndroid && androidTheme.mode === 'material'
-  const isMaterialDark = isMaterialMode && colorScheme === 'dark'
+  const isSystemDark = colorScheme === 'dark'
+  const isMaterialDark = isSystemDark
+  const materialPreviewAccent = materialPalette.primary
   const accentTextColor = isCompanyMode
-    ? String(palette.primaryStrong)
+    ? palette.primaryStrong
     : isMaterialDark
-      ? String(palette.onSurface)
-      : String(palette.primary)
+      ? palette.onSurface
+      : palette.primary
   const subtleSurfaceColor = isCompanyMode
-    ? String(palette.surfaceMuted)
+    ? palette.surfaceMuted
     : isMaterialDark
-      ? String(palette.surface)
-      : String(palette.surfaceRaised)
-  const rootCardBackground = String(palette.surfaceRaised)
-  const heroCardBackground = isCompanyMode
-    ? String(palette.surfaceMuted)
+      ? palette.surface
+      : palette.surfaceRaised
+  const rootCardBackground = isCompanyMode
+    ? palette.surfaceRaised
     : subtleSurfaceColor
+  const heroCardBackground = isCompanyMode
+    ? palette.surfaceRaised
+    : isMaterialMode
+      ? palette.surfaceRaised
+      : rootCardBackground
   const accentSurface = isCompanyMode
-    ? String(palette.primaryContainerStrong)
-    : isMaterialDark
-      ? '#202A33'
-      : String(palette.primaryContainer)
+    ? palette.primaryContainerStrong
+    : palette.primaryContainerStrong
   const heroKickerColor = accentTextColor
   const secondaryMutedColor =
-    isMaterialDark ? String(palette.onSurfaceMuted) : String(palette.onSurfaceMuted)
+    isMaterialDark ? palette.onSurfaceMuted : palette.onSurfaceMuted
   const heroBorderColor = isCompanyMode
-    ? String(palette.primaryContainerStrong)
+    ? palette.primaryContainerStrong
     : isMaterialMode && isMaterialDark
-      ? String(palette.outline)
+      ? palette.outline
       : isMaterialMode
-        ? String(palette.primary)
-        : String(palette.outlineVariant)
+        ? palette.primary
+        : palette.outlineVariant
   const portalHeroBackground = isCompanyMode
-    ? String(palette.surfaceMuted)
+    ? palette.surfaceMuted
     : subtleSurfaceColor
   const portalPanelBackground = isCompanyMode
-    ? String(palette.surfaceRaised)
-    : String(palette.surfaceRaised)
+    ? palette.surfaceRaised
+    : palette.surfaceRaised
   const portalSecondaryPanel = isCompanyMode
-    ? String(palette.surface)
+    ? palette.surface
     : subtleSurfaceColor
   const ctaBackground =
     isCompanyMode
-      ? String(palette.primary)
+      ? palette.primary
       : isMaterialDark
-        ? String(palette.primaryStrong)
-        : String(palette.primary)
-  const ctaTextColor =
-    getAndroidStatusBarStyle(ctaBackground) === 'dark-content'
-      ? '#08120F'
-      : '#FFFFFF'
+        ? palette.primaryStrong
+        : palette.primary
+  const ctaTextColor = palette.onPrimary
   const ctaBorderColor =
     isCompanyMode
-      ? String(palette.primaryStrong)
+      ? palette.primaryStrong
       : isMaterialDark
-        ? String(palette.primaryStrong)
-        : String(palette.primary)
-  const materialSolidAccent =
-    isMaterialDark ? String(palette.primaryStrong) : String(palette.primary)
-  const materialSelectedBadgeBackground = isMaterialDark
-    ? String(palette.primaryStrong)
-    : materialSolidAccent
-  const materialSelectedRadioBorder = isMaterialDark ? '#D7E3EC' : materialSolidAccent
-  const materialPreviewCardBackground = isMaterialDark
-    ? '#141A20'
-    : String(palette.surfaceRaised)
-  const materialPreviewCardSecondaryBackground = isMaterialDark
-    ? '#222C36'
-    : String(palette.surfaceAccent)
-  const materialPreviewBorder = isMaterialDark
-    ? 'rgba(215,227,236,0.14)'
-    : String(palette.outlineVariant)
-  const materialPreviewPrimaryLine = isMaterialDark
-    ? '#F5F7FA'
-    : materialPreview[0]
-  const materialPreviewSecondaryLine = isMaterialDark
-    ? '#AEBBC7'
-    : materialPreview[1]
-  const materialPreviewTertiaryLine = isMaterialDark
-    ? '#CBD5E1'
-    : materialPreview[2]
+        ? palette.primaryStrong
+        : palette.primary
+  const materialSolidAccent = materialPalette.primary
+  const materialPreviewCardBackground = materialPalette.surfaceAccent
+  const materialPreviewCardSecondaryBackground = materialPalette.primaryContainer
+  const materialPreviewBorderColor = materialPalette.outline
+  const materialPreviewLineStrong = materialPalette.primary
+  const materialPreviewLineSoft = materialPalette.secondary
+  const companyCardAccent = COMPANY_THEME_ACCENT
+  const materialCardAccent = materialPalette.primary
+  const companyCardBackground = palette.surface
+  const materialCardBackground = isMaterialMode
+    ? materialPalette.surface
+    : palette.surface
+  const companyCardBorderColor = isCompanyMode ? companyCardAccent : palette.outlineVariant
+  const materialCardBorderColor = isMaterialMode
+    ? materialPalette.outline
+    : palette.outlineVariant
+  const companyBadgeBackground = isCompanyMode ? companyCardAccent : palette.surfaceMuted
+  const materialBadgePillBackground = isMaterialMode
+    ? materialPalette.surfaceAccent
+    : isSystemDark
+      ? '#252D35'
+      : '#E7EEF4'
+  const companyBadgeTextColor = isCompanyMode ? palette.onPrimary : palette.onSurface
+  const materialBadgePillTextColor = isMaterialMode
+    ? materialPalette.onSurface
+    : isSystemDark
+      ? '#EAF2F8'
+      : '#23313D'
+  const companyRadioBorderColor = isCompanyMode ? companyCardAccent : palette.outline
+  const materialRadioBorderColor = isMaterialMode ? materialPalette.primaryStrong : palette.outline
+  const activeCardShadowColor = isMaterialMode ? '#000000' : companyCardAccent
+  const activeCardShadowOpacity = isMaterialMode ? 0.06 : 0.1
+  const activeCardShadowRadius = 18
+  const activeCardElevation = 4
+  const backButtonBorderColor = isCompanyMode
+    ? palette.primaryContainerStrong
+    : palette.outlineVariant
   const {
     session: portalSession,
     isLoading: isPortalLoading,
     isRefreshing: isPortalRefreshing,
     error: portalError,
-    refresh: refreshPortal,
     login: loginPortal,
     confirm: confirmPortal,
     logout: logoutPortal,
@@ -193,6 +326,7 @@ export default function MoreScreen({
       : portalSession.status === 'pending_confirm'
         ? 'Подтвердить вход'
         : 'Войти на портал'
+  const formattedPortalExpiry = formatPortalExpiry(portalSession.expiresAt)
 
   const openPortal = React.useCallback(() => {
     Linking.openURL(portalSession.portalUrl || PORTAL_URL).catch(() => {})
@@ -229,17 +363,21 @@ export default function MoreScreen({
       }
 
       if (animated) {
-        Animated.timing(themeHoldProgress, {
+        Animated.timing(androidTheme.previewProgress, {
           toValue: 0,
-          duration: 180,
-          useNativeDriver: false,
-        }).start(finish)
+          duration: 360,
+          easing: Easing.bezier(0.24, 0.86, 0.24, 1),
+          useNativeDriver: true,
+        }).start(() => {
+          androidTheme.clearPreview()
+          finish()
+        })
       } else {
-        themeHoldProgress.setValue(0)
+        androidTheme.clearPreview()
         finish()
       }
     },
-    [themeHoldProgress],
+    [androidTheme],
   )
 
   const startThemeHold = React.useCallback(
@@ -248,24 +386,19 @@ export default function MoreScreen({
         return
       }
 
-      stopThemeHold(false)
       holdCommittedRef.current = false
       setHoldTarget(mode)
-      themeHoldProgress.setValue(0)
-      Vibration.vibrate(mode === 'company' ? 4 : 3)
+      androidRustleHaptic()
+      holdTimersRef.current = []
 
-      holdTimersRef.current = [
-        setTimeout(() => Vibration.vibrate(mode === 'company' ? 7 : 6), 170) as unknown as number,
-        setTimeout(() => Vibration.vibrate(mode === 'company' ? 11 : 9), 360) as unknown as number,
-      ]
-
-      Animated.timing(themeHoldProgress, {
+      Animated.timing(androidTheme.previewProgress, {
         toValue: 1,
-        duration: 620,
-        useNativeDriver: false,
+        duration: 1280,
+        easing: Easing.bezier(0.2, 0.92, 0.24, 1),
+        useNativeDriver: true,
       }).start()
     },
-    [androidTheme.transitionPhase, isAndroid, stopThemeHold, themeHoldProgress],
+    [androidTheme, isAndroid],
   )
 
   const commitThemeHold = React.useCallback(
@@ -278,46 +411,132 @@ export default function MoreScreen({
       holdCommittedRef.current = true
       holdTimersRef.current.forEach(timer => clearTimeout(timer))
       holdTimersRef.current = []
-      Vibration.vibrate([0, 10, 22, 18, 16])
+      androidPeakImpact()
 
-      Animated.timing(themeHoldProgress, {
+      Animated.timing(androidTheme.previewProgress, {
         toValue: 1,
-        duration: 80,
-        useNativeDriver: false,
+        duration: 240,
+        easing: Easing.bezier(0.18, 0.9, 0.22, 1),
+        useNativeDriver: true,
       }).start(() => {
         androidTheme.setMode(mode)
         setTimeout(() => {
           stopThemeHold()
-        }, 260)
+        }, 420)
       })
     },
-    [androidTheme, isAndroid, stopThemeHold, themeHoldProgress],
+    [androidTheme, isAndroid, stopThemeHold],
   )
 
-  const renderThemeHoldOverlay = (mode: 'company' | 'material', accent: string) => {
+  const handleThemeCardLayout = React.useCallback(
+    (mode: 'company' | 'material', event: LayoutChangeEvent) => {
+      const { width, height } = event.nativeEvent.layout
+      setHoldLayout(current => {
+        const prev = current[mode]
+        if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) {
+          return current
+        }
+        return {
+          ...current,
+          [mode]: { width, height },
+        }
+      })
+    },
+    [],
+  )
+
+  const handleThemePressIn = React.useCallback(
+    (mode: 'company' | 'material', event: GestureResponderEvent) => {
+      const { locationX, locationY, pageX, pageY } = event.nativeEvent
+      stopThemeHold(false)
+      setHoldOrigin(current => ({
+        ...current,
+        [mode]: { x: locationX, y: locationY },
+      }))
+      androidTheme.beginPreview(mode, { x: pageX, y: pageY })
+      startThemeHold(mode)
+    },
+    [androidTheme, startThemeHold, stopThemeHold],
+  )
+
+  const renderThemeHoldOverlay = (mode: 'company' | 'material', accent: ColorValue) => {
     if (holdTarget !== mode) {
       return null
     }
 
+    const layout = holdLayout[mode]
+    const origin = holdOrigin[mode]
+    const maxRadius = Math.max(
+      Math.hypot(origin.x, origin.y),
+      Math.hypot(layout.width - origin.x, origin.y),
+      Math.hypot(origin.x, layout.height - origin.y),
+      Math.hypot(layout.width - origin.x, layout.height - origin.y),
+      1,
+    )
+    const circleSize = maxRadius * 2
+    const fillOpacity = [0.18, 0.46]
+    const circleOpacity = [0.12, 0.5]
+    const strokeOpacity = [0.34, 0.98]
+
     return (
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.optionHoldFill,
-          {
-            backgroundColor: accent,
-            opacity: themeHoldProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.06, 0.16],
-              extrapolate: 'clamp',
-            }),
-            width: themeHoldProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', '100%'],
-            }),
-          },
-        ]}
-      />
+      <>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.optionHoldFill,
+            {
+              backgroundColor: accent,
+              opacity: androidTheme.previewProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: fillOpacity,
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.optionHoldCircle,
+            {
+              width: circleSize,
+              height: circleSize,
+              borderRadius: maxRadius,
+              left: origin.x - maxRadius,
+              top: origin.y - maxRadius,
+              backgroundColor: accent,
+              opacity: androidTheme.previewProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: circleOpacity,
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  scale: androidTheme.previewProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.02, 1.14],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.optionHoldStroke,
+            {
+              borderColor: accent,
+              opacity: androidTheme.previewProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: strokeOpacity,
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}
+        />
+      </>
     )
   }
 
@@ -344,25 +563,35 @@ export default function MoreScreen({
               styles.backButton,
               {
                 backgroundColor: isCompanyMode
-                  ? String(palette.surfaceMuted)
-                  : String(palette.surfaceRaised),
-                borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
+                  ? palette.surfaceMuted
+                  : palette.surfaceRaised,
+                borderColor: backButtonBorderColor,
               },
             ]}
             onPress={() => setRoute('root')}
             accessibilityRole="button"
             accessibilityLabel="Назад">
-            <Text style={[styles.backButtonText, { color: String(palette.onSurface) }]}>‹</Text>
+            {Platform.OS === 'ios' ? (
+              <Text style={[styles.backButtonText, { color: palette.onSurface }]}>‹</Text>
+            ) : (
+              <Svg width={16} height={16} viewBox="0 0 16 16">
+                <Path
+                  d="M10.5 2.5 L5 8 L10.5 13.5"
+                  stroke="#FFFFFF"
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            )}
           </TouchableOpacity>
         ) : null}
         <View style={styles.headerTextWrap}>
-          <Text style={[styles.screenTitle, { color: String(palette.onSurface) }]}>
+          <Text style={[styles.screenTitle, { color: palette.onSurface }]}>
             {title}
           </Text>
           {subtitle ? (
-            <Text style={[styles.subtitle, { color: String(palette.onSurfaceMuted) }]}>
+            <Text style={[styles.subtitle, { color: palette.onSurfaceMuted }]}>
               {subtitle}
             </Text>
           ) : null}
@@ -373,15 +602,16 @@ export default function MoreScreen({
 
   const renderRoot = () => (
     <>
-      <View
+      <AnimatedEntranceView
+        delay={30}
         style={[
           styles.sectionCard,
           styles.heroCard,
           {
             backgroundColor: heroCardBackground,
             borderColor: isCompanyMode
-              ? String(palette.primaryContainerStrong)
-              : String(palette.outlineVariant),
+              ? palette.primaryContainerStrong
+              : palette.outlineVariant,
             shadowColor: '#000000',
             shadowOffset: { width: 0, height: 12 },
             shadowOpacity: isCompanyMode ? 0.18 : 0.08,
@@ -392,32 +622,31 @@ export default function MoreScreen({
         <View
           style={[
             styles.heroAccentBar,
-            { backgroundColor: isCompanyMode ? String(palette.primary) : materialSolidAccent },
+            { backgroundColor: isCompanyMode ? palette.primary : materialSolidAccent },
           ]}
         />
         <Text style={[styles.heroKicker, { color: heroKickerColor }]}>
           Центр настроек
         </Text>
-        <Text style={[styles.heroTitle, { color: String(palette.onSurface) }]}>
+        <Text style={[styles.heroTitle, { color: palette.onSurface }]}>
           Настройки и инструменты
         </Text>
         <Text style={[styles.subtitle, { color: secondaryMutedColor }]}>
-          Оформление, портал и служебные инструменты собраны в одном месте и поданы в том же
-          плотном визуальном ритме, что и главная.
+          Оформление, портал и служебные инструменты в одном месте.
         </Text>
         <View style={styles.heroInfoGrid}>
           <View
             style={[
               styles.heroInfoCard,
               {
-                backgroundColor: String(palette.surface),
+                backgroundColor: palette.surface,
                 borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
+                  ? palette.primaryContainerStrong
+                  : palette.outlineVariant,
               },
             ]}>
             <Text style={[styles.heroInfoLabel, { color: heroKickerColor }]}>Оформление</Text>
-            <Text style={[styles.heroInfoValue, { color: String(palette.onSurface) }]}>
+            <Text style={[styles.heroInfoValue, { color: palette.onSurface }]}>
               {isAndroid ? (androidTheme.mode === 'company' ? 'Код компании' : 'Material You') : 'iOS'}
             </Text>
           </View>
@@ -425,64 +654,71 @@ export default function MoreScreen({
             style={[
               styles.heroInfoCard,
               {
-                backgroundColor: String(palette.surface),
+                backgroundColor: palette.surface,
                 borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
+                  ? palette.primaryContainerStrong
+                  : palette.outlineVariant,
               },
             ]}>
             <Text style={[styles.heroInfoLabel, { color: heroKickerColor }]}>Портал</Text>
-            <Text style={[styles.heroInfoValue, { color: String(palette.onSurface) }]}>
+            <Text style={[styles.heroInfoValue, { color: palette.onSurface }]}>
               {portalStatusLabel}
             </Text>
           </View>
         </View>
-      </View>
+      </AnimatedEntranceView>
 
-      <View
+      <AnimatedEntranceView
+        delay={110}
         style={[
           styles.sectionCard,
+          styles.rootLinksCard,
           {
             backgroundColor: rootCardBackground,
-            borderColor: String(palette.outlineVariant),
+            borderColor: isCompanyMode ? palette.outlineVariant : palette.outlineVariant,
           },
         ]}>
-        <View style={styles.rowList}>
-          <Pressable
+        <View style={styles.appearanceOptionList}>
+            <Pressable
             style={[
               styles.navRow,
               {
                 backgroundColor: isCompanyMode
-                  ? String(palette.surface)
-                  : String(palette.surface),
+                  ? palette.surface
+                  : palette.surface,
                 borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
+                  ? palette.primaryContainerStrong
+                  : palette.outlineVariant,
                 shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 10 },
                 shadowOpacity: isCompanyMode ? 0.12 : 0.04,
                 shadowRadius: 18,
                 elevation: isCompanyMode ? 4 : 2,
+                minHeight: Platform.OS === 'ios' ? 72 : undefined,
               },
             ]}
             onPress={() => setRoute('appearance')}>
-            <View
-              style={[
-                styles.navRowBadge,
-                {
-                  backgroundColor: accentSurface,
-                  borderColor: isCompanyMode
-                    ? String(palette.primaryContainerStrong)
-                    : String(palette.outlineVariant),
-                },
-              ]}>
-              <Text style={[styles.navRowBadgeText, { color: accentTextColor }]}>A</Text>
+              <View
+                style={[
+                  styles.navRowBadge,
+                  {
+                    backgroundColor: accentSurface,
+                    borderColor: isCompanyMode
+                      ? palette.primaryContainerStrong
+                      : palette.outlineVariant,
+                    width: Platform.OS === 'ios' ? 42 : undefined,
+                    minWidth: Platform.OS === 'ios' ? 42 : undefined,
+                    height: Platform.OS === 'ios' ? 42 : undefined,
+                    borderRadius: Platform.OS === 'ios' ? 16 : undefined,
+                  },
+                ]}>
+              <MoreNavIcon kind="appearance" color={accentTextColor} />
             </View>
             <View style={styles.navRowTextWrap}>
               <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>
                 Оформление
               </Text>
-              <Text style={[styles.navRowTitle, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.navRowTitle, { color: palette.onSurface }]}>
                 Стиль приложения
               </Text>
               <Text
@@ -491,28 +727,82 @@ export default function MoreScreen({
                   { color: secondaryMutedColor },
                 ]}>
                 {isAndroid
-                  ? 'Переключение между фирменным код-дизайном и Material You.'
-                  : 'Настройки оформления и визуальные параметры приложения собраны в этом разделе.'}
+                  ? 'Фирменный стиль Dr.Smoke и Material You.'
+                  : 'Настройки оформления приложения.'}
               </Text>
             </View>
             <Text style={[styles.navChevron, { color: accentTextColor }]}>›</Text>
           </Pressable>
+
+          {isAndroid ? (
+            <Pressable
+              style={[
+                styles.navRow,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: isCompanyMode
+                    ? palette.primaryContainerStrong
+                    : palette.outlineVariant,
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: isCompanyMode ? 0.12 : 0.04,
+                  shadowRadius: 18,
+                  elevation: isCompanyMode ? 4 : 2,
+                  minHeight: Platform.OS === 'ios' ? 72 : undefined,
+                },
+              ]}
+              onPress={() => setRoute('preferences')}>
+              <View
+                style={[
+                  styles.navRowBadge,
+                  {
+                    backgroundColor: accentSurface,
+                    borderColor: isCompanyMode
+                      ? palette.primaryContainerStrong
+                      : palette.outlineVariant,
+                    width: Platform.OS === 'ios' ? 42 : undefined,
+                    minWidth: Platform.OS === 'ios' ? 42 : undefined,
+                    height: Platform.OS === 'ios' ? 42 : undefined,
+                    borderRadius: Platform.OS === 'ios' ? 16 : undefined,
+                  },
+                ]}>
+                <MoreNavIcon kind="preferences" color={accentTextColor} />
+              </View>
+              <View style={styles.navRowTextWrap}>
+                <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>
+                  Персонализация
+                </Text>
+                <Text style={[styles.navRowTitle, { color: palette.onSurface }]}>
+                  Анимация и отклик
+                </Text>
+                <Text
+                  style={[
+                    styles.navRowSubtitle,
+                    { color: secondaryMutedColor },
+                ]}>
+                  Анимации, отклик и контраст.
+                </Text>
+              </View>
+              <Text style={[styles.navChevron, { color: accentTextColor }]}>›</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             style={[
               styles.navRow,
               {
                 backgroundColor: isCompanyMode
-                  ? String(palette.surface)
-                  : String(palette.surface),
+                  ? palette.surface
+                  : palette.surface,
                 borderColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.outlineVariant),
+                  ? palette.primaryContainerStrong
+                  : palette.outlineVariant,
                 shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 10 },
                 shadowOpacity: isCompanyMode ? 0.12 : 0.04,
                 shadowRadius: 18,
                 elevation: isCompanyMode ? 4 : 2,
+                minHeight: Platform.OS === 'ios' ? 72 : undefined,
               },
             ]}
             onPress={() => setRoute('portal')}>
@@ -522,17 +812,21 @@ export default function MoreScreen({
                 {
                   backgroundColor: accentSurface,
                   borderColor: isCompanyMode
-                    ? String(palette.primaryContainerStrong)
-                    : String(palette.outlineVariant),
+                    ? palette.primaryContainerStrong
+                    : palette.outlineVariant,
+                  width: Platform.OS === 'ios' ? 42 : undefined,
+                  minWidth: Platform.OS === 'ios' ? 42 : undefined,
+                  height: Platform.OS === 'ios' ? 42 : undefined,
+                  borderRadius: Platform.OS === 'ios' ? 16 : undefined,
                 },
               ]}>
-              <Text style={[styles.navRowBadgeText, { color: accentTextColor }]}>P</Text>
+              <MoreNavIcon kind="portal" color={accentTextColor} />
             </View>
             <View style={styles.navRowTextWrap}>
               <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>
                 Инструменты
               </Text>
-              <Text style={[styles.navRowTitle, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.navRowTitle, { color: palette.onSurface }]}>
                 Доступ на портал
               </Text>
               <Text
@@ -540,23 +834,26 @@ export default function MoreScreen({
                   styles.navRowSubtitle,
                   { color: secondaryMutedColor },
                 ]}>
-                Быстрый вход в веб-портал сотрудника, ссылка и будущий flow с PIN-кодом.
+                Быстрый вход в портал сотрудника.
               </Text>
             </View>
             <Text style={[styles.navChevron, { color: accentTextColor }]}>›</Text>
           </Pressable>
         </View>
-      </View>
+      </AnimatedEntranceView>
+
     </>
   )
 
   const renderAppearance = () => (
-    <View
+    <AnimatedEntranceView
+      delay={40}
       style={[
         styles.sectionCard,
+        styles.appearanceSectionCard,
         {
-          backgroundColor: String(palette.surfaceRaised),
-          borderColor: String(palette.outlineVariant),
+          backgroundColor: palette.surfaceRaised,
+          borderColor: palette.outlineVariant,
         },
       ]}>
       {!isAndroid ? (
@@ -564,13 +861,13 @@ export default function MoreScreen({
           <View
             style={[
               styles.statusPill,
-              { backgroundColor: String(palette.primaryContainer) },
+              { backgroundColor: palette.primaryContainer },
             ]}>
-            <Text style={[styles.statusPillText, { color: String(palette.primaryStrong) }]}>
+            <Text style={[styles.statusPillText, { color: palette.primaryStrong }]}>
               iOS
             </Text>
           </View>
-          <Text style={[styles.heroTitle, { color: String(palette.onSurface) }]}>
+          <Text style={[styles.heroTitle, { color: palette.onSurface }]}>
             Оформление приложения
           </Text>
           <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
@@ -580,87 +877,98 @@ export default function MoreScreen({
         </>
       ) : (
         <View style={styles.rowList}>
+          <View style={styles.appearanceIntro}>
+            <View
+              style={[
+                styles.appearanceIntroBar,
+                { backgroundColor: isCompanyMode ? companyCardAccent : materialCardAccent },
+              ]}
+            />
+            <Text style={[styles.appearanceIntroKicker, { color: accentTextColor }]}>
+              Android Themes
+            </Text>
+            <Text style={[styles.appearanceIntroText, { color: secondaryMutedColor }]}>
+              Выбери фирменный стиль или системную тему. Удержание карточки запускает
+              переключение и применяет оформление ко всему приложению.
+            </Text>
+          </View>
+
           <Pressable
             style={[
               styles.optionCard,
               {
-                backgroundColor: isCompanyMode
-                  ? String(palette.primaryContainerStrong)
-                  : String(palette.surface),
-                borderColor: isCompanyMode
-                  ? String(palette.primary)
-                  : String(palette.outlineVariant),
+                backgroundColor: companyCardBackground,
+                borderColor: companyCardBorderColor,
+                shadowColor: isCompanyMode ? activeCardShadowColor : '#000000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: isCompanyMode ? activeCardShadowOpacity : 0.03,
+                shadowRadius: isCompanyMode ? activeCardShadowRadius : 14,
+                elevation: isCompanyMode ? activeCardElevation : 2,
               },
             ]}
             delayLongPress={620}
-            onPressIn={() => startThemeHold('company')}
+            onLayout={event => handleThemeCardLayout('company', event)}
+            onPressIn={event => handleThemePressIn('company', event)}
             onPressOut={() => stopThemeHold()}
             onLongPress={() => commitThemeHold('company')}>
-            {renderThemeHoldOverlay('company', String(palette.primary))}
+            {renderThemeHoldOverlay('company', COMPANY_THEME_ACCENT)}
             <View style={styles.badgeRow}>
               <View
                 style={[
                   styles.badgeLeft,
                   {
-                    backgroundColor: isCompanyMode
-                      ? String(palette.primary)
-                      : String(palette.surfaceMuted),
+                    backgroundColor: companyBadgeBackground,
                   },
                 ]}>
                 <Text
                   style={[
                     styles.badgeLeftText,
                     {
-                      color: isCompanyMode
-                        ? String(palette.onPrimary)
-                        : String(palette.onSurface),
+                      color: companyBadgeTextColor,
                     },
                   ]}>
-                    Фирменный
+                  Фирменный
                 </Text>
               </View>
               <View
                 style={[
                   styles.radio,
                   {
-                    borderColor: isCompanyMode
-                      ? String(palette.primary)
-                      : String(palette.outline),
-                    backgroundColor: isCompanyMode
-                      ? String(palette.primary)
-                      : 'transparent',
+                    borderColor: companyRadioBorderColor,
+                    backgroundColor: isCompanyMode ? companyCardAccent : 'transparent',
                   },
-                ]}
-              />
+                ]}>
+                {isCompanyMode ? (
+                  <View
+                    style={[
+                      styles.radioInner,
+                      { backgroundColor: '#FFFFFF' },
+                    ]}
+                  />
+                ) : null}
+              </View>
             </View>
             <View style={styles.optionHeader}>
-              <Text style={[styles.optionTitle, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.optionTitle, { color: palette.onSurface }]}>
                 Код компании
               </Text>
-              <Text style={[styles.optionMeta, { color: accentTextColor }]}>
+              <Text style={[styles.optionMeta, { color: companyCardAccent }]}>
                 Темный режим
               </Text>
             </View>
-            <Text
-              style={[
-                styles.optionDescription,
-                { color: secondaryMutedColor },
-              ]}>
-              Плотный темный интерфейс с ярким оранжевым акцентом и собранной фирменной подачей.
-            </Text>
             <View style={styles.previewRail}>
               <View
                 style={[
                   styles.previewCard,
                   {
-                    backgroundColor: companyPreview[0],
+                    backgroundColor: COMPANY_PREVIEW_COLORS[0],
                     borderColor: 'rgba(255,255,255,0.06)',
                   },
                 ]}>
                 <View
                   style={[
                     styles.previewDot,
-                    { backgroundColor: companyPreview[1] },
+                    { backgroundColor: COMPANY_THEME_ACCENT },
                   ]}
                 />
                 <View
@@ -673,14 +981,14 @@ export default function MoreScreen({
               <View
                 style={[
                   styles.previewTall,
-                  { backgroundColor: companyPreview[1] },
+                  { backgroundColor: COMPANY_THEME_ACCENT },
                 ]}
               />
               <View
                 style={[
                   styles.previewCard,
                   {
-                    backgroundColor: companyPreview[2],
+                    backgroundColor: COMPANY_PREVIEW_COLORS[2],
                     borderColor: 'rgba(255,255,255,0.06)',
                   },
                 ]}>
@@ -704,21 +1012,18 @@ export default function MoreScreen({
             style={[
               styles.optionCard,
               {
-                backgroundColor: isMaterialMode
-                  ? String(palette.surfaceRaised)
-                  : String(palette.surface),
-                borderColor: isMaterialMode
-                  ? materialSolidAccent
-                  : String(palette.outlineVariant),
-                shadowColor: isMaterialMode ? materialSolidAccent : '#000000',
+                backgroundColor: materialCardBackground,
+                borderColor: materialCardBorderColor,
+                shadowColor: isMaterialMode ? activeCardShadowColor : '#000000',
                 shadowOffset: { width: 0, height: 12 },
-                shadowOpacity: isMaterialMode ? 0.12 : 0.04,
-                shadowRadius: 20,
-                elevation: isMaterialMode ? 5 : 2,
+                shadowOpacity: isMaterialMode ? activeCardShadowOpacity : 0.03,
+                shadowRadius: isMaterialMode ? activeCardShadowRadius : 14,
+                elevation: isMaterialMode ? activeCardElevation : 2,
               },
             ]}
             delayLongPress={620}
-            onPressIn={() => startThemeHold('material')}
+            onLayout={event => handleThemeCardLayout('material', event)}
+            onPressIn={event => handleThemePressIn('material', event)}
             onPressOut={() => stopThemeHold()}
             onLongPress={() => commitThemeHold('material')}>
             {renderThemeHoldOverlay('material', materialSolidAccent)}
@@ -727,89 +1032,75 @@ export default function MoreScreen({
                 style={[
                   styles.badgeLeft,
                   {
-                    backgroundColor: isMaterialMode
-                      ? materialSelectedBadgeBackground
-                      : String(palette.surfaceMuted),
+                    backgroundColor: materialBadgePillBackground,
                   },
                 ]}>
                 <Text
                   style={[
                     styles.badgeLeftText,
                     {
-                      color: isMaterialMode
-                        ? '#FFFFFF'
-                        : isMaterialDark
-                          ? '#D7E3EC'
-                          : String(palette.onSurface),
+                      color: materialBadgePillTextColor,
                     },
                   ]}>
-                    System aware
+                  Системная
                 </Text>
               </View>
               <View
                 style={[
                   styles.radio,
                   {
-                    borderColor: isMaterialMode
-                      ? materialSelectedRadioBorder
-                      : String(palette.outline),
-                    backgroundColor: isMaterialMode
-                      ? '#FFFFFF'
-                      : 'transparent',
+                    borderColor: materialRadioBorderColor,
+                    backgroundColor: isMaterialMode ? materialCardAccent : 'transparent',
                   },
                 ]}>
                 {isMaterialMode ? (
                   <View
                     style={[
                       styles.radioInner,
-                      { backgroundColor: materialSolidAccent },
+                      { backgroundColor: '#FFFFFF' },
                     ]}
                   />
                 ) : null}
               </View>
             </View>
             <View style={styles.optionHeader}>
-              <Text style={[styles.optionTitle, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.optionTitle, { color: palette.onSurface }]}>
                 Material You
               </Text>
-              <Text style={[styles.optionMeta, { color: accentTextColor }]}>
+              <Text
+                style={[
+                  styles.optionMeta,
+                  { color: isMaterialMode ? materialCardAccent : secondaryMutedColor },
+                ]}>
                 Системная тема
               </Text>
             </View>
-            <Text
-              style={[
-                styles.optionDescription,
-                { color: secondaryMutedColor },
-              ]}>
-              Подстраивается под системную светлую или тёмную тему и использует системный
-              акцент.
-            </Text>
             <View style={styles.previewRail}>
               <View
                 style={[
                   styles.previewCard,
                   {
                     backgroundColor: materialPreviewCardBackground,
-                    borderColor: materialPreviewBorder,
+                    borderColor: materialPreviewBorderColor,
                   },
                 ]}>
                 <View
                   style={[
                     styles.previewDot,
-                    { backgroundColor: materialSolidAccent },
+                    { backgroundColor: materialPreviewAccent },
                   ]}
                 />
                 <View
                   style={[
                     styles.previewLine,
-                    { backgroundColor: materialPreviewPrimaryLine },
+                    { backgroundColor: materialPreviewLineStrong },
                   ]}
                 />
               </View>
               <View
                 style={[
                   styles.previewTall,
-                  { backgroundColor: materialPreview[0] },
+                  { backgroundColor: materialPreviewAccent },
                 ]}
               />
               <View
@@ -817,37 +1108,230 @@ export default function MoreScreen({
                   styles.previewCard,
                   {
                     backgroundColor: materialPreviewCardSecondaryBackground,
-                    borderColor: materialPreviewBorder,
+                    borderColor: materialPreviewBorderColor,
                   },
                 ]}>
                 <View
                   style={[
                     styles.previewLine,
-                    { backgroundColor: materialPreviewTertiaryLine },
+                    {
+                      backgroundColor: materialPreviewLineStrong,
+                    },
                   ]}
                 />
                 <View
                   style={[
                     styles.previewLineShort,
-                    { backgroundColor: materialPreviewSecondaryLine },
+                    {
+                      backgroundColor: materialPreviewLineSoft,
+                    },
                   ]}
                 />
               </View>
             </View>
           </Pressable>
 
-          <Text style={[styles.themeHoldHint, { color: secondaryMutedColor }]}>
-            Удерживай карточку, чтобы применить тему. Сильное короткое касание запускает,
-            нарастающая отдача подтверждает переключение.
-          </Text>
+          <View
+            style={[
+              styles.appearanceNoteCard,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.outlineVariant,
+              },
+            ]}>
+            <View style={styles.appearanceNoteRow}>
+              <View
+                style={[
+                  styles.appearanceNoteDot,
+                  { backgroundColor: isCompanyMode ? companyCardAccent : materialCardAccent },
+                ]}
+              />
+              <Text style={[styles.appearanceNoteLabel, { color: accentTextColor }]}>
+                Совместимость
+              </Text>
+            </View>
+            <Text style={[styles.appearanceNoteText, { color: palette.onSurfaceMuted }]}>
+              Внешний вид Material You зависит от версии Android и оболочки устройства. На
+              некоторых устройствах системная тема может отображаться иначе.
+            </Text>
+          </View>
+
         </View>
       )}
-    </View>
+    </AnimatedEntranceView>
+  )
+
+  const renderPreferences = () => (
+    <AnimatedEntranceView
+      delay={40}
+      style={[
+        styles.sectionCard,
+        styles.preferencesCard,
+        {
+          backgroundColor: rootCardBackground,
+          borderColor: palette.outlineVariant,
+        },
+      ]}>
+      <View style={styles.preferencesHeaderText}>
+        <Text style={[styles.preferencesTitle, { color: palette.onSurface }]}>
+          Персонализация
+        </Text>
+        <Text style={[styles.preferencesSummary, { color: secondaryMutedColor }]}>
+          Анимация, отклик и читаемость интерфейса.
+        </Text>
+      </View>
+
+      <View style={styles.preferencesPanel}>
+        <View style={styles.preferencesRow}>
+          <View style={styles.preferencesLabelWrap}>
+            <Text style={[styles.preferencesTitle, { color: palette.onSurface }]}>
+              Интенсивность анимаций
+            </Text>
+            <Text style={[styles.preferencesSubtitle, { color: secondaryMutedColor }]}>
+              Насколько выражено двигаются и появляются элементы интерфейса.
+            </Text>
+          </View>
+          <View style={styles.segmentRow}>
+            {([
+              ['full', 'Полная'],
+              ['standard', 'Стандарт'],
+              ['minimal', 'Минимум'],
+            ] as const).map(([value, label]) => {
+              const isSelected = androidTheme.motionIntensity === value
+              return (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.segmentButton,
+                    {
+                      backgroundColor: isSelected ? accentSurface : palette.surface,
+                      borderColor: isSelected
+                        ? isCompanyMode
+                          ? palette.primaryStrong
+                          : materialPalette.primaryStrong
+                        : palette.outlineVariant,
+                    },
+                    isSelected ? styles.segmentButtonActive : null,
+                  ]}
+                  onPress={() => {
+                    androidRustleHaptic()
+                    androidTheme.setMotionIntensity(value)
+                  }}>
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      { color: isSelected ? accentTextColor : palette.onSurfaceMuted },
+                    ]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+
+        <View style={styles.preferencesRow}>
+          <View style={styles.preferencesLabelWrap}>
+            <Text style={[styles.preferencesTitle, { color: palette.onSurface }]}>
+              Сила отклика
+            </Text>
+            <Text style={[styles.preferencesSubtitle, { color: secondaryMutedColor }]}>
+              Характер вибрации и плотность хаптиков при взаимодействиях.
+            </Text>
+          </View>
+          <View style={styles.segmentRow}>
+            {([
+              ['soft', 'Мягкий'],
+              ['normal', 'Обычный'],
+              ['expressive', 'Выразит.'],
+            ] as const).map(([value, label]) => {
+              const isSelected = androidTheme.hapticStrength === value
+              return (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.segmentButton,
+                    {
+                      backgroundColor: isSelected ? accentSurface : palette.surface,
+                      borderColor: isSelected
+                        ? isCompanyMode
+                          ? palette.primaryStrong
+                          : materialPalette.primaryStrong
+                        : palette.outlineVariant,
+                    },
+                    isSelected ? styles.segmentButtonActive : null,
+                  ]}
+                  onPress={() => {
+                    androidTheme.setHapticStrength(value)
+                    androidRustleHaptic()
+                  }}>
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      { color: isSelected ? accentTextColor : palette.onSurfaceMuted },
+                    ]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+
+        <View style={styles.preferencesRow}>
+          <View style={styles.preferencesLabelWrap}>
+            <Text style={[styles.preferencesTitle, { color: palette.onSurface }]}>
+              Повышенный контраст
+            </Text>
+            <Text style={[styles.preferencesSubtitle, { color: secondaryMutedColor }]}>
+              Усиливает границы, разделители и читаемость в Material You.
+            </Text>
+          </View>
+          <View style={styles.segmentRow}>
+            {([
+              ['balanced', 'Обычный'],
+              ['high', 'Высокий'],
+            ] as const).map(([value, label]) => {
+              const isSelected = androidTheme.contrastMode === value
+              return (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.segmentButton,
+                    {
+                      backgroundColor: isSelected ? accentSurface : palette.surface,
+                      borderColor: isSelected
+                        ? isCompanyMode
+                          ? palette.primaryStrong
+                          : materialPalette.primaryStrong
+                        : palette.outlineVariant,
+                    },
+                    isSelected ? styles.segmentButtonActive : null,
+                  ]}
+                  onPress={() => {
+                    androidRustleHaptic()
+                    androidTheme.setContrastMode(value)
+                  }}>
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      { color: isSelected ? accentTextColor : palette.onSurfaceMuted },
+                    ]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+      </View>
+    </AnimatedEntranceView>
   )
 
   const renderPortal = () => (
     <>
-      <View
+      <AnimatedEntranceView
+        delay={40}
         style={[
           styles.heroGlowCard,
           {
@@ -858,24 +1342,23 @@ export default function MoreScreen({
         <View
           style={[
             styles.heroAccentBar,
-            { backgroundColor: isCompanyMode ? String(palette.primary) : materialSolidAccent },
+            { backgroundColor: isCompanyMode ? palette.primary : materialSolidAccent },
           ]}
         />
         <View
           style={[
             styles.statusPill,
-            { backgroundColor: String(palette.surfaceRaised) },
+            { backgroundColor: palette.surfaceRaised },
           ]}>
           <Text style={[styles.statusPillText, { color: heroKickerColor }]}>
             Портал
           </Text>
         </View>
-        <Text style={[styles.heroTitle, { color: String(palette.onSurface) }]}>
+        <Text style={[styles.heroTitle, { color: palette.onSurface }]}>
           Доступ на портал
         </Text>
         <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
-          Быстрый вход в веб-портал сотрудника с выдачей PIN, подтверждением входа и завершением
-          сессии.
+          Быстрый вход в портал сотрудника с PIN и подтверждением входа.
         </Text>
 
         <View style={styles.portalHeroGrid}>
@@ -884,14 +1367,14 @@ export default function MoreScreen({
               style={[
                 styles.portalStatCard,
                 {
-                  backgroundColor: String(palette.surfaceRaised),
-                  borderColor: String(palette.outlineVariant),
+                  backgroundColor: palette.surfaceRaised,
+                  borderColor: palette.outlineVariant,
                 },
               ]}>
               <Text style={[styles.portalStatLabel, { color: heroKickerColor }]}>
                 Статус
               </Text>
-              <Text style={[styles.portalStatValue, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.portalStatValue, { color: palette.onSurface }]}>
                 {isPortalLoading ? 'Загрузка…' : portalStatusLabel}
               </Text>
             </View>
@@ -899,103 +1382,77 @@ export default function MoreScreen({
               style={[
                 styles.portalStatCard,
                 {
-                  backgroundColor: String(palette.surfaceRaised),
-                  borderColor: String(palette.outlineVariant),
+                  backgroundColor: palette.surfaceRaised,
+                  borderColor: palette.outlineVariant,
                 },
               ]}>
               <Text style={[styles.portalStatLabel, { color: heroKickerColor }]}>
                 PIN-код
               </Text>
-              <Text style={[styles.portalStatValue, { color: String(palette.onSurface) }]}>
+              <Text style={[styles.portalStatValue, { color: palette.onSurface }]}>
                 {portalSession.pin || '--------'}
               </Text>
             </View>
           </View>
         </View>
-      </View>
+      </AnimatedEntranceView>
 
-      <View
+      <AnimatedEntranceView
+        delay={110}
         style={[
           styles.portalLinkCard,
           {
             backgroundColor: portalPanelBackground,
-            borderColor: String(palette.outlineVariant),
+            borderColor: palette.outlineVariant,
           },
         ]}>
         <Text style={[styles.portalLinkLabel, { color: heroKickerColor }]}>
           Ссылка на портал
         </Text>
-        <Text style={[styles.portalLinkValue, { color: String(palette.onSurface) }]}>
+        <Text style={[styles.portalLinkValue, { color: palette.onSurface }]}>
           {portalSession.portalUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-        </Text>
-        <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
-          Открывается во внешнем браузере без вмешательства в домашний экран приложения.
         </Text>
         <View style={styles.inlineActionRow}>
           <TouchableOpacity
             style={[
               styles.inlineActionButton,
               {
-                backgroundColor: String(palette.surfaceAccent),
-                borderColor: String(palette.outlineVariant),
+                backgroundColor: palette.surfaceAccent,
+                borderColor: palette.outlineVariant,
               },
             ]}
             onPress={openPortal}>
-            <Text style={[styles.inlineActionText, { color: String(palette.onSurface) }]}>
+            <Text style={[styles.inlineActionText, { color: palette.onSurface }]}>
               Открыть в браузере
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.inlineActionButton,
-              {
-                backgroundColor: String(palette.surface),
-                borderColor: String(palette.outlineVariant),
-              },
-            ]}
-            onPress={refreshPortal}>
-            <Text style={[styles.inlineActionText, { color: String(palette.onSurface) }]}>
-              {isPortalRefreshing ? 'Обновление…' : 'Обновить'}
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </AnimatedEntranceView>
 
-      <View
+      <AnimatedEntranceView
+        delay={180}
         style={[
           styles.portalCodeCard,
           {
             backgroundColor: portalSecondaryPanel,
-            borderColor: String(palette.outlineVariant),
+            borderColor: palette.outlineVariant,
           },
         ]}>
-        <View
-          style={[
-            styles.portalAccentStrip,
-            { backgroundColor: materialSolidAccent },
-          ]}
-        />
-        <Text style={[styles.portalLinkLabel, { color: heroKickerColor }]}>
-          Сценарий входа
-        </Text>
-        <Text style={[styles.portalCodeValue, { color: String(palette.onSurface) }]}>
-          {portalSession.status === 'pending_confirm' ? 'Ожидание' : 'Готово'}
-        </Text>
         <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
           {portalError
             ? portalError
             : portalSession.status === 'pending_confirm'
-              ? 'Введите PIN на портале и затем нажмите подтверждение входа в приложении.'
+              ? 'Введи PIN на портале и подтверди вход в приложении.'
               : portalSession.status === 'active'
-                ? 'Сессия на портале активна. При необходимости её можно завершить вручную.'
-                : 'Запроси PIN, открой портал и после ввода кода подтверди вход.'}
+                ? 'Сессия активна. При необходимости её можно завершить вручную.'
+                : 'Запроси PIN, открой портал и подтверди вход.'}
         </Text>
-        {portalSession.expiresAt ? (
+        {formattedPortalExpiry ? (
           <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
-            Действует до: {portalSession.expiresAt}
+            Действует до: {formattedPortalExpiry}
           </Text>
         ) : null}
-      </View>
+      </AnimatedEntranceView>
 
       <View style={styles.buttonRow}>
         <TouchableOpacity
@@ -1012,20 +1469,6 @@ export default function MoreScreen({
             {portalActionLabel}
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.secondaryButton,
-            {
-              backgroundColor: String(palette.surface),
-              borderColor: String(palette.outlineVariant),
-            },
-          ]}
-          onPress={() => setRoute('root')}>
-          <Text style={[styles.secondaryButtonText, { color: String(palette.onSurface) }]}>
-            Назад в настройки
-          </Text>
-        </TouchableOpacity>
       </View>
     </>
   )
@@ -1035,22 +1478,31 @@ export default function MoreScreen({
       style={[
         styles.container,
         {
-          backgroundColor: String(palette.background),
+          backgroundColor: palette.background,
         },
       ]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {route === 'root' ? renderHeader('Ещё', 'Настройки, доступы и внутренние сервисы') : null}
-        {route === 'appearance'
-          ? renderHeader('Оформление', 'Управление визуальным стилем приложения')
-          : null}
-        {route === 'portal'
-          ? renderHeader('Портал', 'Быстрый вход в веб-портал сотрудника')
-          : null}
+      {route === 'portal' ? (
+        <View style={styles.staticContainer}>
+          {renderHeader('Портал')}
+          <View style={styles.portalStaticContent}>
+            {renderPortal()}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.staticContainer}>
+          {route === 'root'
+            ? null
+            : route === 'appearance'
+              ? renderHeader('Оформление')
+              : renderHeader('Персонализация')}
 
-        {route === 'root' ? renderRoot() : null}
-        {route === 'appearance' ? renderAppearance() : null}
-        {route === 'portal' ? renderPortal() : null}
-      </ScrollView>
+          <View style={route === 'root' ? undefined : styles.staticTopContentWrap}>
+            {route === 'root' ? renderRoot() : null}
+            {route === 'appearance' ? renderAppearance() : null}
+            {route === 'preferences' ? renderPreferences() : null}
+          </View>
+        </View>
+      )}
     </View>
   )
 }

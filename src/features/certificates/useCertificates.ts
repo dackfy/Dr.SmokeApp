@@ -1,6 +1,7 @@
 import React from 'react'
 import {
   certificatesApi,
+  CertificatesApiError,
   type CertificatesApi,
 } from './certificatesApi'
 import type {
@@ -20,7 +21,44 @@ type UseCertificatesOptions = {
 const emptyStatus: CertificatesAccessStatus = {
   available: false,
   shopId: null,
+  shopName: null,
   shiftStatus: null,
+}
+
+function getLockedStatus(current: CertificatesAccessStatus): CertificatesAccessStatus {
+  return {
+    available: false,
+    shopId: current.shopId,
+    shopName: current.shopName,
+    shiftStatus: 'closed',
+  }
+}
+
+function isRedeemableCertificateStatus(status: string | null | undefined) {
+  const normalized = String(status ?? '').trim().toLowerCase()
+  if (!normalized) {
+    return false
+  }
+
+  return !['active', 'new', 'available', 'created', 'draft'].includes(normalized)
+}
+
+function looksLikeSoldCertificate(certificate: CertificateRecord) {
+  if (certificate.cashedDate) {
+    return false
+  }
+
+  if (isRedeemableCertificateStatus(certificate.status)) {
+    return true
+  }
+
+  return Boolean(
+    certificate.saleDate ||
+      certificate.partnerPhone ||
+      certificate.employeeId ||
+      certificate.shopId ||
+      certificate.nominal,
+  )
 }
 
 export function useCertificates(options: UseCertificatesOptions) {
@@ -103,6 +141,12 @@ export function useCertificates(options: UseCertificatesOptions) {
         setSuccessMessage('Сертификат успешно продан')
         return certificate
       } catch (requestError) {
+        if (requestError instanceof CertificatesApiError && requestError.code === 'shift_not_open') {
+          setStatus(current => getLockedStatus(current))
+          setError(null)
+          return null
+        }
+
         setError(
           requestError instanceof Error
             ? requestError.message
@@ -132,6 +176,42 @@ export function useCertificates(options: UseCertificatesOptions) {
         setRedeemPreview(preview)
         return preview
       } catch (requestError) {
+        if (
+          requestError instanceof CertificatesApiError &&
+          requestError.code === 'certificate_not_sold'
+        ) {
+          try {
+            const certificate = await api.getCertificate(employeeId, payload.certificateNumber)
+
+            if (certificate.cashedDate) {
+              setRedeemPreview(null)
+              setError('Этот сертификат уже обналичен')
+              return null
+            }
+
+            if (looksLikeSoldCertificate(certificate)) {
+              const fallbackPreview = {
+                certificateNumber: certificate.certificateNumber,
+                nominal: certificate.nominal,
+                status: certificate.status,
+                canRedeem: true,
+              }
+              setRedeemPreview(fallbackPreview)
+              setError(null)
+              return fallbackPreview
+            }
+          } catch {
+            // Keep original backend message if fallback inspection also fails.
+          }
+        }
+
+        if (requestError instanceof CertificatesApiError && requestError.code === 'shift_not_open') {
+          setStatus(current => getLockedStatus(current))
+          setRedeemPreview(null)
+          setError(null)
+          return null
+        }
+
         setRedeemPreview(null)
         setError(
           requestError instanceof Error
@@ -163,6 +243,12 @@ export function useCertificates(options: UseCertificatesOptions) {
         setSuccessMessage('Сертификат успешно обналичен')
         return certificate
       } catch (requestError) {
+        if (requestError instanceof CertificatesApiError && requestError.code === 'shift_not_open') {
+          setStatus(current => getLockedStatus(current))
+          setError(null)
+          return null
+        }
+
         setError(
           requestError instanceof Error
             ? requestError.message

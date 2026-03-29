@@ -3,26 +3,41 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  ScrollView,
+  processColor,
+  RefreshControl,
   Text,
   TextInput,
   TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native'
+import { BlurView } from '@react-native-community/blur'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import AnimatedEntranceView from '../components/AnimatedEntranceView'
+import ElasticScrollView from '../components/ElasticScrollView'
 import { useCertificates } from '../features/certificates/useCertificates'
 import { useAndroidThemeMode } from '../theme/androidAppTheme'
 import {
+  type AndroidContrastMode,
   type AndroidThemePalette,
   getAndroidCompanyPalette,
-  getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
+import {
+  androidLightImpact,
+  androidMediumImpact,
+  androidReleaseTick,
+  androidRustleHaptic,
+  androidSuccessHaptic,
+  androidTick,
+} from '../utils/androidHaptics'
 import { styles } from './CertificatesScreen.styles'
 
 type CertificatesScreenProps = {
   employeeId: string
+  isActive?: boolean
+  isShiftOpen?: boolean | null
+  currentShopName?: string | null
 }
 
 type CertificatesMode = 'sell' | 'redeem'
@@ -55,11 +70,14 @@ const iosPalette: AndroidThemePalette = {
   closedBadgeBorder: '#503016',
   secondaryButton: '#1B1B1D',
 }
+const DOUBLE_TAP_HAPTIC_THRESHOLD_MS = 120
 
-function formatPartnerPhone(value: string) {
+function extractPartnerPhoneDigits(value: string) {
   const digits = String(value || '').replace(/\D/g, '')
-  const local = (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10)
+  return (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10)
+}
 
+function formatPartnerPhoneDisplay(local: string) {
   if (!local) {
     return '8'
   }
@@ -78,9 +96,38 @@ function formatPartnerPhone(value: string) {
   return out
 }
 
+function formatPartnerPhoneInputWithBackspace(prevValue: string, nextValue: string) {
+  if (!nextValue.trim()) {
+    return '8'
+  }
+
+  if (nextValue.length > prevValue.length) {
+    const nextDigits = String(nextValue || '').replace(/\D/g, '')
+    if (nextDigits.length > 11) {
+      return prevValue
+    }
+  }
+
+  const prevLocal = extractPartnerPhoneDigits(prevValue)
+  const nextLocal = extractPartnerPhoneDigits(nextValue)
+
+  if (nextLocal.length > 10) {
+    return prevValue
+  }
+
+  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
+    return formatPartnerPhoneDisplay(prevLocal.slice(0, -1))
+  }
+
+  if (!nextLocal.length) {
+    return '8'
+  }
+
+  return formatPartnerPhoneDisplay(nextLocal)
+}
+
 function normalizePartnerPhone(value: string) {
-  const digits = String(value || '').replace(/\D/g, '')
-  const local = (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10)
+  const local = extractPartnerPhoneDigits(value)
   return local ? `8${local}` : ''
 }
 
@@ -88,6 +135,7 @@ function getPalette(
   isAndroid: boolean,
   mode: 'company' | 'material',
   isDark: boolean,
+  contrastMode: AndroidContrastMode,
 ): AndroidThemePalette {
   if (!isAndroid) {
     return iosPalette
@@ -95,37 +143,54 @@ function getPalette(
 
   return mode === 'company'
     ? getAndroidCompanyPalette()
-    : getAndroidThemePalette(isDark)
+    : getAndroidThemePalette(isDark, contrastMode)
 }
 
 export default function CertificatesScreen({
   employeeId,
+  isActive = true,
+  isShiftOpen = null,
+  currentShopName = null,
 }: CertificatesScreenProps) {
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
   const isAndroid = Platform.OS === 'android'
   const isMaterialDark = isAndroid && androidTheme.mode === 'material' && colorScheme === 'dark'
   const palette = React.useMemo(
-    () => getPalette(isAndroid, androidTheme.mode, colorScheme === 'dark'),
-    [androidTheme.mode, colorScheme, isAndroid],
+    () => getPalette(isAndroid, androidTheme.mode, colorScheme === 'dark', androidTheme.contrastMode),
+    [androidTheme.contrastMode, androidTheme.mode, colorScheme, isAndroid],
   )
-  const ctaBackground = String(palette.primary)
-  const ctaTextColor = isMaterialDark
-    ? '#FFFFFF'
-    : getAndroidStatusBarStyle(ctaBackground) === 'dark-content'
-      ? '#08120F'
-      : '#FFFFFF'
+  const ctaBackground = palette.primary
+  const ctaTextColor = palette.onPrimary
+  const refreshAccent =
+    isAndroid && androidTheme.mode === 'company'
+      ? '#FF6A00'
+      : isMaterialDark
+        ? '#B7F4E5'
+        : '#315F55'
+  const refreshSurface =
+    isAndroid && androidTheme.mode === 'company'
+      ? '#171717'
+      : isMaterialDark
+        ? '#171C2B'
+        : '#F3F7FB'
+  const refreshAccentColorValue: any =
+    isAndroid && androidTheme.mode === 'company'
+      ? '#FF6A00'
+      : processColor(palette.primaryStrong ?? palette.primary ?? '#315F55') ?? refreshAccent
+  const refreshSurfaceColorValue: any =
+    processColor(palette.surfaceRaised ?? refreshSurface) ?? refreshSurface
 
   const [mode, setMode] = React.useState<CertificatesMode>('sell')
   const [partnerPhone, setPartnerPhone] = React.useState('8')
   const [sellNumber, setSellNumber] = React.useState('')
   const [nominal, setNominal] = React.useState('')
   const [redeemNumber, setRedeemNumber] = React.useState('')
+  const [isPullRefreshing, setIsPullRefreshing] = React.useState(false)
+  const previewPressStartedAtRef = React.useRef(0)
 
   const {
     status,
-    isLoading,
-    isRefreshing,
     isSubmitting,
     error,
     successMessage,
@@ -138,32 +203,55 @@ export default function CertificatesScreen({
     clearFeedback,
   } = useCertificates({
     employeeId,
-    enabled: true,
+    enabled: isActive,
   })
 
-  const isUnavailable = !status.available
-  const accentLabelColor = isMaterialDark
-    ? '#EAF0F5'
-    : String(palette.primary)
+  const isUnavailable =
+    isShiftOpen === false || !status.available || status.shiftStatus !== 'open'
+  const accentLabelColor =
+    isAndroid && androidTheme.mode === 'company'
+      ? palette.primaryStrong
+      : isMaterialDark
+        ? palette.onSurface
+        : palette.primary
   const mutedLabelColor = isMaterialDark
     ? '#C7D0D8'
-    : String(palette.onSurfaceMuted)
+    : palette.onSurfaceMuted
   const activeSegmentBorder = isMaterialDark
     ? '#A8C8FF'
-    : String(palette.primary)
+    : palette.primary
   const activeSegmentBackground =
     isAndroid && androidTheme.mode === 'company'
-      ? String(palette.primaryContainerStrong)
+      ? palette.primaryContainerStrong
       : isMaterialDark
         ? '#232B33'
-        : String(palette.surfaceAccent)
-  const disabledButtonBackground = String(palette.surface)
-  const disabledButtonBorder = String(palette.outlineVariant)
-  const disabledButtonTextColor = String(palette.onSurfaceMuted)
-  const statusHint =
-    status.shiftStatus === 'open'
-      ? 'Раздел доступен для работы.'
-      : 'Для продажи и обналичивания сертификатов нужно открыть смену.'
+        : palette.surfaceAccent
+  const disabledButtonBackground = palette.surface
+  const disabledButtonBorder = palette.outlineVariant
+  const disabledButtonTextColor = palette.onSurfaceMuted
+  const lockOverlayBackground =
+    isAndroid && androidTheme.mode === 'company'
+      ? 'rgba(5, 5, 5, 0.58)'
+      : isMaterialDark
+        ? 'rgba(10, 13, 18, 0.56)'
+        : 'rgba(226, 232, 240, 0.42)'
+  const lockCardBackground =
+    isAndroid && androidTheme.mode === 'company'
+      ? 'rgba(18, 18, 18, 0.88)'
+      : isMaterialDark
+        ? 'rgba(24, 28, 34, 0.86)'
+        : 'rgba(255, 255, 255, 0.82)'
+  const lockCardBorder =
+    isAndroid && androidTheme.mode === 'company'
+      ? palette.primaryContainerStrong
+      : palette.outline
+  const elevatedBorder = isMaterialDark ? palette.outline : palette.outlineVariant
+  const lockIconBackground =
+    isAndroid && androidTheme.mode === 'company'
+      ? palette.primaryContainer
+      : isMaterialDark
+        ? palette.surfaceAccent
+        : palette.surfaceMuted
 
   const sellDisabled =
     isSubmitting ||
@@ -178,8 +266,37 @@ export default function CertificatesScreen({
 
   const heroBorderColor =
     isAndroid && androidTheme.mode === 'company'
-      ? String(palette.primaryContainerStrong)
-      : String(palette.outlineVariant)
+      ? palette.primaryContainerStrong
+      : elevatedBorder
+  const shopDisplay =
+    currentShopName?.trim() ||
+    status.shopName?.trim() ||
+    (status.shopId ? `#${status.shopId}` : 'Не определён')
+  const modeCardAccent =
+    mode === 'sell'
+      ? palette.primaryStrong
+      : isMaterialDark
+        ? '#A8C8FF'
+        : palette.secondary
+
+  React.useEffect(() => {
+    if (!isActive || !employeeId) {
+      return
+    }
+
+    refresh()
+  }, [employeeId, isActive, refresh])
+
+  React.useEffect(() => {
+    if (isShiftOpen === false) {
+      clearFeedback()
+      return
+    }
+
+    if (isShiftOpen === true && isActive && employeeId) {
+      refresh()
+    }
+  }, [clearFeedback, employeeId, isActive, isShiftOpen, refresh])
 
   const handleSell = React.useCallback(async () => {
     if (isUnavailable) {
@@ -217,81 +334,103 @@ export default function CertificatesScreen({
     })
   }, [clearFeedback, isUnavailable, redeem, redeemNumber])
 
+  const handlePullToRefresh = React.useCallback(async () => {
+    androidRustleHaptic()
+    setIsPullRefreshing(true)
+    try {
+      await refresh()
+    } finally {
+      setIsPullRefreshing(false)
+    }
+  }, [refresh])
+
   return (
     <SafeAreaView
-      style={[styles.screen, { backgroundColor: String(palette.background) }]}
+      style={[styles.screen, { backgroundColor: palette.background }]}
       edges={['top', 'bottom']}>
-      <ScrollView
+      <ElasticScrollView
+        scrollEnabled={!isUnavailable}
+        enableTopElastic={false}
+        enableBottomElastic
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: String(palette.surfaceRaised),
-              borderColor: heroBorderColor,
-            },
-          ]}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isPullRefreshing}
+            onRefresh={() => {
+              handlePullToRefresh().catch(() => {})
+            }}
+            tintColor={refreshAccentColorValue}
+            colors={[refreshAccentColorValue]}
+            progressBackgroundColor={refreshSurfaceColorValue}
+          />
+        }>
+        <AnimatedEntranceView
+          delay={30}
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: palette.surfaceRaised,
+            borderColor: heroBorderColor,
+          },
+        ]}>
+          <View style={[styles.heroAccent, { backgroundColor: palette.primary }]} />
           <Text style={[styles.kicker, { color: accentLabelColor }]}>Инструменты</Text>
-          <Text style={[styles.title, { color: String(palette.onSurface) }]}>Работа с сертификатами</Text>
-          <Text style={[styles.subtitle, { color: String(palette.onSurfaceMuted) }]}>
-            Продажа и обналичивание сертификатов по логике Telegram-бота, теперь прямо в приложении.
+          <Text style={[styles.title, { color: palette.onSurface }]}>Работа с сертификатами</Text>
+          <Text style={[styles.subtitle, { color: palette.onSurfaceMuted }]}>
+            Продажа и обналичивание сертификатов, теперь прямо в приложении.
           </Text>
-
-          <View style={styles.row}>
-            <View
+          <View
+            style={[
+              styles.heroShopCard,
+              {
+                backgroundColor: palette.surface,
+                borderColor: isAndroid && androidTheme.mode === 'company'
+                  ? palette.primaryContainerStrong
+                  : elevatedBorder,
+              },
+            ]}>
+            <Text
               style={[
-                styles.statCard,
+                styles.heroShopLabel,
                 {
-                  backgroundColor: String(palette.surface),
-                  borderColor: String(palette.outlineVariant),
+                  color:
+                    isAndroid && androidTheme.mode === 'company'
+                      ? palette.primaryStrong
+                      : palette.onSurface,
                 },
               ]}>
-              <Text style={[styles.statLabel, { color: mutedLabelColor }]}>Статус</Text>
-              <Text style={[styles.statValue, { color: status.available ? String(palette.success) : String(palette.error) }]}>
-                {status.available ? 'Готово' : 'Недоступно'}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: String(palette.surface),
-                  borderColor: String(palette.outlineVariant),
-                },
-              ]}>
-              <Text style={[styles.statLabel, { color: mutedLabelColor }]}>Магазин смены</Text>
-              <Text style={[styles.statValue, { color: String(palette.onSurface) }]}>
-                {status.shopId ? `#${status.shopId}` : 'Не определён'}
-              </Text>
-            </View>
+              Магазин смены
+            </Text>
+            <Text style={[styles.heroShopValue, { color: palette.onSurface }]}>
+              {shopDisplay}
+            </Text>
           </View>
-          <Text style={[styles.helper, { color: mutedLabelColor }]}>{statusHint}</Text>
-        </View>
+        </AnimatedEntranceView>
 
-        <View style={styles.segmentRow}>
+        <AnimatedEntranceView delay={90} style={styles.segmentRow}>
           {(['sell', 'redeem'] as CertificatesMode[]).map(segment => {
-            const isActive = mode === segment
+            const isSegmentActive = mode === segment
             return (
               <Pressable
                 key={segment}
                 onPress={() => {
                   clearFeedback()
+                  androidLightImpact()
                   setMode(segment)
                 }}
                 style={[
                   styles.segmentButton,
                   {
-                    backgroundColor: isActive
+                    backgroundColor: isSegmentActive
                       ? activeSegmentBackground
-                      : String(palette.surfaceRaised),
-                    borderColor: isActive
+                      : palette.surfaceRaised,
+                    borderColor: isSegmentActive
                       ? activeSegmentBorder
-                      : String(palette.outlineVariant),
+                      : elevatedBorder,
                   },
                 ]}>
-                <Text style={[styles.segmentTitle, { color: String(palette.onSurface) }]}>
+                <Text style={[styles.segmentTitle, { color: palette.onSurface }]}>
                   {segment === 'sell' ? 'Продать' : 'Обналичить'}
                 </Text>
                 <Text style={[styles.segmentSubtitle, { color: mutedLabelColor }]}>
@@ -300,21 +439,28 @@ export default function CertificatesScreen({
               </Pressable>
             )
           })}
-        </View>
+        </AnimatedEntranceView>
 
-        <View
+        <AnimatedEntranceView
+          delay={150}
           style={[
             styles.panel,
             {
-              backgroundColor: String(palette.surfaceRaised),
-              borderColor: String(palette.outlineVariant),
+              backgroundColor: palette.surfaceRaised,
+              borderColor: elevatedBorder,
             },
           ]}>
+          <View
+            style={[
+              styles.modeAccentLine,
+              { backgroundColor: modeCardAccent },
+            ]}
+          />
           <View style={styles.panelHeader}>
             <Text style={[styles.panelKicker, { color: accentLabelColor }]}>
               {mode === 'sell' ? 'Продажа сертификата' : 'Обналичивание сертификата'}
             </Text>
-            <Text style={[styles.panelTitle, { color: String(palette.onSurface) }]}>
+            <Text style={[styles.panelTitle, { color: palette.onSurface }]}>
               {mode === 'sell'
                 ? 'Введи данные партнёра, номер сертификата и номинал'
                 : 'Проверь сертификат и подтверди обналичивание'}
@@ -327,16 +473,18 @@ export default function CertificatesScreen({
                 <Text style={[styles.fieldLabel, { color: mutedLabelColor }]}>Телефон партнёра</Text>
                 <TextInput
                   value={partnerPhone}
-                  onChangeText={value => setPartnerPhone(formatPartnerPhone(value))}
+                  onChangeText={value =>
+                    setPartnerPhone(prevValue => formatPartnerPhoneInputWithBackspace(prevValue, value))
+                  }
                   keyboardType="phone-pad"
                   placeholder="8 (900) 000-00-00"
                   placeholderTextColor={mutedLabelColor}
                   style={[
                     styles.input,
                     {
-                      backgroundColor: String(palette.surface),
-                      borderColor: String(palette.outlineVariant),
-                      color: String(palette.onSurface),
+                      backgroundColor: palette.surface,
+                      borderColor: elevatedBorder,
+                      color: palette.onSurface,
                     },
                   ]}
                 />
@@ -353,9 +501,9 @@ export default function CertificatesScreen({
                   style={[
                     styles.input,
                     {
-                      backgroundColor: String(palette.surface),
-                      borderColor: String(palette.outlineVariant),
-                      color: String(palette.onSurface),
+                      backgroundColor: palette.surface,
+                      borderColor: elevatedBorder,
+                      color: palette.onSurface,
                     },
                   ]}
                 />
@@ -372,9 +520,9 @@ export default function CertificatesScreen({
                   style={[
                     styles.input,
                     {
-                      backgroundColor: String(palette.surface),
-                      borderColor: String(palette.outlineVariant),
-                      color: String(palette.onSurface),
+                      backgroundColor: palette.surface,
+                      borderColor: elevatedBorder,
+                      color: palette.onSurface,
                     },
                   ]}
                 />
@@ -385,7 +533,10 @@ export default function CertificatesScreen({
 
               <TouchableOpacity
                 disabled={sellDisabled}
-                onPress={handleSell}
+                onPress={() => {
+                  androidMediumImpact()
+                  handleSell()
+                }}
                 style={[
                   styles.ctaButton,
                   sellDisabled
@@ -395,7 +546,7 @@ export default function CertificatesScreen({
                       }
                     : {
                         backgroundColor: ctaBackground,
-                        borderColor: String(palette.primaryStrong),
+                        borderColor: palette.primaryStrong,
                       },
                   sellDisabled ? styles.ctaButtonDisabled : null,
                 ]}>
@@ -425,9 +576,9 @@ export default function CertificatesScreen({
                   style={[
                     styles.input,
                     {
-                      backgroundColor: String(palette.surface),
-                      borderColor: String(palette.outlineVariant),
-                      color: String(palette.onSurface),
+                      backgroundColor: palette.surface,
+                      borderColor: elevatedBorder,
+                      color: palette.onSurface,
                     },
                   ]}
                 />
@@ -435,17 +586,36 @@ export default function CertificatesScreen({
 
               <TouchableOpacity
                 disabled={previewDisabled}
-                onPress={handlePreviewRedeem}
+                onPressIn={() => {
+                  if (!previewDisabled) {
+                    previewPressStartedAtRef.current = Date.now()
+                    androidTick()
+                  }
+                }}
+                onPressOut={() => {
+                  if (!previewDisabled) {
+                    if (
+                      Date.now() - previewPressStartedAtRef.current >
+                      DOUBLE_TAP_HAPTIC_THRESHOLD_MS
+                    ) {
+                      androidReleaseTick()
+                    }
+                    previewPressStartedAtRef.current = 0
+                  }
+                }}
+                onPress={() => {
+                  handlePreviewRedeem()
+                }}
                 style={[
                   styles.secondaryButton,
                   {
-                    backgroundColor: String(palette.secondaryButton),
-                    borderColor: String(palette.outlineVariant),
+                    backgroundColor: palette.secondaryButton,
+                    borderColor: elevatedBorder,
                   },
                   previewDisabled ? styles.ctaButtonDisabled : null,
                 ]}>
                 {isSubmitting ? (
-                  <ActivityIndicator color={String(palette.onSurface)} />
+                  <ActivityIndicator color={palette.onSurface} />
                 ) : (
                   <Text
                     style={[
@@ -453,7 +623,7 @@ export default function CertificatesScreen({
                       {
                         color: previewDisabled
                           ? disabledButtonTextColor
-                          : String(palette.onSurface),
+                          : palette.onSurface,
                       },
                     ]}>
                     Проверить сертификат
@@ -466,11 +636,11 @@ export default function CertificatesScreen({
                   style={[
                     styles.feedbackCard,
                     {
-                      backgroundColor: String(palette.surface),
-                      borderColor: String(palette.outlineVariant),
+                      backgroundColor: palette.surface,
+                      borderColor: elevatedBorder,
                     },
                   ]}>
-                  <Text style={[styles.feedbackTitle, { color: String(palette.onSurface) }]}>
+                  <Text style={[styles.feedbackTitle, { color: palette.onSurface }]}>
                     Сертификат найден
                   </Text>
                   <Text style={[styles.feedbackText, { color: mutedLabelColor }]}>
@@ -479,12 +649,18 @@ export default function CertificatesScreen({
                   <Text style={[styles.feedbackText, { color: mutedLabelColor }]}>
                     Номинал: {redeemPreview.nominal ?? '-'} руб.
                   </Text>
+                  <Text style={[styles.feedbackText, { color: mutedLabelColor }]}>
+                    Статус: {redeemPreview.status || 'Не определён'}
+                  </Text>
                 </View>
               ) : null}
 
               <TouchableOpacity
                 disabled={redeemDisabled}
-                onPress={handleRedeem}
+                onPress={() => {
+                  androidSuccessHaptic()
+                  handleRedeem()
+                }}
                 style={[
                   styles.ctaButton,
                   redeemDisabled
@@ -494,7 +670,7 @@ export default function CertificatesScreen({
                       }
                     : {
                         backgroundColor: ctaBackground,
-                        borderColor: String(palette.primaryStrong),
+                        borderColor: palette.primaryStrong,
                       },
                   redeemDisabled ? styles.ctaButtonDisabled : null,
                 ]}>
@@ -512,33 +688,35 @@ export default function CertificatesScreen({
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </AnimatedEntranceView>
 
-        {error ? (
-          <View
+        {!isUnavailable && error ? (
+          <AnimatedEntranceView
+            delay={210}
             style={[
               styles.feedbackCard,
               {
-                backgroundColor: String(palette.errorContainer),
-                borderColor: String(palette.errorBorder),
+                backgroundColor: palette.errorContainer,
+                borderColor: palette.errorBorder,
               },
             ]}>
-            <Text style={[styles.feedbackTitle, { color: String(palette.error) }]}>Ошибка</Text>
-            <Text style={[styles.feedbackText, { color: String(palette.onSurface) }]}>{error}</Text>
-          </View>
+            <Text style={[styles.feedbackTitle, { color: palette.error }]}>Ошибка</Text>
+            <Text style={[styles.feedbackText, { color: palette.onSurface }]}>{error}</Text>
+          </AnimatedEntranceView>
         ) : null}
 
-        {successMessage ? (
-          <View
+        {!isUnavailable && successMessage ? (
+          <AnimatedEntranceView
+            delay={210}
             style={[
               styles.feedbackCard,
               {
-                backgroundColor: String(palette.successContainer),
-                borderColor: String(palette.successBorder),
+                backgroundColor: palette.successContainer,
+                borderColor: palette.successBorder,
               },
             ]}>
-            <Text style={[styles.feedbackTitle, { color: String(palette.success) }]}>Готово</Text>
-            <Text style={[styles.feedbackText, { color: String(palette.onSurface) }]}>
+            <Text style={[styles.feedbackTitle, { color: palette.success }]}>Готово</Text>
+            <Text style={[styles.feedbackText, { color: palette.onSurface }]}>
               {successMessage}
             </Text>
             {lastCertificate?.certificateNumber ? (
@@ -546,28 +724,47 @@ export default function CertificatesScreen({
                 Сертификат: {lastCertificate.certificateNumber}
               </Text>
             ) : null}
-          </View>
+          </AnimatedEntranceView>
         ) : null}
 
-        <TouchableOpacity
-          disabled={isRefreshing || isLoading}
-          onPress={refresh}
-          style={[
-            styles.secondaryButton,
-            {
-              backgroundColor: String(palette.secondaryButton),
-              borderColor: String(palette.outlineVariant),
-            },
-          ]}>
-          {isRefreshing || isLoading ? (
-            <ActivityIndicator color={String(palette.onSurface)} />
-          ) : (
-            <Text style={[styles.secondaryButtonText, { color: String(palette.onSurface) }]}>
-              Обновить статус
+      </ElasticScrollView>
+      {isUnavailable ? (
+        <View pointerEvents="auto" style={styles.lockOverlay}>
+          <BlurView
+            style={styles.lockBlur}
+            blurType={isMaterialDark ? 'dark' : 'light'}
+            blurAmount={18}
+            reducedTransparencyFallbackColor={refreshSurface}
+          />
+          <View style={[styles.lockTint, { backgroundColor: lockOverlayBackground }]} />
+          <View
+            style={[
+              styles.lockCard,
+              {
+                backgroundColor: lockCardBackground,
+                borderColor: lockCardBorder,
+              },
+            ]}>
+            <View
+              style={[
+                styles.lockIconWrap,
+                {
+                  backgroundColor: lockIconBackground,
+                  borderColor: lockCardBorder,
+                },
+              ]}>
+              <Text style={[styles.lockIconText, { color: accentLabelColor }]}>!</Text>
+            </View>
+            <Text style={[styles.lockTitle, { color: palette.onSurface }]}>
+              Работа с сертификатами временно недоступна
             </Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+            <Text style={[styles.lockText, { color: mutedLabelColor }]}>
+              Продажа и обналичивание доступны только при открытой смене. После открытия
+              смены раздел разблокируется автоматически.
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   )
 }

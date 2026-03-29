@@ -17,32 +17,41 @@ import {
   StyleSheet,
   Dimensions,
   useColorScheme,
+  PlatformColor,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AnimatedEntranceView from '../components/AnimatedEntranceView';
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
 import MoreScreen from './MoreScreen';
 import CertificatesScreen from './CertificatesScreen';
 import HomeScreenRouter from './HomeScreenRouter';
+import ProductInfoScreen from './ProductInfoScreen';
 import { authApi } from '../features/auth/authApi';
 import { buildApiUrl } from '../config/api';
 import LiquidTabBar from '../components/LiquidTabBar';
 import type { TabKey } from '../components/LiquidTabBar';
+import type { OpenedShift } from '../features/shift/types';
 import { useAndroidThemeMode } from '../theme/androidAppTheme';
 import {
   getAndroidCompanyPalette,
+  getAndroidStatusBarColor,
   getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors';
+import {
+  androidLightImpact,
+  androidMediumImpact,
+  androidSuccessHaptic,
+} from '../utils/androidHaptics';
 
 const eyeOpenIcon = require('../assets/icons/eye-open.png');
 const eyeClosedIcon = require('../assets/icons/eye-closed.png');
 const homeIcon = require('../assets/icons/home.png');
 const profileIcon = require('../assets/icons/more.png');
 const mailIcon = require('../assets/icons/gift.png');
-const trashIcon = require('../assets/icons/trash.png');
+const trashIcon = require('../assets/icons/shop.png');
 const crossIcon = require('../assets/icons/cross.png');
-const lockIcon = require('../assets/icons/lock.png');
 
 type AuthTab = TabKey;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -137,19 +146,6 @@ function extractLocalPhoneDigits(value: string) {
   return (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10);
 }
 
-function formatPhoneInputWithBackspace(prevValue: string, nextValue: string) {
-  const prevLocal = extractLocalPhoneDigits(prevValue);
-  const nextLocal = extractLocalPhoneDigits(nextValue);
-
-  // If user deleted only mask symbols ( ) - and local digits count did not change,
-  // treat it as deleting one digit to avoid "stuck" backspace behavior.
-  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
-    return formatPhoneInput(`+7${prevLocal.slice(0, -1)}`);
-  }
-
-  return formatPhoneInput(nextValue);
-}
-
 export default function AuthScreen() {
   const colorScheme = useColorScheme();
   const androidTheme = useAndroidThemeMode();
@@ -157,7 +153,7 @@ export default function AuthScreen() {
   const androidPalette = isAndroid
     ? androidTheme.mode === 'company'
       ? getAndroidCompanyPalette()
-      : getAndroidThemePalette(colorScheme === 'dark')
+      : getAndroidThemePalette(colorScheme === 'dark', androidTheme.contrastMode)
     : null;
   const authAccessoryId = 'auth-keyboard-accessory';
   const insets = useSafeAreaInsets();
@@ -181,6 +177,7 @@ export default function AuthScreen() {
   >(null);
   const [forgotPhoneSelection, setForgotPhoneSelection] = useState({ start: 0, end: 0 });
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
+  const [openedShift, setOpenedShift] = useState<OpenedShift | null>(null);
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [forgotIdentity, setForgotIdentity] = useState('+7');
@@ -205,11 +202,17 @@ export default function AuthScreen() {
   const [isProfileNotificationsLoading, setIsProfileNotificationsLoading] = useState(false);
   const profileSheetProgress = useRef(new Animated.Value(0)).current;
   const tabTransitionProgress = useRef(new Animated.Value(1)).current;
+  const activeTabRef = useRef<AuthTab>('home');
+  const isTabTransitioningRef = useRef(false);
+  const tabTransitionTokenRef = useRef(0);
+  const authKeyboardShift = useRef(new Animated.Value(0)).current;
   const authNoticeOpacity = useRef(new Animated.Value(0)).current;
   const forgotErrorOpacity = useRef(new Animated.Value(0)).current;
   const loginErrorOpacity = useRef(new Animated.Value(0)).current;
   const changePasswordErrorOpacity = useRef(new Animated.Value(0)).current;
   const changePasswordSuccessOpacity = useRef(new Animated.Value(0)).current;
+  const authScreenReveal = useRef(new Animated.Value(0)).current;
+  const appShellReveal = useRef(new Animated.Value(0)).current;
   const forgotSubmitLockRef = useRef(false);
 
   const {
@@ -226,6 +229,232 @@ export default function AuthScreen() {
     resetSession,
     clearError,
   } = useAuth();
+
+  const authIsMaterial = isAndroid && androidTheme.mode === 'material';
+  const supportsMaterialSystemColors = isAndroid && authIsMaterial && Number(Platform.Version) >= 31;
+  const authBackgroundHex =
+    isAndroid && androidPalette
+      ? androidTheme.mode === 'company'
+        ? '#000000'
+        : getAndroidStatusBarColor(colorScheme === 'dark')
+      : '#000000';
+  const authBackground =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral1_900'
+            : '@android:color/system_neutral1_10',
+        )
+      : authBackgroundHex;
+  const authSurfaceMuted =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral1_800'
+            : '@android:color/system_neutral1_0',
+        )
+      : isAndroid && androidPalette
+        ? authIsMaterial
+          ? String(androidPalette.surfaceRaised)
+          : String(androidPalette.surface)
+        : '#1A1A1A';
+  const authBorder =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral2_700'
+            : '@android:color/system_neutral2_200',
+        )
+      : isAndroid && androidPalette
+        ? androidTheme.mode === 'company'
+          ? String(androidPalette.primaryContainerStrong)
+          : String(androidPalette.outline)
+        : '#2B2B2B';
+  const authText =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral1_50'
+            : '@android:color/system_neutral1_900',
+        )
+      : isAndroid && androidPalette
+        ? String(androidPalette.onSurface)
+        : '#FFFFFF';
+  const authMutedText =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral2_200'
+            : '@android:color/system_neutral2_700',
+        )
+      : isAndroid && androidPalette
+        ? String(androidPalette.onSurfaceMuted)
+        : '#A6A6A6';
+  const authPlaceholder = authMutedText;
+  const authAccent =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_accent1_300'
+            : '@android:color/system_accent1_500',
+        )
+      : isAndroid && androidPalette
+        ? String(androidPalette.primary)
+        : '#FF6A00';
+  const authOnAccent =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral1_50'
+            : '@android:color/system_neutral1_900',
+        )
+      : isAndroid && androidPalette
+        ? authIsMaterial
+          ? String(androidPalette.primaryStrong)
+          : String(androidPalette.buttonText)
+        : '#FFFFFF';
+  const authButtonBackground =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_accent1_800'
+            : '@android:color/system_accent1_100',
+        )
+      : isAndroid && androidPalette && authIsMaterial
+        ? String(androidPalette.primaryContainerStrong)
+        : authAccent;
+  const authButtonBorder =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_accent1_700'
+            : '@android:color/system_accent1_200',
+        )
+      : isAndroid && androidPalette && authIsMaterial
+        ? String(androidPalette.primaryContainer)
+        : authAccent;
+  const authBrandGlow =
+    isAndroid && androidTheme.mode === 'material'
+      ? colorScheme === 'dark'
+        ? 'rgba(169,184,255,0.18)'
+        : 'rgba(79,110,232,0.18)'
+      : 'rgba(255,106,0,0.16)';
+  const authBrandCapsuleBackground =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral1_800'
+            : '@android:color/system_neutral1_0',
+        )
+      : isAndroid && androidPalette && authIsMaterial
+        ? String(androidPalette.surfaceRaised)
+      : '#111111';
+  const authBrandCapsuleBorder =
+    supportsMaterialSystemColors
+      ? PlatformColor(
+          colorScheme === 'dark'
+            ? '@android:color/system_neutral2_700'
+            : '@android:color/system_neutral2_200',
+        )
+      : isAndroid && androidPalette && authIsMaterial
+        ? String(androidPalette.outlineVariant)
+      : 'rgba(255,255,255,0.08)';
+  const authInputFocusedStyle = {
+    borderColor: authAccent,
+    borderWidth: 1,
+    shadowColor: authAccent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 4,
+  };
+  const authStatusBarStyle = getAndroidStatusBarStyle(authBackgroundHex);
+  const [isAuthKeyboardVisible, setIsAuthKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isAndroid) {
+      authScreenReveal.setValue(1);
+      return;
+    }
+
+    if (session) {
+      authScreenReveal.setValue(0);
+      return;
+    }
+
+    if (androidTheme.shouldShowIntro) {
+      authScreenReveal.setValue(0);
+      return;
+    }
+
+    authScreenReveal.stopAnimation();
+    authScreenReveal.setValue(0);
+    Animated.parallel([
+      Animated.timing(authScreenReveal, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.bezier(0.2, 0.86, 0.24, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [androidTheme.shouldShowIntro, authScreenReveal, isAndroid, session]);
+
+  useEffect(() => {
+    if (!isAndroid) {
+      appShellReveal.setValue(1);
+      return;
+    }
+
+    if (!session) {
+      appShellReveal.setValue(0);
+      return;
+    }
+
+    appShellReveal.stopAnimation();
+    appShellReveal.setValue(0);
+    Animated.parallel([
+      Animated.timing(appShellReveal, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.bezier(0.18, 0.84, 0.22, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [appShellReveal, isAndroid, session]);
+
+  useEffect(() => {
+    if (!isAndroid || session) {
+      return;
+    }
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', event => {
+      setIsAuthKeyboardVisible(true);
+      const height = event.endCoordinates?.height ?? 0;
+      Animated.spring(authKeyboardShift, {
+        toValue: -Math.min(height * 0.18, 74),
+        stiffness: 210,
+        damping: 24,
+        mass: 0.92,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsAuthKeyboardVisible(false);
+      Animated.spring(authKeyboardShift, {
+        toValue: 0,
+        stiffness: 220,
+        damping: 26,
+        mass: 0.94,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [authKeyboardShift, isAndroid, session]);
 
   const openProfileSheet = React.useCallback(() => {
     setIsProfileSheetOpen(true);
@@ -258,47 +487,60 @@ export default function AuthScreen() {
     });
   }, [profileSheetProgress]);
 
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const applyTabSelection = React.useCallback((nextTab: AuthTab) => {
+    if (nextTab === 'home') {
+      setActiveTab('home');
+      setOldPassword('');
+      setNewPassword('');
+      setChangePasswordError(null);
+      setChangePasswordSuccess(null);
+      setIsOldPasswordVisible(false);
+      setIsNewPasswordVisible(false);
+      setFocusedProfileField(null);
+      setIsPasswordSectionOpen(false);
+    } else {
+      setActiveTab(nextTab);
+      setIsPasswordSectionOpen(false);
+    }
+    activeTabRef.current = nextTab;
+  }, []);
+
   const switchTab = React.useCallback(
     (nextTab: AuthTab) => {
-      if (nextTab === activeTab || isTabTransitioning) {
+      const currentTab = activeTabRef.current;
+      if (nextTab === currentTab) {
         return;
       }
 
-      setPreviousTab(activeTab);
+      const transitionToken = tabTransitionTokenRef.current + 1;
+      tabTransitionTokenRef.current = transitionToken;
+      setPreviousTab(currentTab);
       setIsTabTransitioning(true);
+      isTabTransitioningRef.current = true;
       tabTransitionProgress.stopAnimation();
       tabTransitionProgress.setValue(0);
-
-      if (nextTab === 'home') {
-        setActiveTab('home');
-        setOldPassword('');
-        setNewPassword('');
-        setChangePasswordError(null);
-        setChangePasswordSuccess(null);
-        setIsOldPasswordVisible(false);
-        setIsNewPasswordVisible(false);
-        setFocusedProfileField(null);
-        setIsPasswordSectionOpen(false);
-      } else {
-        setActiveTab(nextTab);
-        setIsPasswordSectionOpen(false);
-      }
+      applyTabSelection(nextTab);
 
       Animated.timing(tabTransitionProgress, {
         toValue: 1,
-        duration: Platform.OS === 'android' ? 240 : 300,
+        duration: Platform.OS === 'android' ? 280 : 300,
         easing:
           Platform.OS === 'android'
-            ? Easing.out(Easing.cubic)
+            ? Easing.bezier(0.22, 0.92, 0.24, 1)
             : Easing.bezier(0.22, 1, 0.36, 1),
         useNativeDriver: true,
       }).start(({ finished }) => {
-        if (finished) {
+        if (finished && tabTransitionTokenRef.current === transitionToken) {
           setIsTabTransitioning(false);
+          isTabTransitioningRef.current = false;
         }
       });
     },
-    [activeTab, isTabTransitioning, tabTransitionProgress],
+    [applyTabSelection, tabTransitionProgress],
   );
 
   useEffect(() => {
@@ -399,6 +641,7 @@ export default function AuthScreen() {
       return;
     }
 
+    const employeeId = session.user.id;
     let isMounted = true;
 
     async function loadProfileNotificationsCount() {
@@ -406,7 +649,7 @@ export default function AuthScreen() {
 
       try {
         const res = await fetch(
-          buildApiUrl(`/employees/${encodeURIComponent(session.user.id)}/hr/regions`),
+          buildApiUrl(`/employees/${encodeURIComponent(employeeId)}/hr/regions`),
         );
 
         if (res.status === 404 || res.status === 501) {
@@ -449,7 +692,7 @@ export default function AuthScreen() {
       }
     }
 
-    void loadProfileNotificationsCount();
+    loadProfileNotificationsCount();
 
     return () => {
       isMounted = false;
@@ -518,7 +761,7 @@ export default function AuthScreen() {
     };
   }, [error, errorVersion, loginErrorOpacity, clearError]);
 
-  const resetChangePasswordForm = () => {
+  const resetChangePasswordForm = React.useCallback(() => {
     setOldPassword('');
     setNewPassword('');
     setChangePasswordError(null);
@@ -527,7 +770,7 @@ export default function AuthScreen() {
     setIsNewPasswordVisible(false);
     setFocusedProfileField(null);
     setIsPasswordSectionOpen(false);
-  };
+  }, []);
 
   const resetForgotPasswordForm = () => {
     setIsForgotPasswordFlow(false);
@@ -544,8 +787,9 @@ export default function AuthScreen() {
   };
 
   useEffect(() => {
-    // On any auth session transition (login/logout/account switch),
-    // force UI back to the default Home state.
+    // On login/logout/account switch, force UI back to the default Home state.
+    // Do not reset on token refresh, otherwise pull-to-refresh inside tabs
+    // kicks the user back to Home.
     setActiveTab('home');
     setIsProfileSheetOpen(false);
     profileSheetProgress.stopAnimation();
@@ -560,7 +804,7 @@ export default function AuthScreen() {
     setIsPasswordVisible(false);
     setFocusedLoginField(null);
     setFocusedProfileField(null);
-  }, [session?.user?.id, session?.accessToken, profileSheetProgress]);
+  }, [session?.user?.id, profileSheetProgress]);
 
   const sendResetCode = async () => {
     if (isForgotSubmitting || forgotSubmitLockRef.current) {
@@ -708,48 +952,101 @@ export default function AuthScreen() {
     const isHrManager = Number(session.user.userRole ?? 3) === 10;
     const profileStatusBarStyle =
       isAndroid && androidPalette
-        ? getAndroidStatusBarStyle(String(androidPalette.background))
+        ? getAndroidStatusBarStyle(
+            androidTheme.mode === 'company'
+              ? '#000000'
+              : getAndroidStatusBarColor(colorScheme === 'dark'),
+          )
         : 'light-content';
     const isAndroidMaterialMode = isAndroid && androidTheme.mode === 'material';
     const isAndroidMaterialDark = isAndroidMaterialMode && colorScheme === 'dark';
-    const androidTabThemeMode =
-      isAndroidMaterialMode && !isAndroidMaterialDark ? 'light' : 'dark';
+    const androidTabThemeMode = 'dark';
     const androidTabActiveBackground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.primaryContainerStrong)
+          ? 'rgba(120,70,39,0.58)'
           : isAndroidMaterialDark
-            ? String(androidPalette.surfaceAccent)
-            : String(androidPalette.primaryContainer)
+            ? 'rgba(255,255,255,0.14)'
+            : 'rgba(255,255,255,0.16)'
+        : undefined;
+    const androidTabActivePillSolid =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? 'rgba(58,36,24,0.96)'
+          : undefined
         : undefined;
     const androidTabActiveForeground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.onSurface)
+          ? '#FFF4EC'
           : isAndroidMaterialDark
-            ? String(androidPalette.onSurface)
-            : String(androidPalette.primaryStrong)
+            ? '#FFFFFF'
+            : '#FFFFFF'
         : undefined;
     const androidTabInactiveForeground =
       isAndroid && androidPalette
-        ? isAndroidMaterialDark
-          ? '#B7C0C9'
-          : String(androidPalette.onSurfaceMuted)
+        ? isAndroid && androidTheme.mode === 'company'
+          ? 'rgba(255,237,226,0.76)'
+          : isAndroidMaterialDark
+            ? 'rgba(235,241,247,0.78)'
+            : 'rgba(235,241,247,0.74)'
         : undefined;
     const androidTabShellBackground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.surfaceRaised)
-          : isAndroidMaterialDark
-            ? 'rgba(18,22,26,0.92)'
-            : 'rgba(251,252,254,0.94)'
+          ? 'rgba(22,16,12,0.14)'
+          : 'rgba(13,16,19,0.18)'
         : undefined;
     const androidTabShellBorder =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.primaryContainerStrong)
-          : String(androidPalette.outlineVariant)
+          ? 'rgba(255,140,56,0.16)'
+          : 'rgba(255,255,255,0.09)'
         : undefined;
+    const profileSheetSurface =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.background
+          : androidPalette.surfaceRaised
+        : '#1C1C1E';
+    const profileSurface =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceRaised
+          : androidPalette.surfaceRaised
+        : '#1C1C1E';
+    const profileSurfaceMuted =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceAccent
+          : androidPalette.surfaceMuted
+        : '#151515';
+    const profileSurfaceAccent =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceMuted
+          : androidPalette.surfaceAccent
+        : '#3A3A3C';
+    const profileBorder =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? androidPalette.primaryContainerStrong
+          : isAndroidMaterialDark
+            ? androidPalette.outline
+            : androidPalette.outlineVariant
+        : '#2C2C2E';
+    const profileText =
+      isAndroid && androidPalette ? androidPalette.onSurface : '#F2F2F7';
+    const profileMutedText =
+      isAndroid && androidPalette ? androidPalette.onSurfaceMuted : '#8E8E93';
+    const profileAccent =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? androidPalette.primary
+          : isAndroidMaterialDark
+            ? androidPalette.primaryStrong
+            : androidPalette.primary
+        : '#FF6A00';
 
     const showProfile = activeTab === 'profile';
     const showMail = activeTab === 'mail';
@@ -778,7 +1075,10 @@ export default function AuthScreen() {
     const previousIndex = tabIndexMap[previousTab];
     const activeIndex = tabIndexMap[activeTab];
     const direction = activeIndex > previousIndex ? 1 : -1;
-    const travelDistance = Platform.OS === 'android' ? SCREEN_WIDTH * 0.045 : SCREEN_WIDTH * 0.14;
+    const travelDistance =
+      Platform.OS === 'android'
+        ? SCREEN_WIDTH * 0.125
+        : SCREEN_WIDTH * 0.14;
 
     const createTabAnimatedStyle = (tab: AuthTab) => {
       const isIncoming = tab === activeTab;
@@ -794,10 +1094,37 @@ export default function AuthScreen() {
       }
 
       if (isIncoming) {
+        if (Platform.OS === 'android') {
+          return {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 0.26, 1],
+              outputRange: [0.1, 0.48, 1],
+              extrapolate: 'clamp',
+            }),
+            zIndex: 3,
+            transform: [
+              {
+                translateX: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [direction * travelDistance, 0],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.992, 1],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          };
+        }
+
         return {
           opacity: tabTransitionProgress.interpolate({
             inputRange: [0, 0.12, 1],
-            outputRange: [0, Platform.OS === 'android' ? 0.22 : 0.1, 1],
+            outputRange: [0, 0.1, 1],
             extrapolate: 'clamp',
           }),
           zIndex: 3,
@@ -814,10 +1141,37 @@ export default function AuthScreen() {
       }
 
       if (isOutgoing) {
+        if (Platform.OS === 'android') {
+          return {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0.22],
+              extrapolate: 'clamp',
+            }),
+            zIndex: 2,
+            transform: [
+              {
+                translateX: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -direction * travelDistance * 0.58],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0.988],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          };
+        }
+
         return {
           opacity: tabTransitionProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: [1, Platform.OS === 'android' ? 0 : 0],
+            outputRange: [1, 0],
             extrapolate: 'clamp',
           }),
           zIndex: 2,
@@ -825,7 +1179,7 @@ export default function AuthScreen() {
             {
               translateX: tabTransitionProgress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0, Platform.OS === 'android' ? -direction * travelDistance * 0.35 : -direction * travelDistance * 0.7],
+                outputRange: [0, -direction * travelDistance * 0.7],
                 extrapolate: 'clamp',
               }),
             },
@@ -844,16 +1198,46 @@ export default function AuthScreen() {
     const mailTabAnimatedStyle = createTabAnimatedStyle('mail');
     const trashTabAnimatedStyle = createTabAnimatedStyle('trash');
     const profileTabAnimatedStyle = createTabAnimatedStyle('profile');
-
+    const androidTabTransitionVeilStyle =
+      isAndroid && isTabTransitioning
+        ? {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 0.24, 1],
+              outputRange: [0.018, 0.014, 0],
+              extrapolate: 'clamp',
+            }),
+          }
+        : undefined;
+    const appShellAnimatedStyle = isAndroid
+      ? {
+          opacity: appShellReveal,
+          transform: [
+            {
+              translateY: appShellReveal.interpolate({
+                inputRange: [0, 1],
+                outputRange: [18, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: appShellReveal.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.992, 1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        }
+      : undefined;
     return (
-      <View style={styles.authenticatedScreen}>
+      <Animated.View style={[styles.authenticatedScreen, appShellAnimatedStyle]}>
         <Animated.View
           style={[styles.homeLayer, homeTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
           <HomeScreenRouter
             session={session}
             isRefreshingSession={isRefreshingSession}
+            onShiftStatusChange={setOpenedShift}
             onLogout={() => {
               resetChangePasswordForm();
               setActiveTab('home');
@@ -872,52 +1256,24 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, mailTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showMail ? 'auto' : 'none'}>
-          <CertificatesScreen employeeId={session.user.id} />
+          <CertificatesScreen
+            employeeId={session.user.id}
+            isActive={showMail}
+            isShiftOpen={openedShift ? true : false}
+            currentShopName={openedShift?.shopName ?? null}
+          />
           </Animated.View>
 
         <Animated.View
           style={[styles.tabLayer, trashTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showTrash ? 'auto' : 'none'}>
-            {isAndroid ? (
-              <SafeAreaView
-                style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
-                edges={['top', 'bottom']}>
-                <View style={styles.comingSoonWrap}>
-                  <Image
-                    source={lockIcon}
-                    defaultSource={lockIcon}
-                    fadeDuration={0}
-                    style={styles.comingSoonIcon}
-                  />
-                  <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
-                </View>
-              </SafeAreaView>
-            ) : (
-              <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
-            )}
+          <ProductInfoScreen
+            session={session}
+            isRefreshing={isRefreshingSession}
+            onRefresh={refreshSession}
+          />
           </Animated.View>
-
-        {!isAndroid ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.iosComingSoonOverlay,
-              { opacity: showTrash ? 1 : 0 },
-            ]}>
-            <View style={styles.comingSoonWrap}>
-              <Image
-                source={lockIcon}
-                defaultSource={lockIcon}
-                fadeDuration={0}
-                style={styles.comingSoonIcon}
-              />
-              <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
-            </View>
-          </View>
-        ) : null}
 
         {!isAndroid && showTrash ? (
           <View pointerEvents="box-none" style={styles.iosFloatingHeaderWrap}>
@@ -940,7 +1296,6 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, profileTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
           pointerEvents={showProfile ? 'auto' : 'none'}>
             <SafeAreaView
               style={[
@@ -948,7 +1303,9 @@ export default function AuthScreen() {
                 {
                   backgroundColor:
                     isAndroid && androidPalette
-                      ? String(androidPalette.background)
+                      ? androidTheme.mode === 'company'
+                        ? '#000000'
+                        : androidPalette.background
                       : '#000000',
                 },
               ]}
@@ -960,6 +1317,25 @@ export default function AuthScreen() {
             </SafeAreaView>
           </Animated.View>
 
+        {isAndroid && isTabTransitioning ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                zIndex: 4,
+                backgroundColor:
+                  androidTheme.mode === 'company'
+                    ? 'rgba(0,0,0,0.92)'
+                    : colorScheme === 'dark'
+                      ? 'rgba(8,10,12,0.94)'
+                      : 'rgba(245,248,252,0.92)',
+              },
+              androidTabTransitionVeilStyle,
+            ]}
+          />
+        ) : null}
+
         {isProfileSheetOpen ? (
           <View style={styles.profileSheetRoot} pointerEvents="box-none">
             <Pressable style={StyleSheet.absoluteFill} onPress={closeProfileSheet}>
@@ -970,6 +1346,8 @@ export default function AuthScreen() {
               style={[
                 styles.profileSheetCard,
                 {
+                  backgroundColor: profileSheetSurface,
+                  borderColor: profileBorder,
                   top: insets.top + 6,
                   transform: [
                     { translateY: profileSheetTranslateY },
@@ -978,7 +1356,13 @@ export default function AuthScreen() {
                 },
               ]}>
               <TouchableOpacity
-                style={styles.profileSheetCloseButton}
+                style={[
+                  styles.profileSheetCloseButton,
+                  {
+                    backgroundColor: profileSurfaceAccent,
+                    borderColor: profileBorder,
+                  },
+                ]}
                 onPress={closeProfileSheet}
                 accessibilityRole="button"
                 accessibilityLabel="Закрыть профиль">
@@ -987,21 +1371,41 @@ export default function AuthScreen() {
 
               <SafeAreaView style={styles.profileSheetSafeArea} edges={['top', 'bottom']}>
                 <View style={styles.profileSheetContent}>
-                  <View style={styles.profileAccountCard}>
+                  <View
+                    style={[
+                      styles.profileAccountCard,
+                      {
+                        backgroundColor: profileSurface,
+                        borderColor: profileBorder,
+                      },
+                    ]}>
                     <View style={styles.profileAccountRow}>
-                      <View style={styles.profileAvatarCircle}>
-                        <Text style={styles.profileAvatarLetter}>{profileLetter}</Text>
+                      <View
+                        style={[
+                          styles.profileAvatarCircle,
+                          {
+                            backgroundColor: profileSurfaceMuted,
+                            borderColor: profileBorder,
+                          },
+                        ]}>
+                        <Text style={[styles.profileAvatarLetter, { color: profileText }]}>{profileLetter}</Text>
                       </View>
                       <View style={styles.profileIdentityBlock}>
-                        <Text style={styles.profileAccountName}>{displayName}</Text>
-                        <Text style={styles.profileAccountEmail}>{profileEmail}</Text>
+                        <Text style={[styles.profileAccountName, { color: profileText }]}>{displayName}</Text>
+                        <Text style={[styles.profileAccountEmail, { color: profileMutedText }]}>{profileEmail}</Text>
                       </View>
                     </View>
                   </View>
 
                   {!isPasswordSectionOpen && isHrManager ? (
                     <TouchableOpacity
-                      style={styles.profileNotificationsCard}
+                      style={[
+                        styles.profileNotificationsCard,
+                        {
+                          backgroundColor: profileSurface,
+                          borderColor: profileBorder,
+                        },
+                      ]}
                       onPress={() => {
                         setAuthNotice(
                           profileNotificationsCount > 0
@@ -1010,8 +1414,8 @@ export default function AuthScreen() {
                         );
                       }}>
                       <View style={styles.profileNotificationsTextBlock}>
-                        <Text style={styles.profileNotificationsTitle}>Уведомления</Text>
-                        <Text style={styles.profileNotificationsSubtitle}>
+                        <Text style={[styles.profileNotificationsTitle, { color: profileText }]}>Уведомления</Text>
+                        <Text style={[styles.profileNotificationsSubtitle, { color: profileMutedText }]}>
                           Открытия смен для HR-менеджеров
                         </Text>
                       </View>
@@ -1019,20 +1423,27 @@ export default function AuthScreen() {
                         {isProfileNotificationsLoading ? (
                           <ActivityIndicator size="small" color="#FF6A00" />
                         ) : profileNotificationsCount > 0 ? (
-                          <View style={styles.profileNotificationCountBadge}>
+                          <View style={[styles.profileNotificationCountBadge, { backgroundColor: profileAccent }]}>
                             <Text style={styles.profileNotificationCountBadgeText}>
                               {profileNotificationsCount > 99 ? '99+' : profileNotificationsCount}
                             </Text>
                           </View>
                         ) : (
-                          <Text style={styles.profileRowMutedMeta}>Нет новых</Text>
+                          <Text style={[styles.profileRowMutedMeta, { color: profileAccent }]}>Нет новых</Text>
                         )}
                       </View>
                     </TouchableOpacity>
                   ) : null}
 
                   {!isPasswordSectionOpen ? (
-                    <View style={styles.profileActionsCard}>
+                    <View
+                      style={[
+                        styles.profileActionsCard,
+                        {
+                          backgroundColor: profileSurface,
+                          borderColor: profileBorder,
+                        },
+                      ]}>
                       <TouchableOpacity
                         style={styles.profileRowButton}
                         onPress={() => {
@@ -1041,13 +1452,13 @@ export default function AuthScreen() {
                           setChangePasswordSuccess(null);
                         }}
                         disabled={isChangingPassword}>
-                        <Text style={styles.profileRowButtonText}>Смена пароля</Text>
-                        <Text style={styles.profileRowChevron}>›</Text>
+                        <Text style={[styles.profileRowButtonText, { color: profileText }]}>Смена пароля</Text>
+                        <Text style={[styles.profileRowChevron, { color: profileAccent }]}>›</Text>
                       </TouchableOpacity>
 
-                      <View style={styles.profileDivider} />
+                      <View style={[styles.profileDivider, { backgroundColor: profileBorder }]} />
                       <View style={styles.profileRowStatic}>
-                        <Text style={styles.profileRowMutedText}>
+                        <Text style={[styles.profileRowMutedText, { color: profileMutedText }]}>
                           {isHrManager
                             ? 'Лента уведомлений появится здесь следующим шагом'
                             : 'Тут скоро что-то будет'}
@@ -1055,7 +1466,14 @@ export default function AuthScreen() {
                       </View>
                     </View>
                   ) : (
-                    <View style={styles.profilePasswordCard}>
+                    <View
+                      style={[
+                        styles.profilePasswordCard,
+                        {
+                          backgroundColor: profileSurface,
+                          borderColor: profileBorder,
+                        },
+                      ]}>
                       <View style={styles.profileForm}>
                         <View style={styles.passwordField}>
                           <TextInput
@@ -1203,7 +1621,14 @@ export default function AuthScreen() {
                     </View>
                   )}
 
-                  <View style={styles.profileBottomBlock}>
+                  <View
+                    style={[
+                      styles.profileBottomBlock,
+                      {
+                        backgroundColor: profileSurface,
+                        borderColor: profileBorder,
+                      },
+                    ]}>
                     <TouchableOpacity
                       style={styles.profileLogoutButton}
                       onPress={() => {
@@ -1230,42 +1655,86 @@ export default function AuthScreen() {
             profileLabel="Ещё"
             themeMode={androidTabThemeMode}
             activeTintColor={
-              isAndroid && androidPalette ? String(androidPalette.primary) : undefined
+              isAndroid && androidPalette ? androidPalette.primary : undefined
             }
             activeBackgroundColor={androidTabActiveBackground}
+            activePillSolidColor={androidTabActivePillSolid}
             activeForegroundColor={androidTabActiveForeground}
             inactiveTintColor={androidTabInactiveForeground}
             shellBackgroundColor={androidTabShellBackground}
             shellBorderColor={androidTabShellBorder}
             mailIcon={mailIcon}
             trashIcon={trashIcon}
+            trashLabel="Товары"
           />
         </View>
-      </View>
+      </Animated.View>
     );
   }
 
+  const authScreenAnimatedStyle = isAndroid
+    ? {
+        opacity: authScreenReveal,
+        transform: [
+          {
+            translateY: authScreenReveal.interpolate({
+              inputRange: [0, 1],
+              outputRange: [28, 0],
+              extrapolate: 'clamp',
+            }),
+          },
+          {
+            scale: authScreenReveal.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.986, 1],
+              extrapolate: 'clamp',
+            }),
+          },
+        ],
+      }
+    : undefined;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[styles.container, { backgroundColor: authBackground }]} edges={['top', 'bottom']}>
+      <StatusBar barStyle={authStatusBarStyle} backgroundColor={authBackgroundHex} />
 
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.authContent}>
-      <View style={styles.formCard}>
+      <Animated.View
+        style={[
+          styles.authContent,
+          {
+            backgroundColor: authBackground,
+            justifyContent: isAndroid && isAuthKeyboardVisible ? 'flex-start' : 'center',
+            paddingTop:
+              isAndroid && isAuthKeyboardVisible ? Math.max(insets.top + 72, 92) : 0,
+          },
+          authScreenAnimatedStyle,
+        ]}>
+      <Animated.View
+        style={[
+          styles.formCard,
+          {
+            transform: [{ translateY: authKeyboardShift }],
+          },
+        ]}>
         {isForgotPasswordFlow ? (
           <>
-            <Text style={styles.sectionTitle}>Восстановление пароля</Text>
+            <Text style={[styles.sectionTitle, { color: authText }]}>Восстановление пароля</Text>
             {!isCodeSent ? (
               <Pressable
                 style={[
                   styles.phoneInputWrap,
-                  focusedForgotField === 'identity' && styles.inputFocused,
+                  {
+                    backgroundColor: authSurfaceMuted,
+                    borderColor: authBorder,
+                  },
+                  focusedForgotField === 'identity' && authInputFocusedStyle,
                 ]}
                 onPress={() => forgotPhoneInputRef.current?.focus()}>
-                <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
+                <Text style={[styles.phonePrefix, { color: authPlaceholder }]} pointerEvents="none">+7</Text>
                 <TextInput
                   ref={forgotPhoneInputRef}
-                  style={styles.phoneInputControl}
+                  style={[styles.phoneInputControl, { color: authText }]}
                   keyboardType="phone-pad"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -1331,14 +1800,28 @@ export default function AuthScreen() {
 
             {!isCodeSent ? (
               <TouchableOpacity
-                style={[styles.button, isForgotSubmitting && styles.buttonDisabled]}
-                onPress={sendResetCode}
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: authButtonBackground,
+                    borderColor: authButtonBorder,
+                    shadowColor: authAccent,
+                    shadowOpacity: authIsMaterial ? 0.16 : 0.4,
+                    shadowRadius: authIsMaterial ? 12 : 8,
+                    elevation: authIsMaterial ? 3 : 6,
+                  },
+                  isForgotSubmitting && styles.buttonDisabled,
+                ]}
+                onPress={() => {
+                  androidMediumImpact();
+                  sendResetCode();
+                }}
                 disabled={isForgotSubmitting}
               >
                 {isForgotSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={authOnAccent} />
                 ) : (
-                  <Text style={styles.buttonText}>Получить код</Text>
+                  <Text style={[styles.buttonText, { color: authOnAccent }]}>Получить код</Text>
                 )}
               </TouchableOpacity>
             ) : null}
@@ -1348,10 +1831,15 @@ export default function AuthScreen() {
                 <TextInput
                   style={[
                     styles.input,
-                    focusedForgotField === 'code' && styles.inputFocused,
+                    {
+                      backgroundColor: authSurfaceMuted,
+                      borderColor: authBorder,
+                      color: authText,
+                    },
+                    focusedForgotField === 'code' && authInputFocusedStyle,
                   ]}
                   placeholder="Код из почты"
-                  placeholderTextColor="#7A7A7A"
+                  placeholderTextColor={authPlaceholder}
                   keyboardType="number-pad"
                   value={resetCode}
                   onFocus={() => setFocusedForgotField('code')}
@@ -1371,10 +1859,15 @@ export default function AuthScreen() {
                     style={[
                       styles.input,
                       styles.passwordInput,
-                      focusedForgotField === 'newPassword' && styles.inputFocused,
+                      {
+                        backgroundColor: authSurfaceMuted,
+                        borderColor: authBorder,
+                        color: authText,
+                      },
+                      focusedForgotField === 'newPassword' && authInputFocusedStyle,
                     ]}
                     placeholder="Новый пароль"
-                    placeholderTextColor="#7A7A7A"
+                    placeholderTextColor={authPlaceholder}
                     secureTextEntry={!isResetPasswordVisible}
                     autoCapitalize="none"
                     value={resetNewPassword}
@@ -1402,20 +1895,27 @@ export default function AuthScreen() {
                   >
                     <Image
                       source={isResetPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                      style={styles.eyeImage}
+                      style={[styles.eyeImage, { tintColor: authText }]}
                     />
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.button, isForgotSubmitting && styles.buttonDisabled]}
-                  onPress={submitResetPassword}
+                  style={[
+                    styles.button,
+                    { backgroundColor: authAccent, shadowColor: authAccent },
+                    isForgotSubmitting && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    androidSuccessHaptic();
+                    submitResetPassword();
+                  }}
                   disabled={isForgotSubmitting}
                 >
                   {isForgotSubmitting ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={authOnAccent} />
                   ) : (
-                    <Text style={styles.buttonText}>Сбросить пароль</Text>
+                    <Text style={[styles.buttonText, { color: authOnAccent }]}>Сбросить пароль</Text>
                   )}
                 </TouchableOpacity>
               </>
@@ -1426,21 +1926,45 @@ export default function AuthScreen() {
               onPress={resetForgotPasswordForm}
               disabled={isForgotSubmitting}
             >
-              <Text style={styles.linkButtonText}>Назад</Text>
+              <Text style={[styles.linkButtonText, { color: authAccent }]}>Назад</Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
+        <AnimatedEntranceView delay={30} style={styles.brandBlock}>
+          <View
+            style={[
+              styles.brandMarkRow,
+              {
+                backgroundColor: authBrandCapsuleBackground,
+                borderColor: authBrandCapsuleBorder,
+              },
+            ]}>
+            <View style={[styles.brandMarkGlow, { backgroundColor: authBrandGlow }]} />
+            <View style={[styles.brandMarkDot, { backgroundColor: authAccent }]} />
+            <View style={[styles.brandMark, { backgroundColor: authAccent }]} />
+          </View>
+          <Text style={[styles.brandEyebrow, { color: authMutedText }]}>платформа компании</Text>
+          <Text style={[styles.brandTitle, { color: authText }]}>Dr. Smoke</Text>
+          <Text style={[styles.brandSubtitle, { color: authMutedText }]}>
+            Авторизация
+          </Text>
+        </AnimatedEntranceView>
+        <AnimatedEntranceView delay={90}>
         <Pressable
           style={[
             styles.phoneInputWrap,
-            focusedLoginField === 'identifier' && styles.inputFocused,
+            {
+              backgroundColor: authSurfaceMuted,
+              borderColor: authBorder,
+            },
+            focusedLoginField === 'identifier' && authInputFocusedStyle,
           ]}
           onPress={() => loginPhoneInputRef.current?.focus()}>
-          <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
+          <Text style={[styles.phonePrefix, { color: authPlaceholder }]} pointerEvents="none">+7</Text>
           <TextInput
             ref={loginPhoneInputRef}
-            style={styles.phoneInputControl}
+            style={[styles.phoneInputControl, { color: authText }]}
             keyboardType="phone-pad"
             autoCapitalize="none"
             autoCorrect={false}
@@ -1477,10 +2001,15 @@ export default function AuthScreen() {
             style={[
               styles.input,
               styles.passwordInput,
-              focusedLoginField === 'password' && styles.inputFocused,
+              {
+                backgroundColor: authSurfaceMuted,
+                borderColor: authBorder,
+                color: authText,
+              },
+              focusedLoginField === 'password' && authInputFocusedStyle,
             ]}
             placeholder="Пароль"
-            placeholderTextColor="#7A7A7A"
+            placeholderTextColor={authPlaceholder}
             secureTextEntry={!isPasswordVisible}
             autoCapitalize="none"
             inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
@@ -1509,7 +2038,7 @@ export default function AuthScreen() {
           >
             <Image
               source={isPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-              style={styles.eyeImage}
+              style={[styles.eyeImage, { tintColor: authText }]}
             />
           </TouchableOpacity>
         </View>
@@ -1561,20 +2090,35 @@ export default function AuthScreen() {
         ) : null}
 
         <TouchableOpacity
-          style={[styles.button, isSubmitting && styles.buttonDisabled]}
-          onPress={submit}
+          style={[
+            styles.button,
+            {
+              backgroundColor: authButtonBackground,
+              borderColor: authButtonBorder,
+              shadowColor: authAccent,
+              shadowOpacity: authIsMaterial ? 0.16 : 0.4,
+              shadowRadius: authIsMaterial ? 12 : 8,
+              elevation: authIsMaterial ? 3 : 6,
+            },
+            isSubmitting && styles.buttonDisabled,
+          ]}
+          onPress={() => {
+            androidMediumImpact();
+            submit();
+          }}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={authOnAccent} />
           ) : (
-            <Text style={styles.buttonText}>Войти</Text>
+            <Text style={[styles.buttonText, { color: authOnAccent }]}>Войти</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.linkButton}
           onPress={() => {
+            androidLightImpact();
             setIsForgotPasswordFlow(true);
             setForgotIdentity('+7');
             updateField('identifier', '+7');
@@ -1585,12 +2129,13 @@ export default function AuthScreen() {
           }}
           disabled={isSubmitting}
         >
-          <Text style={styles.linkButtonText}>Забыли пароль?</Text>
+          <Text style={[styles.linkButtonText, { color: authAccent }]}>Забыли пароль?</Text>
         </TouchableOpacity>
+        </AnimatedEntranceView>
           </>
         )}
-      </View>
-      </View>
+      </Animated.View>
+      </Animated.View>
       </TouchableWithoutFeedback>
       {Platform.OS === 'ios' ? (
         <InputAccessoryView nativeID={authAccessoryId}>

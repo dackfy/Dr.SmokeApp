@@ -542,6 +542,15 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+
+  salaryExpandIconWrap: {
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   salaryExpandIcon: {
@@ -997,8 +1006,8 @@ export const styles = StyleSheet.create({
   button: {
     backgroundColor: isAndroid ? '#4A8BFF' : '#FF6A00',
     borderRadius: isAndroid ? 22 : 50,
-    minHeight: isAndroid ? 52 : undefined,
-    paddingVertical: isAndroid ? 13 : 12,
+    minHeight: isAndroid ? 56 : undefined,
+    paddingVertical: isAndroid ? 15 : 12,
     paddingHorizontal: isAndroid ? 18 : 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1024,8 +1033,60 @@ export const styles = StyleSheet.create({
     fontWeight: isAndroid ? '800' : '700',
   },
 
+  buttonTextSecondary: {
+    color: '#FFFFFF',
+  },
+
+  buttonTextDisabled: {
+    color: isAndroid ? '#97A6C4' : '#8A8A8A',
+  },
+
+  buttonTextDanger: {
+    color: '#FFFFFF',
+  },
+
   stack: {
-    gap: 10,
+    gap: 14,
+  },
+
+  shiftStatusActionGroup: {
+    marginTop: 14,
+  },
+
+  shiftStatusPrimaryButton: {
+    width: '100%',
+    minHeight: isAndroid ? 50 : undefined,
+    paddingVertical: isAndroid ? 12 : 12,
+    borderRadius: isAndroid ? 20 : 50,
+  },
+
+  shiftStatusSecondaryButton: {
+    width: '100%',
+    minHeight: isAndroid ? 50 : undefined,
+    paddingVertical: isAndroid ? 12 : 12,
+    borderRadius: isAndroid ? 20 : 50,
+    marginTop: 16,
+    backgroundColor: isAndroid ? '#2E2E31' : '#232323',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#45474D' : '#2D2D2D',
+  },
+
+  shiftStatusButtonText: {
+    fontSize: isAndroid ? 14 : 15,
+    lineHeight: isAndroid ? 18 : undefined,
+  },
+
+  flowPrimaryButton: {
+    marginTop: 6,
+  },
+
+  closeDecisionGroup: {
+    gap: 16,
+    marginTop: 12,
+  },
+
+  flowCancelButton: {
+    marginTop: 24,
   },
 
   input: {
@@ -1191,39 +1252,39 @@ export const styles = StyleSheet.create({
   },
 
   shiftFlashMessage: {
-    minHeight: 56,
-    borderRadius: 50,
+    minHeight: 78,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 14,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 12,
   },
 
   shiftFlashMessageSuccess: {
-    backgroundColor: '#0D5A45',
-    borderColor: '#128765',
+    backgroundColor: '#11281F',
+    borderColor: '#2F735B',
   },
 
   shiftFlashMessageError: {
-    backgroundColor: '#5A140E',
-    borderColor: '#8A241A',
+    backgroundColor: '#301512',
+    borderColor: '#8A3A2F',
   },
 
   shiftFlashMessageLeft: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 12,
   },
 
   shiftFlashIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1238,9 +1299,22 @@ export const styles = StyleSheet.create({
 
   shiftFlashIconText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+
+  shiftFlashBody: {
+    flex: 1,
+    gap: 4,
+  },
+
+  shiftFlashTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 18,
+    letterSpacing: 0.2,
   },
 
   shiftFlashMessageText: {
@@ -1248,17 +1322,18 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-    lineHeight: 19,
+    lineHeight: 20,
   },
 
   shiftFlashCloseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
 
   shiftFlashCloseText: {
