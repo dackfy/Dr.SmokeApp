@@ -46,10 +46,45 @@ function readNumber(value: unknown): number | null {
   return null
 }
 
+function readText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const normalized = value.trim()
+  return normalized ? normalized : null
+}
+
+function readBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) {
+      return false
+    }
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+      return true
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+      return false
+    }
+  }
+
+  return false
+}
+
 function normalizeStatus(data: CertificatesStatusResponse | null | undefined): CertificatesAccessStatus {
   return {
     available: Boolean(data?.available),
     shopId: readNumber(data?.shopId ?? data?.shop_id),
+    shopName: readText(data?.shopName ?? data?.shop_name),
     shiftStatus: data?.shiftStatus ?? data?.shift_status ?? null,
   }
 }
@@ -75,7 +110,7 @@ function normalizeRedeemPreview(
     certificateNumber: String(data?.certificateNumber ?? data?.certificate_number ?? ''),
     nominal: readNumber(data?.nominal),
     status: String(data?.status ?? ''),
-    canRedeem: Boolean(data?.canRedeem ?? data?.can_redeem),
+    canRedeem: readBoolean(data?.canRedeem ?? data?.can_redeem),
   }
 }
 

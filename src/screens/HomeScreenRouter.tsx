@@ -1,5 +1,6 @@
 import React from 'react'
 import type { AuthSession } from '../features/auth/types'
+import type { OpenedShift } from '../features/shift/types'
 import EmployeeHomeScreen from './EmployeeHomeScreen'
 import DirectorHomeScreen from './DirectorHomeScreen'
 import SuperHrHomeScreen from './SuperHrHomeScreen'
@@ -9,12 +10,14 @@ type HomeScreenRouterProps = React.ComponentProps<typeof EmployeeHomeScreen> & {
   session: AuthSession
   isRefreshingSession?: boolean
   onRefreshSession?: () => Promise<void>
+  onShiftStatusChange?: (openedShift: OpenedShift | null) => void
 }
 
 export default function HomeScreenRouter({
   session,
   isRefreshingSession,
   onRefreshSession,
+  onShiftStatusChange,
   ...rest
 }: HomeScreenRouterProps) {
   const role = Number(session.user.userRole ?? 3)
@@ -25,6 +28,7 @@ export default function HomeScreenRouter({
         session={session}
         isRefreshingSession={isRefreshingSession}
         onRefreshSession={onRefreshSession}
+        onShiftStatusChange={onShiftStatusChange}
         {...rest}
       />
     )

@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native'
 import {
+  type AndroidContrastMode,
   getAndroidCompanyPalette,
   getAndroidThemePalette,
   type AndroidThemePalette,
@@ -14,13 +15,13 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     content: {
       paddingHorizontal: 18,
       paddingTop: 14,
-      paddingBottom: 132,
+      paddingBottom: 184,
       gap: 20,
     },
     card: {
       backgroundColor: palette.surfaceRaised,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.outline,
       borderRadius: 32,
       paddingHorizontal: 20,
       paddingVertical: 20,
@@ -35,7 +36,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       backgroundColor: palette.primaryContainer,
       borderRadius: 30,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       paddingHorizontal: 18,
       paddingVertical: 18,
       gap: 12,
@@ -51,7 +52,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       flex: 1,
       backgroundColor: palette.surfaceRaised,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       borderRadius: 28,
       paddingHorizontal: 16,
       paddingVertical: 14,
@@ -71,7 +72,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 22,
       backgroundColor: palette.primaryContainerStrong,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: '#000000',
@@ -109,7 +110,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     balanceFlashHistory: {
       marginTop: 10,
       borderTopWidth: 1,
-      borderTopColor: palette.outlineVariant,
+      borderTopColor: palette.outline,
       paddingTop: 8,
       gap: 8,
     },
@@ -174,7 +175,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       minHeight: 196,
       borderRadius: 30,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       backgroundColor: palette.surfaceRaised,
       overflow: 'hidden',
       shadowColor: '#000000',
@@ -188,7 +189,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       paddingHorizontal: 14,
       paddingVertical: 12,
       borderBottomWidth: 1,
-      borderBottomColor: palette.outlineVariant,
+      borderBottomColor: isDark ? palette.outline : palette.outlineVariant,
     },
     scheduleCardBody: {
       paddingHorizontal: 14,
@@ -234,7 +235,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 999,
       backgroundColor: palette.primaryContainer,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       paddingHorizontal: 10,
       paddingVertical: 4,
     },
@@ -259,7 +260,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     salaryCard: {
       backgroundColor: palette.surfaceRaised,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.outline,
       borderRadius: 28,
       overflow: 'hidden',
       paddingHorizontal: 18,
@@ -313,14 +314,14 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     salaryPeriodTab: {
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
-      backgroundColor: palette.surfaceContainerHigh,
+      borderColor: palette.outline,
+      backgroundColor: palette.secondaryButton,
       paddingHorizontal: 10,
       paddingVertical: 5,
     },
     salaryPeriodTabActive: {
       backgroundColor: palette.primaryContainer,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.primaryContainerStrong,
     },
     salaryPeriodTabText: {
       fontSize: 11,
@@ -338,7 +339,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 999,
       backgroundColor: palette.primaryContainer,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.primaryContainerStrong,
       paddingHorizontal: 10,
       paddingVertical: 4,
     },
@@ -385,7 +386,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       marginTop: 2,
       paddingTop: 10,
       borderTopWidth: 1,
-      borderTopColor: palette.outlineVariant,
+      borderTopColor: palette.outline,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -408,22 +409,12 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       width: 34,
       height: 34,
       borderRadius: 17,
-      backgroundColor: palette.surfaceContainerHigh,
+      backgroundColor: palette.surfaceAccent,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.outline,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
-    },
-    salaryExpandIcon: {
-      color: palette.primaryStrong,
-      fontSize: 24,
-      fontWeight: '800',
-      lineHeight: 24,
-      transform: [{ rotate: '90deg' }],
-    },
-    salaryExpandIconOpen: {
-      transform: [{ rotate: '-90deg' }],
     },
     salaryDetailsWrap: {
       overflow: 'hidden',
@@ -436,7 +427,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       marginTop: 12,
       paddingTop: 12,
       borderTopWidth: 1,
-      borderTopColor: palette.outlineVariant,
+      borderTopColor: palette.outline,
       gap: 14,
     },
     salaryZoneList: {
@@ -478,8 +469,8 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     salaryShiftComparisonCard: {
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
-      backgroundColor: palette.surfaceElevated,
+      borderColor: palette.outline,
+      backgroundColor: palette.surface,
       paddingHorizontal: 12,
       paddingVertical: 12,
       gap: 10,
@@ -580,7 +571,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 21,
       backgroundColor: palette.primaryContainer,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -616,7 +607,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     todayShiftCard: {
       borderRadius: 28,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.outline,
       backgroundColor: palette.surfaceRaised,
       paddingHorizontal: 18,
       paddingVertical: 18,
@@ -638,7 +629,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 999,
       backgroundColor: palette.primaryContainer,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.primaryContainerStrong,
       paddingHorizontal: 10,
       paddingVertical: 4,
     },
@@ -666,7 +657,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       marginTop: 8,
       paddingTop: 10,
       borderTopWidth: 1,
-      borderTopColor: palette.outlineVariant,
+      borderTopColor: palette.outline,
       gap: 8,
     },
     todayShiftEmployeeList: {
@@ -682,9 +673,9 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     },
     todayShiftEmployeePill: {
       borderRadius: 999,
-      backgroundColor: palette.primaryContainer,
+      backgroundColor: palette.surfaceAccent,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: palette.outline,
       minHeight: 34,
       paddingHorizontal: 11,
       paddingVertical: 7,
@@ -698,7 +689,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     },
     todayShiftCallButton: {
       borderRadius: 999,
-      backgroundColor: palette.surfaceElevated,
+      backgroundColor: palette.surfaceAccent,
       borderWidth: 1,
       borderColor: palette.outline,
       minHeight: 34,
@@ -724,7 +715,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       borderRadius: 21,
       backgroundColor: palette.primaryContainer,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -770,7 +761,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     badgeOpen: {
       alignSelf: 'flex-start',
       backgroundColor: palette.primaryContainer,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       borderWidth: 1,
       borderRadius: 999,
       paddingHorizontal: 14,
@@ -806,6 +797,13 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       backgroundColor: isDark ? '#6D1C16' : '#8D2A20',
       borderColor: isDark ? '#C24A3C' : '#B63F32',
     },
+    shiftFlashMessageSuccess: {
+      backgroundColor: isDark ? '#182921' : '#DCEEE5',
+      borderColor: isDark ? '#3F7F66' : '#8CB59E',
+    },
+    shiftFlashIconCircleSuccess: {
+      backgroundColor: isDark ? '#3F7F66' : '#5E9F83',
+    },
     shiftFlashIconCircleError: {
       backgroundColor: isDark ? '#E86152' : '#D84C3E',
     },
@@ -816,17 +814,24 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       lineHeight: 20,
     },
     shiftFlashMessageText: {
-      color: '#FFFFFF',
+      color: isDark ? '#FFFFFF' : '#13231B',
       fontSize: 14,
       fontWeight: '700',
       lineHeight: 19,
     },
+    shiftFlashTitle: {
+      color: isDark ? '#FFFFFF' : '#13231B',
+      fontSize: 14,
+      fontWeight: '900',
+      lineHeight: 18,
+      letterSpacing: 0.2,
+    },
     shiftFlashCloseButton: {
-      borderColor: 'rgba(255,255,255,0.28)',
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(19,35,27,0.14)',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(19,35,27,0.05)',
     },
     shiftFlashCloseText: {
-      color: '#FFFFFF',
+      color: isDark ? '#FFFFFF' : '#13231B',
       fontSize: 16,
       fontWeight: '800',
       lineHeight: 18,
@@ -845,18 +850,21 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     buttonSecondary: {
       backgroundColor: palette.secondaryButton,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
     },
     buttonDisabled: {
       opacity: 1,
       backgroundColor: palette.surfaceMuted,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
     },
     buttonText: {
       color: palette.buttonText,
       fontSize: 15,
       fontWeight: '800',
+      lineHeight: 20,
       letterSpacing: 0.15,
+      textAlign: 'center',
+      includeFontPadding: false,
     },
     buttonTextSecondary: {
       color: palette.onSurface,
@@ -928,7 +936,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     keyboardAccessory: {
       backgroundColor: palette.surfaceRaised,
       borderTopWidth: 1,
-      borderTopColor: palette.outlineVariant,
+      borderTopColor: isDark ? palette.outline : palette.outlineVariant,
       paddingHorizontal: 12,
       paddingVertical: 8,
       alignItems: 'flex-end',
@@ -952,7 +960,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
     shopModalCard: {
       backgroundColor: palette.surfaceRaised,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       borderRadius: 30,
       overflow: 'hidden',
       maxHeight: 460,
@@ -983,7 +991,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       justifyContent: 'center',
       backgroundColor: palette.surface,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
     },
     shopOptionRowActive: {
       backgroundColor: palette.primaryContainer,
@@ -1016,7 +1024,7 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       minHeight: 60,
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: palette.outlineVariant,
+      borderColor: isDark ? palette.outline : palette.outlineVariant,
       backgroundColor: palette.surfaceRaised,
       paddingHorizontal: 16,
       flexDirection: 'row',
@@ -1048,6 +1056,27 @@ function createStyles(palette: AndroidThemePalette, isDark: boolean) {
       fontWeight: '800',
     },
   })
+}
+
+const stylesCache = new Map<string, ReturnType<typeof createStyles>>()
+
+export function getAndroidShiftStyles(
+  themeMode: 'company' | 'material',
+  isDark: boolean,
+  contrastMode: AndroidContrastMode = 'balanced',
+) {
+  const key = `${themeMode}:${isDark ? 'dark' : 'light'}:${contrastMode}`
+  const cached = stylesCache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const styles = createStyles(
+    themeMode === 'company' ? getAndroidCompanyPalette() : getAndroidThemePalette(isDark, contrastMode),
+    themeMode === 'company' ? true : isDark,
+  )
+  stylesCache.set(key, styles)
+  return styles
 }
 
 export const lightStyles = createStyles(getAndroidThemePalette(false), false)

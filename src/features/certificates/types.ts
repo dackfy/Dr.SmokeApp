@@ -1,6 +1,7 @@
 export type CertificatesAccessStatus = {
   available: boolean
   shopId: number | null
+  shopName: string | null
   shiftStatus: string | null
 }
 
@@ -37,6 +38,8 @@ export type CertificatesStatusResponse = {
   available?: boolean
   shop_id?: number | null
   shopId?: number | null
+  shop_name?: string | null
+  shopName?: string | null
   shift_status?: string | null
   shiftStatus?: string | null
 }

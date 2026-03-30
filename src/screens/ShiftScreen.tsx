@@ -13,6 +13,7 @@ import {
   PermissionsAndroid,
   Pressable,
   Platform,
+  processColor,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -20,18 +21,27 @@ import {
   TextInput,
   TouchableOpacity,
   useColorScheme,
-  Vibration,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { launchCamera } from 'react-native-image-picker'
+import Svg, { Path } from 'react-native-svg'
+import AnimatedEntranceView from '../components/AnimatedEntranceView'
+import ElasticScrollView from '../components/ElasticScrollView'
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
 import type { AuthSession } from '../features/auth/types'
 import { useShiftFlow } from '../features/shift/useShiftFlow'
 import { styles as baseStyles } from './ShiftScreen.styles'
 import {
-  companyStyles as androidCompanyStyles,
-  darkStyles as androidDarkStyles,
-  lightStyles as androidLightStyles,
+  getAndroidShiftStyles,
 } from './ShiftScreen.styles.android'
 import LiquidTabBar from '../components/LiquidTabBar'
 import type { TabKey } from '../components/LiquidTabBar'
@@ -39,15 +49,27 @@ import { buildApiUrl } from '../config/api'
 import { useAndroidThemeMode } from '../theme/androidAppTheme'
 import {
   getAndroidCompanyPalette,
+  getAndroidStatusBarColor,
   getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
 import { checkEmployeeAccess } from '../features/auth/authApi'
+import type { OpenedShift } from '../features/shift/types'
+import {
+  androidHeavyImpact,
+  androidLightImpact,
+  androidMediumImpact,
+  androidReleaseTick,
+  androidSoftTick,
+  androidRustleHaptic,
+  androidSuccessHaptic,
+} from '../utils/androidHaptics'
 
 type ShiftScreenProps = {
   session: AuthSession
   onLogout: () => void
   onRefreshSession?: () => Promise<void>
+  isRefreshingSession?: boolean
   onBack?: () => void
   onGoHome?: () => void
   onGoMail?: () => void
@@ -56,6 +78,7 @@ type ShiftScreenProps = {
   activeTab?: TabKey
   showHeaderActions?: boolean
   showTabBar?: boolean
+  onShiftStatusChange?: (openedShift: OpenedShift | null) => void
 }
 
 type DcHistoryItem = {
@@ -157,7 +180,13 @@ const rubleIcon = require('../assets/icons/ruble.png')
 
 function pulseHaptic() {
   if (Platform.OS === 'android') {
-    Vibration.vibrate(8)
+    androidLightImpact()
+  }
+}
+
+function softPulseHaptic() {
+  if (Platform.OS === 'android') {
+    androidRustleHaptic()
   }
 }
 
@@ -588,6 +617,7 @@ export default function ShiftScreen({
   activeTab = 'home',
   showHeaderActions = true,
   showTabBar = true,
+  onShiftStatusChange,
 }: ShiftScreenProps) {
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
@@ -595,11 +625,13 @@ export default function ShiftScreen({
     Platform.OS === 'android'
       ? androidTheme.mode === 'company'
         ? getAndroidCompanyPalette()
-        : getAndroidThemePalette(colorScheme === 'dark')
+        : getAndroidThemePalette(colorScheme === 'dark', androidTheme.contrastMode)
       : null
   const androidStatusBarColor =
     Platform.OS === 'android' && androidPalette
-      ? String(androidPalette.background)
+      ? androidTheme.mode === 'company'
+        ? '#000000'
+        : getAndroidStatusBarColor(colorScheme === 'dark')
       : undefined
   const androidStatusBarStyle =
     Platform.OS === 'android' && androidStatusBarColor
@@ -612,13 +644,13 @@ export default function ShiftScreen({
 
     return {
       ...baseStyles,
-      ...(androidTheme.mode === 'company'
-        ? androidCompanyStyles
-        : colorScheme === 'dark'
-          ? androidDarkStyles
-          : androidLightStyles),
+      ...getAndroidShiftStyles(
+        androidTheme.mode,
+        colorScheme === 'dark',
+        androidTheme.contrastMode,
+      ),
     }
-  }, [androidTheme.mode, colorScheme])
+  }, [androidTheme.contrastMode, androidTheme.mode, colorScheme])
   const inputPlaceholderColor =
     Platform.OS === 'android'
       ? androidTheme.mode === 'company'
@@ -629,8 +661,43 @@ export default function ShiftScreen({
       : '#7A7A7A'
   const inputAccentColor =
     Platform.OS === 'android' && androidPalette
-      ? String(androidPalette.primaryStrong)
+      ? androidPalette.primaryStrong
       : '#FF6A00'
+  const salaryChevronColor =
+    Platform.OS === 'android'
+      ? androidTheme.mode === 'company'
+        ? '#FFB36B'
+        : colorScheme === 'dark'
+          ? '#E6EEF9'
+          : '#315F55'
+      : '#FFB36B'
+  const refreshAccent =
+    Platform.OS === 'android'
+      ? androidTheme.mode === 'company'
+        ? '#FF6A00'
+        : colorScheme === 'dark'
+          ? '#B7F4E5'
+          : '#315F55'
+      : '#FFFFFF'
+  const refreshSurface =
+    Platform.OS === 'android'
+      ? androidTheme.mode === 'company'
+        ? '#171717'
+        : colorScheme === 'dark'
+          ? '#171C2B'
+          : '#F3F7FB'
+      : '#111111'
+  const refreshAccentColorValue: any =
+    Platform.OS === 'android'
+      ? androidTheme.mode === 'company'
+        ? '#FF6A00'
+        : processColor(androidPalette?.primaryStrong ?? androidPalette?.primary ?? '#315F55') ??
+          refreshAccent
+      : '#FFFFFF'
+  const refreshSurfaceColorValue: any =
+    Platform.OS === 'android'
+      ? processColor(androidPalette?.surfaceRaised ?? refreshSurface) ?? refreshSurface
+      : '#111111'
 
   const [isShopDropdownOpen, setIsShopDropdownOpen] = React.useState(false)
   const [isShopDropdownMounted, setIsShopDropdownMounted] = React.useState(false)
@@ -649,12 +716,11 @@ export default function ShiftScreen({
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [isDcHistoryExpanded, setIsDcHistoryExpanded] = React.useState(false)
   const [isSalaryExpanded, setIsSalaryExpanded] = React.useState(false)
-  const [isSalaryClosing, setIsSalaryClosing] = React.useState(false)
   const scrollViewRef = React.useRef<ScrollView | null>(null)
   const scrollOffsetYRef = React.useRef(0)
   const salarySectionYRef = React.useRef(0)
   const dcHistoryAnim = React.useRef(new Animated.Value(0)).current
-  const salaryAnim = React.useRef(new Animated.Value(0)).current
+  const salaryProgress = useSharedValue(0)
   const salaryContentOpacity = React.useRef(new Animated.Value(1)).current
   const salaryCacheRef = React.useRef<Partial<Record<SalaryPeriodKey, SalarySummaryResponse | null>>>({})
   const shiftErrorOpacity = React.useRef(new Animated.Value(0)).current
@@ -912,13 +978,13 @@ export default function ShiftScreen({
   }, [loadSalaryPeriods, selectedSalaryPeriod])
 
   const onRefresh = React.useCallback(async () => {
+    softPulseHaptic()
     setIsRefreshing(true)
     try {
       await checkEmployeeAccess(session.user.id)
       setSelectedSalaryPeriod('current')
       setIsSalaryExpanded(false)
-      setIsSalaryClosing(false)
-      salaryAnim.setValue(0)
+      salaryProgress.value = 0
       await Promise.all([
         onRefreshSession?.(),
         actions.refresh({ silent: true }),
@@ -937,7 +1003,7 @@ export default function ShiftScreen({
     } finally {
       setIsRefreshing(false)
     }
-  }, [actions, loadDcData, loadScheduleData, loadTodayOpenShiftsData, loadSalaryPeriods, onLogout, onRefreshSession, salaryAnim, session.user.id])
+  }, [actions, loadDcData, loadScheduleData, loadTodayOpenShiftsData, loadSalaryPeriods, onLogout, onRefreshSession, salaryProgress, session.user.id])
 
   const salarySummary = salarySummaries[selectedSalaryPeriod] ?? null
 
@@ -961,12 +1027,31 @@ export default function ShiftScreen({
     toSafeNumber(salarySummary?.bonuses) > 0 ||
     toSafeNumber(salarySummary?.penalties) > 0 ||
     toSafeNumber(salarySummary?.preview_salary ?? salarySummary?.final_salary) > 0
-  const isSalaryCardActive = (isSalaryExpanded || isSalaryClosing) && hasSalaryAccruals
-  const salaryZoneBreakdowns = [
-    { key: 'green', label: 'Зеленая зона', value: salarySummary?.zones?.green?.final_salary ?? 0 },
-    { key: 'blue', label: 'Синяя зона', value: salarySummary?.zones?.blue?.final_salary ?? 0 },
-    { key: 'red', label: 'Красная зона', value: salarySummary?.zones?.red?.final_salary ?? 0 },
-  ]
+  const isSalaryCardExpanded = isSalaryExpanded
+  const isSalaryCardActive = isSalaryCardExpanded && hasSalaryAccruals
+  const salaryLayoutTransition = React.useMemo(
+    () =>
+      LinearTransition.duration(360).easing(
+        ReanimatedEasing.bezier(0.2, 0.84, 0.22, 1),
+      ),
+    [],
+  )
+  const salaryDetailsEntering = React.useMemo(
+    () => FadeInDown.duration(220).easing(ReanimatedEasing.out(ReanimatedEasing.cubic)),
+    [],
+  )
+  const salaryDetailsExiting = React.useMemo(
+    () => FadeOutUp.duration(180).easing(ReanimatedEasing.out(ReanimatedEasing.cubic)),
+    [],
+  )
+  const salaryZoneBreakdowns = React.useMemo(
+    () => [
+      { key: 'green', label: 'Зеленая зона', value: salarySummary?.zones?.green?.final_salary ?? 0 },
+      { key: 'blue', label: 'Синяя зона', value: salarySummary?.zones?.blue?.final_salary ?? 0 },
+      { key: 'red', label: 'Красная зона', value: salarySummary?.zones?.red?.final_salary ?? 0 },
+    ],
+    [salarySummary],
+  )
   const salaryShiftComparisons = React.useMemo(
     () => buildSalaryShiftComparisons(salarySummary),
     [salarySummary],
@@ -984,6 +1069,7 @@ export default function ShiftScreen({
   }, [dcHistoryAnim, isDcHistoryExpanded])
 
   const toggleDcHistory = React.useCallback(() => {
+    softPulseHaptic()
     const nextExpanded = !isDcHistoryExpanded
     setIsDcHistoryExpanded(nextExpanded)
     Animated.timing(dcHistoryAnim, {
@@ -1015,56 +1101,43 @@ export default function ShiftScreen({
     }),
     [dcHistoryAnim],
   )
-  const salaryAnimatedStyle = React.useMemo(
-    () => ({
-      maxHeight: salaryAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 2400],
-      }),
-      opacity: salaryAnim.interpolate({
-        inputRange: [0, 0.25, 1],
-        outputRange: [0, 0.45, 1],
-      }),
-      transform: [
-        {
-          translateY: salaryAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-4, 0],
-          }),
-        },
-      ],
-    }),
-    [salaryAnim],
-  )
+  const salaryExpandIconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${180 * salaryProgress.value}deg` },
+      { scale: 1 + 0.02 * salaryProgress.value },
+    ],
+    opacity: 0.9 + 0.1 * salaryProgress.value,
+  }))
+  const salarySummaryAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -2 * salaryProgress.value }],
+    opacity: 1 - 0.02 * salaryProgress.value,
+  }))
   const toggleSalary = React.useCallback(() => {
+    if (!hasSalaryAccruals) return
+
     if (isSalaryExpanded) {
+      androidReleaseTick()
       const targetY = Math.max(0, salarySectionYRef.current - 16)
-      setIsSalaryClosing(true)
-      Animated.timing(salaryAnim, {
-        toValue: 0,
-        duration: 220,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: false,
-      }).start(() => {
-        setIsSalaryExpanded(false)
-        setIsSalaryClosing(false)
-        if (scrollOffsetYRef.current > targetY + 24) {
-          requestAnimationFrame(() => {
-            scrollViewRef.current?.scrollTo({ y: targetY, animated: true })
-          })
-        }
+      setIsSalaryExpanded(false)
+      salaryProgress.value = withTiming(0, {
+        duration: 320,
+        easing: ReanimatedEasing.bezier(0.32, 0.08, 0.24, 1),
       })
+      if (scrollOffsetYRef.current > targetY + 24) {
+        requestAnimationFrame(() => {
+          scrollViewRef.current?.scrollTo({ y: targetY, animated: true })
+        })
+      }
       return
     }
 
+    androidSoftTick()
     setIsSalaryExpanded(true)
-    Animated.timing(salaryAnim, {
-      toValue: 1,
-      duration: 320,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start()
-  }, [isSalaryExpanded, salaryAnim])
+    salaryProgress.value = withTiming(1, {
+      duration: 420,
+      easing: ReanimatedEasing.bezier(0.2, 0.84, 0.22, 1),
+    })
+  }, [hasSalaryAccruals, isSalaryExpanded, salaryProgress])
   const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase()
   const shiftShopDisplay = status.openedShift?.shopName
   const shiftOpenedAtDisplay = status.openedShift
@@ -1165,6 +1238,103 @@ export default function ShiftScreen({
     }
   }, [activeTab, collapseDcHistory])
 
+  React.useEffect(() => {
+    onShiftStatusChange?.(status.openedShift ?? null)
+  }, [onShiftStatusChange, status.openedShift])
+
+  React.useEffect(() => {
+    if (!hasSalaryAccruals) {
+      setIsSalaryExpanded(false)
+      salaryProgress.value = 0
+    }
+  }, [hasSalaryAccruals, salaryProgress])
+
+  React.useEffect(() => {
+    setIsSalaryExpanded(false)
+    salaryProgress.value = 0
+  }, [salaryProgress, selectedSalaryPeriod])
+
+  const renderSalaryDetailsContent = React.useCallback(() => (
+    <View style={styles.salaryDetails}>
+      <View style={styles.salaryZoneList}>
+        {salaryZoneBreakdowns.map(zone => (
+          <View key={zone.key} style={styles.salaryZoneRow}>
+            <Text style={styles.salaryZoneRowLabel}>{zone.label}</Text>
+            <Text style={styles.salaryZoneRowValue}>{formatCurrency(zone.value)}</Text>
+          </View>
+        ))}
+      </View>
+
+      {salaryShiftComparisons.length > 0 ? (
+        <View style={styles.salaryDetailsSection}>
+          <Text style={styles.salaryDetailsTitle}>Смены и сравнение по зонам</Text>
+          {salaryShiftComparisons.map(shift => (
+            <View key={shift.id} style={styles.salaryShiftComparisonCard}>
+              <Text style={styles.salaryShiftSummaryLine}>
+                {shift.date ? formatScheduleDate(shift.date) : 'Дата не указана'}{' '}
+                {shift.shop_name || 'Магазин'}
+              </Text>
+              <Text style={styles.salaryShiftSummaryCaption}>
+                Зарплата за эту смену по каждой зоне
+              </Text>
+
+              <View style={styles.salaryShiftComparisonList}>
+                <View style={styles.salaryShiftComparisonRow}>
+                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelGreen]}>
+                    Зеленая
+                  </Text>
+                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.green)}</Text>
+                </View>
+                <View style={styles.salaryShiftComparisonRow}>
+                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelBlue]}>
+                    Синяя
+                  </Text>
+                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.blue)}</Text>
+                </View>
+                <View style={styles.salaryShiftComparisonRow}>
+                  <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelRed]}>
+                    Красная
+                  </Text>
+                  <Text style={styles.salaryShiftValue}>{formatCurrency(shift.red)}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {Array.isArray(salarySummary?.fines_and_bonuses) && salarySummary.fines_and_bonuses.length > 0 ? (
+        <View style={styles.salaryDetailsSection}>
+          {salarySummary.fines_and_bonuses.map((item, index) => {
+            const amount = toSafeNumber(item.amount)
+            const isBonus = amount > 0
+            const itemDateLabel = item.date ? formatScheduleDate(item.date) : 'Дата не указана'
+            const itemReason = normalizeDatesInText(String(item.comment || '').trim()) || 'Причина не указана'
+            return (
+              <View key={`${item.name || 'salary-item'}:${item.date || index}:${index}`} style={styles.salaryShiftRow}>
+                <View style={styles.salaryFineTextBlock}>
+                  <Text style={styles.salaryFineTitle}>
+                    {itemDateLabel} {isBonus ? 'Премия' : 'Депремирование'}
+                  </Text>
+                  <Text style={styles.salaryFineReason}>
+                    За что: {itemReason}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.salaryShiftValue,
+                    isBonus ? styles.salaryShiftValueBonus : styles.salaryShiftValuePenalty,
+                  ]}>
+                  {isBonus ? '+' : '-'}{formatCurrency(Math.abs(amount))}
+                </Text>
+              </View>
+            )
+          })}
+        </View>
+      ) : null}
+    </View>
+  ), [salaryShiftComparisons, salarySummary, salaryZoneBreakdowns, styles])
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar
@@ -1177,16 +1347,18 @@ export default function ShiftScreen({
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}>
-        <ScrollView
+        <ElasticScrollView
           ref={scrollViewRef}
+          enableTopElastic={false}
+          enableBottomElastic
           contentContainerStyle={styles.content}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={onRefresh}
-              tintColor="#FFFFFF"
-              colors={['#FF6A00']}
-              progressBackgroundColor="#111111"
+              tintColor={refreshAccentColorValue}
+              colors={[refreshAccentColorValue]}
+              progressBackgroundColor={refreshSurfaceColorValue}
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -1247,6 +1419,7 @@ export default function ShiftScreen({
           <TouchableOpacity
             style={styles.headerAvatarButton}
             onPress={() => {
+              softPulseHaptic()
               collapseDcHistory()
               ;(onGoProfile ?? onBack)?.()
             }}
@@ -1257,7 +1430,7 @@ export default function ShiftScreen({
         </View>
 
         {showHeaderActions ? (
-          <View style={styles.greetingBlock}>
+          <AnimatedEntranceView delay={0} distance={10} style={styles.greetingBlock}>
             <Text style={styles.subtitle}>Сотрудник: {displayName}</Text>
             {onBack ? (
               <TouchableOpacity
@@ -1274,11 +1447,11 @@ export default function ShiftScreen({
               disabled={isSubmitting || isLoading}>
               <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Выйти</Text>
             </TouchableOpacity>
-          </View>
+          </AnimatedEntranceView>
         ) : null}
 
         {!isScheduleLoading && scheduleItems.length > 0 ? (
-          <View style={styles.scheduleSection}>
+          <AnimatedEntranceView delay={36} distance={10} style={styles.scheduleSection}>
             <View style={styles.scheduleSectionHeader}>
               <Text style={styles.sectionTitle}>Ближайшие смены</Text>
             </View>
@@ -1337,10 +1510,10 @@ export default function ShiftScreen({
               })
               }
             </ScrollView>
-          </View>
+          </AnimatedEntranceView>
         ) : null}
 
-        <View style={styles.card}>
+        <AnimatedEntranceView delay={72} distance={10} style={styles.card}>
           {mode === 'idle' ? (
             <>
               <Text style={styles.sectionTitle}>Информация о смене</Text>
@@ -1373,19 +1546,23 @@ export default function ShiftScreen({
                 </>
               )}
 
-              <View style={styles.row}>
+              <View style={styles.shiftStatusActionGroup}>
                 <TouchableOpacity
                   style={[
                     styles.button,
-                    styles.rowButton,
-                    !canStartOpening && styles.buttonSecondary,
+                    styles.shiftStatusPrimaryButton,
+                    !canStartOpening && styles.shiftStatusSecondaryButton,
                     !canStartOpening && styles.buttonDisabled,
                   ]}
-                  onPress={actions.startOpening}
+                  onPress={() => {
+                    androidMediumImpact()
+                    actions.startOpening()
+                  }}
                   disabled={!canStartOpening || isSubmitting || isLoading}>
                   <Text
                     style={[
                       styles.buttonText,
+                      styles.shiftStatusButtonText,
                       !canStartOpening ? styles.buttonTextDisabled : null,
                     ]}>
                     Открыть смену
@@ -1395,15 +1572,18 @@ export default function ShiftScreen({
                 <TouchableOpacity
                   style={[
                     styles.button,
-                    styles.rowButton,
-                    !canStartClosing && styles.buttonSecondary,
+                    styles.shiftStatusSecondaryButton,
                     !canStartClosing && styles.buttonDisabled,
                   ]}
-                  onPress={actions.startClosing}
+                  onPress={() => {
+                    androidMediumImpact()
+                    actions.startClosing()
+                  }}
                   disabled={!canStartClosing || isSubmitting || isLoading}>
                   <Text
                     style={[
                       styles.buttonText,
+                      styles.shiftStatusButtonText,
                       !canStartClosing ? styles.buttonTextDisabled : null,
                     ]}>
                     Закрыть смену
@@ -1445,9 +1625,10 @@ export default function ShiftScreen({
                 <View style={styles.stack}>
                   <Text style={styles.subtitle}>Сфотографируйте чек открытия.</Text>
                   <TouchableOpacity
-                    style={styles.button}
+                    style={[styles.button, styles.flowPrimaryButton]}
                     onPress={() =>
                       takePhoto(uri => {
+                        androidMediumImpact()
                         actions.setOpeningReceiptAndGoToUniform(uri)
                       })
                     }
@@ -1461,9 +1642,10 @@ export default function ShiftScreen({
                 <View style={styles.stack}>
                   <Text style={styles.subtitle}>Сфотографируйте форму.</Text>
                   <TouchableOpacity
-                    style={styles.button}
+                    style={[styles.button, styles.flowPrimaryButton]}
                     onPress={() =>
                       takePhoto(uri => {
+                        androidMediumImpact()
                         actions.setUniformPhotoAndGoToCash(uri)
                       }, 'front')
                     }
@@ -1497,8 +1679,11 @@ export default function ShiftScreen({
                     editable={!isSubmitting}
                   />
                   <TouchableOpacity
-                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                    onPress={actions.submitOpenShift}
+                    style={[styles.button, styles.flowPrimaryButton, isSubmitting && styles.buttonDisabled]}
+                    onPress={() => {
+                      androidHeavyImpact()
+                      actions.submitOpenShift()
+                    }}
                     disabled={isSubmitting}>
                     <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
                       {isSubmitting ? 'Отправка...' : 'Отправить отчёт'}
@@ -1529,8 +1714,11 @@ export default function ShiftScreen({
                   )}
 
                   <TouchableOpacity
-                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                    onPress={actions.submitOpenShift}
+                    style={[styles.button, styles.flowPrimaryButton, isSubmitting && styles.buttonDisabled]}
+                    onPress={() => {
+                      androidHeavyImpact()
+                      actions.submitOpenShift()
+                    }}
                     disabled={isSubmitting}>
                     <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
                       {isSubmitting ? 'Отправка...' : 'Открыть смену'}
@@ -1540,8 +1728,11 @@ export default function ShiftScreen({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={actions.cancelFlow}
+                style={[styles.button, styles.buttonSecondary, styles.flowCancelButton]}
+                onPress={() => {
+                  androidReleaseTick()
+                  actions.cancelFlow()
+                }}
                 disabled={isSubmitting}>
                 <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Отменить</Text>
               </TouchableOpacity>
@@ -1558,18 +1749,26 @@ export default function ShiftScreen({
                     Вы открывали магазин: {status.openedShift?.shopName ?? '-'}. Подтверждаете?
                   </Text>
 
-                  <TouchableOpacity style={styles.button} onPress={() => actions.confirmCloseShop(true)}>
-                    <Text style={styles.buttonText}>Подтверждаю</Text>
-                  </TouchableOpacity>
+                  <View style={styles.closeDecisionGroup}>
+                    <TouchableOpacity style={styles.button} onPress={() => {
+                      androidHeavyImpact()
+                      actions.confirmCloseShop(true)
+                    }}>
+                      <Text style={styles.buttonText}>Подтверждаю</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.button, styles.buttonDanger]}
-                    onPress={actions.resetWrongOpenedShop}
-                    disabled={isSubmitting}>
-                    <Text style={[styles.buttonText, styles.buttonTextDanger]}>
-                      Неправильно открыл смену
-                    </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.button, styles.buttonDanger]}
+                      onPress={() => {
+                        androidMediumImpact()
+                        actions.resetWrongOpenedShop()
+                      }}
+                      disabled={isSubmitting}>
+                      <Text style={[styles.buttonText, styles.buttonTextDanger]}>
+                        Неправильно открыл смену
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : null}
 
@@ -1594,7 +1793,10 @@ export default function ShiftScreen({
                     onChangeText={actions.setRevenueTotal}
                     editable={!isSubmitting}
                   />
-                  <TouchableOpacity style={styles.button} onPress={actions.toChecksCountStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toChecksCountStep()
+                  }}>
                     <Text style={styles.buttonText}>
                       {closeEditTarget === 'revenue' ? 'Изменить' : 'Дальше'}
                     </Text>
@@ -1621,7 +1823,10 @@ export default function ShiftScreen({
                     onChangeText={actions.setChecksCount}
                     editable={!isSubmitting}
                   />
-                  <TouchableOpacity style={styles.button} onPress={actions.toCashlessPaymentStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toCashlessPaymentStep()
+                  }}>
                     <Text style={styles.buttonText}>
                       {closeEditTarget === 'checksCount' ? 'Изменить' : 'Дальше'}
                     </Text>
@@ -1648,7 +1853,10 @@ export default function ShiftScreen({
                     onChangeText={actions.setCashlessPayment}
                     editable={!isSubmitting}
                   />
-                  <TouchableOpacity style={styles.button} onPress={actions.toSealNumberStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toSealNumberStep()
+                  }}>
                     <Text style={styles.buttonText}>
                       {closeEditTarget === 'cashlessPayment' ? 'Изменить' : 'Дальше'}
                     </Text>
@@ -1665,7 +1873,10 @@ export default function ShiftScreen({
                   <View style={styles.sealNumberBox}>
                     <Text style={styles.sealNumberValue}>{closeDraft.sealNumber}</Text>
                   </View>
-                  <TouchableOpacity style={styles.button} onPress={actions.toCashDenominationStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toCashDenominationStep()
+                  }}>
                     <Text style={styles.buttonText}>Дальше</Text>
                   </TouchableOpacity>
                 </View>
@@ -1690,7 +1901,10 @@ export default function ShiftScreen({
                     onChangeText={actions.setCashDenomination}
                     editable={!isSubmitting}
                   />
-                  <TouchableOpacity style={styles.button} onPress={actions.toCommentStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toCommentStep()
+                  }}>
                     <Text style={styles.buttonText}>
                       {closeEditTarget === 'cashDenomination' ? 'Изменить' : 'Дальше'}
                     </Text>
@@ -1716,7 +1930,10 @@ export default function ShiftScreen({
                     onChangeText={actions.setComment}
                     editable={!isSubmitting}
                   />
-                  <TouchableOpacity style={styles.button} onPress={actions.toClosingReceiptStep}>
+                  <TouchableOpacity style={[styles.button, styles.flowPrimaryButton]} onPress={() => {
+                    androidLightImpact()
+                    actions.toClosingReceiptStep()
+                  }}>
                     <Text style={styles.buttonText}>Дальше</Text>
                   </TouchableOpacity>
                 </View>
@@ -1726,9 +1943,10 @@ export default function ShiftScreen({
                 <View style={styles.stack}>
                   <Text style={styles.subtitle}>Сфотографируйте чек закрытия смены.</Text>
                   <TouchableOpacity
-                    style={styles.button}
+                    style={[styles.button, styles.flowPrimaryButton]}
                     onPress={() =>
                       takePhoto(uri => {
+                        androidMediumImpact()
                         actions.setClosingReceiptAndGoToReview(uri)
                       })
                     }
@@ -1794,8 +2012,11 @@ export default function ShiftScreen({
                   )}
 
                   <TouchableOpacity
-                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                    onPress={actions.submitCloseShift}
+                    style={[styles.button, styles.flowPrimaryButton, isSubmitting && styles.buttonDisabled]}
+                    onPress={() => {
+                      androidSuccessHaptic()
+                      actions.submitCloseShift()
+                    }}
                     disabled={isSubmitting}>
                     <Text style={[styles.buttonText, isSubmitting ? styles.buttonTextDisabled : null]}>
                       {isSubmitting ? 'Отправка...' : 'Закрыть смену'}
@@ -1805,14 +2026,17 @@ export default function ShiftScreen({
               ) : null}
 
               <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={actions.cancelFlow}
+                style={[styles.button, styles.buttonSecondary, styles.flowCancelButton]}
+                onPress={() => {
+                  androidReleaseTick()
+                  actions.cancelFlow()
+                }}
                 disabled={isSubmitting}>
                 <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Отменить</Text>
               </TouchableOpacity>
             </>
           ) : null}
-        </View>
+        </AnimatedEntranceView>
 
         {error ? (
           <Animated.View
@@ -1825,7 +2049,10 @@ export default function ShiftScreen({
               <View style={[styles.shiftFlashIconCircle, styles.shiftFlashIconCircleError]}>
                 <Text style={styles.shiftFlashIconText}>!</Text>
               </View>
-              <Text style={styles.shiftFlashMessageText}>{error}</Text>
+              <View style={styles.shiftFlashBody}>
+                <Text style={styles.shiftFlashTitle}>Ошибка</Text>
+                <Text style={styles.shiftFlashMessageText}>{error}</Text>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.shiftFlashCloseButton}
@@ -1848,7 +2075,10 @@ export default function ShiftScreen({
               <View style={[styles.shiftFlashIconCircle, styles.shiftFlashIconCircleSuccess]}>
                 <Text style={styles.shiftFlashIconText}>✓</Text>
               </View>
-              <Text style={styles.shiftFlashMessageText}>{notice}</Text>
+              <View style={styles.shiftFlashBody}>
+                <Text style={styles.shiftFlashTitle}>Подсказка</Text>
+                <Text style={styles.shiftFlashMessageText}>{notice}</Text>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.shiftFlashCloseButton}
@@ -1860,7 +2090,9 @@ export default function ShiftScreen({
           </Animated.View>
         ) : null}
 
-        <View
+        <AnimatedEntranceView
+          delay={108}
+          distance={10}
           style={styles.salarySection}
           onLayout={event => {
             salarySectionYRef.current = event.nativeEvent.layout.y
@@ -1887,7 +2119,9 @@ export default function ShiftScreen({
             ) : null}
 
             {hasLoadedSalarySummary ? (
-              <View style={showSalaryRefreshOverlay ? styles.salaryCardContentLoading : undefined}>
+              <Reanimated.View
+                layout={salaryLayoutTransition}
+                style={showSalaryRefreshOverlay ? styles.salaryCardContentLoading : undefined}>
                 <View style={styles.salaryCardHeader}>
                   <View style={styles.salaryPeriodSwitch}>
                     <TouchableOpacity
@@ -1895,7 +2129,10 @@ export default function ShiftScreen({
                         styles.salaryPeriodTab,
                         selectedSalaryPeriod === 'current' && styles.salaryPeriodTabActive,
                       ]}
-                      onPress={() => handleSalaryPeriodChange('current')}
+                      onPress={() => {
+                        softPulseHaptic()
+                        handleSalaryPeriodChange('current')
+                      }}
                       disabled={selectedSalaryPeriod === 'current'}
                       accessibilityRole="button"
                       accessibilityLabel="Показать зарплату за текущий период">
@@ -1915,7 +2152,10 @@ export default function ShiftScreen({
                         styles.salaryPeriodTab,
                         selectedSalaryPeriod === 'previous' && styles.salaryPeriodTabActive,
                       ]}
-                      onPress={() => handleSalaryPeriodChange('previous')}
+                      onPress={() => {
+                        softPulseHaptic()
+                        handleSalaryPeriodChange('previous')
+                      }}
                       disabled={selectedSalaryPeriod === 'previous'}
                       accessibilityRole="button"
                       accessibilityLabel="Показать зарплату за прошлый период">
@@ -1946,12 +2186,11 @@ export default function ShiftScreen({
 
                 {hasSalaryAccruals ? (
                   <>
-                    <View
+                    <Reanimated.View
                       style={[
                         styles.salarySummaryContent,
-                        !isSalaryExpanded && !isSalaryClosing
-                          ? styles.salarySummaryContentCollapsed
-                          : null,
+                        !isSalaryCardExpanded ? styles.salarySummaryContentCollapsed : null,
+                        salarySummaryAnimatedStyle,
                       ]}>
                       <Text style={styles.salaryValue}>{salaryPreviewValue}</Text>
                       <Text style={styles.salaryCaption}>
@@ -1967,110 +2206,48 @@ export default function ShiftScreen({
                             Депремирование: {formatCurrency(salarySummary?.penalties ?? 0)}
                           </Text>
                         </View>
-                        {!isSalaryExpanded && !isSalaryClosing ? (
-                          <TouchableOpacity
-                            style={styles.salaryExpandButton}
-                            onPress={toggleSalary}
-                            accessibilityRole="button"
-                            accessibilityLabel="Показать детали зарплаты">
-                            <Text style={styles.salaryExpandIcon}>›</Text>
-                          </TouchableOpacity>
-                        ) : null}
+                        <TouchableOpacity
+                          style={styles.salaryExpandButton}
+                          onPress={toggleSalary}
+                          accessibilityRole="button"
+                          accessibilityLabel={isSalaryExpanded ? 'Скрыть детали зарплаты' : 'Показать детали зарплаты'}>
+                          <Reanimated.View
+                            style={[
+                              styles.salaryExpandIconWrap,
+                              salaryExpandIconAnimatedStyle,
+                            ]}>
+                            {Platform.OS === 'ios' ? (
+                              <Text
+                                style={[
+                                  styles.salaryExpandIcon,
+                                  isSalaryExpanded ? styles.salaryExpandIconOpen : null,
+                                ]}>
+                                ›
+                              </Text>
+                            ) : (
+                              <Svg width={14} height={14} viewBox="0 0 14 14">
+                                <Path
+                                  d="M3 5.25L7 9.25L11 5.25"
+                                  stroke={salaryChevronColor}
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </Svg>
+                            )}
+                          </Reanimated.View>
+                        </TouchableOpacity>
                       </View>
-                    </View>
+                    </Reanimated.View>
 
-                    {isSalaryExpanded || isSalaryClosing ? (
-                      <Animated.View style={[styles.salaryDetailsWrap, salaryAnimatedStyle]}>
-                        <View style={styles.salaryDetails}>
-                        <View style={styles.salaryZoneList}>
-                          {salaryZoneBreakdowns.map(zone => (
-                            <View key={zone.key} style={styles.salaryZoneRow}>
-                              <Text style={styles.salaryZoneRowLabel}>{zone.label}</Text>
-                              <Text style={styles.salaryZoneRowValue}>{formatCurrency(zone.value)}</Text>
-                            </View>
-                          ))}
-                        </View>
-
-                        {salaryShiftComparisons.length > 0 ? (
-                          <View style={styles.salaryDetailsSection}>
-                            <Text style={styles.salaryDetailsTitle}>Смены и сравнение по зонам</Text>
-                            {salaryShiftComparisons.map(shift => (
-                              <View key={shift.id} style={styles.salaryShiftComparisonCard}>
-                                <Text style={styles.salaryShiftSummaryLine}>
-                                  {shift.date ? formatScheduleDate(shift.date) : 'Дата не указана'}{' '}
-                                  {shift.shop_name || 'Магазин'}
-                                </Text>
-                                <Text style={styles.salaryShiftSummaryCaption}>
-                                  Зарплата за эту смену по каждой зоне
-                                </Text>
-
-                                <View style={styles.salaryShiftComparisonList}>
-                                  <View style={styles.salaryShiftComparisonRow}>
-                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelGreen]}>
-                                      Зеленая
-                                    </Text>
-                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.green)}</Text>
-                                  </View>
-                                  <View style={styles.salaryShiftComparisonRow}>
-                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelBlue]}>
-                                      Синяя
-                                    </Text>
-                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.blue)}</Text>
-                                  </View>
-                                  <View style={styles.salaryShiftComparisonRow}>
-                                    <Text style={[styles.salaryShiftComparisonLabel, styles.salaryShiftComparisonLabelRed]}>
-                                      Красная
-                                    </Text>
-                                    <Text style={styles.salaryShiftValue}>{formatCurrency(shift.red)}</Text>
-                                  </View>
-                                </View>
-                              </View>
-                            ))}
-                          </View>
-                        ) : null}
-
-                        {Array.isArray(salarySummary?.fines_and_bonuses) && salarySummary.fines_and_bonuses.length > 0 ? (
-                          <View style={styles.salaryDetailsSection}>
-                            {salarySummary.fines_and_bonuses.map((item, index) => {
-                              const amount = toSafeNumber(item.amount)
-                              const isBonus = amount > 0
-                              const itemDateLabel = item.date ? formatScheduleDate(item.date) : 'Дата не указана'
-                              const itemReason = normalizeDatesInText(String(item.comment || '').trim()) || 'Причина не указана'
-                              return (
-                                <View key={`${item.name || 'salary-item'}:${item.date || index}:${index}`} style={styles.salaryShiftRow}>
-                                  <View style={styles.salaryFineTextBlock}>
-                                    <Text style={styles.salaryFineTitle}>
-                                      {itemDateLabel} {isBonus ? 'Премия' : 'Депремирование'}
-                                    </Text>
-                                    <Text style={styles.salaryFineReason}>
-                                      За что: {itemReason}
-                                    </Text>
-                                  </View>
-                                  <Text
-                                    style={[
-                                      styles.salaryShiftValue,
-                                      isBonus ? styles.salaryShiftValueBonus : styles.salaryShiftValuePenalty,
-                                    ]}>
-                                    {isBonus ? '+' : '-'}{formatCurrency(Math.abs(amount))}
-                                  </Text>
-                                </View>
-                              )
-                            })}
-                          </View>
-                        ) : null}
-
-                          <View style={styles.salaryExpandFooter}>
-                            <TouchableOpacity
-                              style={styles.salaryExpandButton}
-                              onPress={toggleSalary}
-                              accessibilityRole="button"
-                              accessibilityLabel="Скрыть детали зарплаты">
-                              <Text style={[styles.salaryExpandIcon, styles.salaryExpandIconOpen]}>›</Text>
-                            </TouchableOpacity>
-                          </View>
-
-                        </View>
-                      </Animated.View>
+                    {hasSalaryAccruals && isSalaryExpanded ? (
+                      <Reanimated.View
+                        layout={salaryLayoutTransition}
+                        entering={salaryDetailsEntering}
+                        exiting={salaryDetailsExiting}
+                        style={styles.salaryDetailsWrap}>
+                        {renderSalaryDetailsContent()}
+                      </Reanimated.View>
                     ) : null}
                   </>
                 ) : (
@@ -2086,17 +2263,17 @@ export default function ShiftScreen({
                     </Text>
                   </View>
                 )}
-              </View>
+              </Reanimated.View>
             ) : (
               <View style={styles.salaryLoadingState}>
                 <Text style={styles.salaryLoadingText}>Загружаем информацию о зарплате</Text>
               </View>
             )}
           </View>
-        </View>
+        </AnimatedEntranceView>
 
         {!isTodayShiftsLoading ? (
-          <View style={styles.todayShiftSection}>
+          <AnimatedEntranceView delay={144} distance={10} style={styles.todayShiftSection}>
             <View style={styles.scheduleSectionHeader}>
               <Text style={styles.sectionTitle}>Сегодня на смене</Text>
             </View>
@@ -2133,7 +2310,10 @@ export default function ShiftScreen({
                               </View>
                               <TouchableOpacity
                                 style={styles.todayShiftCallButton}
-                                onPress={() => handlePhonePress(employee.phoneNumber)}
+                                onPress={() => {
+                                  softPulseHaptic()
+                                  handlePhonePress(employee.phoneNumber)
+                                }}
                                 disabled={!getDialablePhone(employee.phoneNumber)}
                                 accessibilityRole="button"
                                 accessibilityLabel={`Позвонить ${employee.name}`}>
@@ -2162,10 +2342,10 @@ export default function ShiftScreen({
                 </View>
               )}
             </View>
-          </View>
+          </AnimatedEntranceView>
         ) : null}
 
-        </ScrollView>
+        </ElasticScrollView>
 
         <Modal
           visible={isShopDropdownMounted}
@@ -2224,7 +2404,10 @@ export default function ShiftScreen({
                     <Text style={styles.shopEmptyText}>Список магазинов пока недоступен</Text>
                     <TouchableOpacity
                       style={[styles.button, styles.shopRefreshButton]}
-                      onPress={() => actions.refresh({ silent: true })}>
+                      onPress={() => {
+                        softPulseHaptic()
+                        actions.refresh({ silent: true })
+                      }}>
                       <Text style={styles.buttonText}>Обновить список</Text>
                     </TouchableOpacity>
                   </View>

@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   TouchableOpacity,
   Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import ElasticScrollView from '../components/ElasticScrollView'
 import type { AuthSession } from '../features/auth/types'
 
 type RolePlaceholderHomeScreenProps = {
@@ -51,13 +51,15 @@ export default function RolePlaceholderHomeScreen({
           </View>
         </View>
 
-        <ScrollView
+        <ElasticScrollView
           contentContainerStyle={styles.content}
+          enableTopElastic={false}
+          enableBottomElastic
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={() => {
-                void onRefresh?.().catch(() => {})
+                onRefresh?.().catch(() => {})
               }}
               tintColor="#FFFFFF"
             />
@@ -66,7 +68,7 @@ export default function RolePlaceholderHomeScreen({
           <Text style={styles.subtitle}>
             Пока здесь будет отдельный сценарий для роли {Number.isFinite(Number(role)) ? role : '—'}.
           </Text>
-        </ScrollView>
+        </ElasticScrollView>
       </View>
     )
   }
@@ -83,13 +85,15 @@ export default function RolePlaceholderHomeScreen({
           <Text style={styles.headerAvatarText}>{profileLetter}</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
+      <ElasticScrollView
         contentContainerStyle={styles.content}
+        enableTopElastic={false}
+        enableBottomElastic
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => {
-              void onRefresh?.().catch(() => {})
+              onRefresh?.().catch(() => {})
             }}
             tintColor="#FFFFFF"
           />
@@ -98,7 +102,7 @@ export default function RolePlaceholderHomeScreen({
         <Text style={styles.subtitle}>
           Пока здесь будет отдельный сценарий для роли {Number.isFinite(Number(role)) ? role : '—'}.
         </Text>
-      </ScrollView>
+      </ElasticScrollView>
     </SafeAreaView>
   )
 }

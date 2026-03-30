@@ -4,16 +4,21 @@ export const styles = StyleSheet.create({
   authenticatedScreen: {
     flex: 1,
     backgroundColor: '#000000',
+    overflow: 'hidden',
   },
 
   homeLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 0,
+    backgroundColor: '#000000',
+    overflow: 'hidden',
   },
 
   tabLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
+    backgroundColor: '#000000',
+    overflow: 'hidden',
   },
 
   iosComingSoonOverlay: {
@@ -148,6 +153,73 @@ export const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 0,
     borderWidth: 0,
+  },
+
+  brandBlock: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 22,
+    gap: 6,
+  },
+
+  brandMarkRow: {
+    width: 102,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+
+  brandMark: {
+    width: 34,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#FF6A00',
+  },
+
+  brandMarkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#FF6A00',
+  },
+
+  brandMarkGlow: {
+    position: 'absolute',
+    width: 120,
+    height: 42,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255,106,0,0.16)',
+  },
+
+  brandEyebrow: {
+    color: '#8C8C8C',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+
+  brandTitle: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+
+  brandSubtitle: {
+    color: '#A6A6A6',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
   input: {
