@@ -511,6 +511,10 @@ export const styles = StyleSheet.create({
     gap: 14,
   },
 
+  profileSheetContentNotifications: {
+    paddingBottom: 0,
+  },
+
   profileAccountCard: {
     backgroundColor: '#2C2C2E',
     borderRadius: 24,
@@ -619,6 +623,22 @@ export const styles = StyleSheet.create({
     minWidth: 64,
   },
 
+  profileNotificationsMetaInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  profileNotificationsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  profileNotificationsHeaderTextBlock: {
+    flex: 1,
+  },
+
   profileNotificationCountBadge: {
     minWidth: 30,
     height: 30,
@@ -671,6 +691,379 @@ export const styles = StyleSheet.create({
     backgroundColor: '#3A3A3C',
   },
 
+  profileNotificationsActionRow: {
+    alignItems: 'flex-end',
+  },
+
+  profileNotificationsMarkAllButton: {
+    minHeight: 42,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2C2C2E',
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+  },
+
+  profileNotificationsMarkAllButtonText: {
+    color: '#F2F2F7',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  profileNotificationsList: {
+    flex: 1,
+  },
+
+  profileNotificationsListWrap: {
+    flex: 1,
+    position: 'relative',
+  },
+
+  profileNotificationsListWrapNotifications: {
+    marginBottom: -18,
+  },
+
+  profileNotificationsListContent: {
+    gap: 12,
+    paddingBottom: 8,
+  },
+
+  profileNotificationsListContentNotifications: {
+    paddingBottom: 0,
+  },
+
+  profileNotificationsEmptyCard: {
+    minHeight: 108,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    backgroundColor: '#2C2C2E',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+
+  profileNotificationsRefreshCard: {
+    position: 'absolute',
+    top: -40,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+
+  profileNotificationsEmptyStateCard: {
+    minHeight: 132,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    backgroundColor: '#242426',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+
+  profileNotificationsEmptyAccent: {
+    width: 56,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#FF6A00',
+  },
+
+  profileNotificationsEmptyStateTitle: {
+    color: '#F2F2F7',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  profileNotificationsEmptyStateText: {
+    color: '#8E8E93',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  profileNotificationsEmptyTitle: {
+    color: '#F2F2F7',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  profileNotificationsEmptyText: {
+    color: '#8E8E93',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+
+  profileNotificationItem: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    backgroundColor: '#2C2C2E',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 7,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  profileNotificationSwipeContainer: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+
+  profileNotificationSwipeWrap: {
+    position: 'relative',
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+
+  profileNotificationSwipeCard: {
+    position: 'relative',
+    zIndex: 2,
+  },
+
+  profileNotificationRightActions: {
+    width: 82,
+    height: '100%',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 10,
+    overflow: 'visible',
+  },
+
+  profileNotificationDeleteActionWrap: {
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationDeleteAction: {
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    backgroundColor: '#D93A2F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationDeleteIcon: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+    tintColor: '#FFFFFF',
+  },
+
+  profileNotificationItemRead: {
+    backgroundColor: '#242426',
+  },
+
+  profileNotificationUnreadStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 4,
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+    backgroundColor: '#FF6A00',
+  },
+
+  profileNotificationItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  profileNotificationItemTitle: {
+    color: '#F2F2F7',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+
+  profileNotificationItemBody: {
+    color: '#D1D1D6',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+
+  profileNotificationItemMeta: {
+    color: '#8E8E93',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
+  profileNotificationDetailScroll: {
+    flex: 1,
+  },
+
+  profileNotificationDetailScreen: {
+    flex: 1,
+  },
+
+  profileNotificationDetailContent: {
+    paddingTop: 6,
+    paddingBottom: 4,
+    paddingHorizontal: 6,
+  },
+
+  profileNotificationDetailCard: {
+    position: 'relative',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 14,
+  },
+
+  profileNotificationDetailMeta: {
+    color: '#AEAEB2',
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+
+  profileNotificationDetailTitle: {
+    color: '#F2F2F7',
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: '800',
+  },
+
+  profileNotificationDetailBody: {
+    color: '#D1D1D6',
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+
+  profileNotificationDetailGalleryBlock: {
+    marginTop: 4,
+    gap: 14,
+  },
+
+  profileNotificationDetailGalleryBlockHidden: {
+    opacity: 0,
+  },
+
+  profileNotificationDetailGalleryContent: {
+    gap: 12,
+    paddingRight: 6,
+  },
+
+  profileNotificationDetailGalleryItem: {
+    width: '100%',
+  },
+
+  profileNotificationDetailGalleryImage: {
+    width: '100%',
+    aspectRatio: 0.78,
+    borderRadius: 20,
+    backgroundColor: '#1C1C1E',
+  },
+
+  profileNotificationImageViewerScreen: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 8,
+    elevation: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationImageViewerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  profileNotificationImageViewerBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  profileNotificationImageViewerBackdropTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 10, 12, 0.24)',
+  },
+
+  profileNotificationImageViewerTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 14,
+    paddingTop: 6,
+  },
+
+  profileNotificationImageViewerCloseButton: {
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationImageViewerCloseText: {
+    color: '#F2F2F7',
+    fontSize: 28,
+    lineHeight: 28,
+    fontWeight: '300',
+  },
+
+  profileNotificationImageViewerImageWrap: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationImageViewerSurface: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationImageZoomScroll: {
+    width: '100%',
+    height: '100%',
+  },
+
+  profileNotificationImageZoomContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileNotificationImageViewerImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  profileNotificationImageViewerLoader: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(28, 28, 30, 0.36)',
+  },
+
   profilePasswordCard: {
     backgroundColor: '#2C2C2E',
     borderRadius: 24,
@@ -717,6 +1110,45 @@ export const styles = StyleSheet.create({
     backgroundColor: '#3A3A3C',
     borderWidth: 1,
     borderColor: '#545458',
+  },
+
+  profileSheetBackButton: {
+    position: 'absolute',
+    left: 14,
+    top: 8,
+    zIndex: 3,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3A3A3C',
+    borderWidth: 1,
+    borderColor: '#545458',
+  },
+
+  profileSheetBackButtonText: {
+    color: '#F2F2F7',
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
+
+  profileSheetHeaderTitleWrap: {
+    position: 'absolute',
+    left: 64,
+    right: 64,
+    top: 8,
+    height: 38,
+    zIndex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  profileSheetHeaderTitle: {
+    color: '#F2F2F7',
+    fontSize: 17,
+    fontWeight: '700',
   },
 
   profileSheetCloseIcon: {

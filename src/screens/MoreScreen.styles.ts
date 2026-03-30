@@ -470,4 +470,93 @@ export const styles = StyleSheet.create({
     borderRadius: 999,
     width: '58%',
   },
+
+  notificationsToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  notificationsToolbarButton: {
+    flex: 0,
+    minHeight: 42,
+    paddingHorizontal: 14,
+  },
+
+  noticeCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  noticeText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+
+  notificationsLoadingWrap: {
+    minHeight: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyStateCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 10,
+  },
+
+  notificationCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+
+  notificationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  notificationTitle: {
+    flex: 1,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+  },
+
+  notificationStateBadge: {
+    minHeight: 28,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  notificationStateBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.25,
+    textTransform: 'uppercase',
+  },
+
+  notificationBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  notificationMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
 })

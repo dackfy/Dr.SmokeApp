@@ -1,6 +1,7 @@
 import React from 'react'
 import {
   Animated,
+  ActivityIndicator,
   BackHandler,
   Linking,
   Platform,
@@ -12,6 +13,11 @@ import {
   Vibration,
   View,
 } from 'react-native'
+import {
+  formatNotificationTimestamp,
+  notificationsApi,
+  type NotificationItem,
+} from '../features/notifications/notificationsApi'
 import { usePortalAccess } from '../features/portal/usePortalAccess'
 import { useAndroidThemeMode } from '../theme/androidAppTheme'
 import {
@@ -22,10 +28,12 @@ import {
 } from '../theme/androidDynamicColors'
 import { styles } from './MoreScreen.styles'
 
-type MoreScreenRoute = 'root' | 'appearance' | 'portal'
+type MoreScreenRoute = 'root' | 'appearance' | 'portal' | 'notifications'
 
 type MoreScreenProps = {
   employeeId: string
+  userRole?: number
+  initialRoute?: MoreScreenRoute
 }
 
 const PORTAL_URL = 'https://portal.dr-smoke.ru/'
@@ -61,11 +69,18 @@ const iosPalette: AndroidThemePalette = {
 
 export default function MoreScreen({
   employeeId,
+  userRole,
+  initialRoute = 'root',
 }: MoreScreenProps) {
   const colorScheme = useColorScheme()
   const androidTheme = useAndroidThemeMode()
   const isAndroid = Platform.OS === 'android'
-  const [route, setRoute] = React.useState<MoreScreenRoute>('root')
+  const [route, setRoute] = React.useState<MoreScreenRoute>(initialRoute)
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>([])
+  const [isNotificationsLoading, setIsNotificationsLoading] = React.useState(false)
+  const [notificationError, setNotificationError] = React.useState<string | null>(null)
+  const [activeNotificationId, setActiveNotificationId] = React.useState<number | null>(null)
+  const [isMarkAllReadLoading, setIsMarkAllReadLoading] = React.useState(false)
   const themeHoldProgress = React.useRef(new Animated.Value(0)).current
   const holdTimersRef = React.useRef<number[]>([])
   const holdCommittedRef = React.useRef(false)
@@ -193,10 +208,99 @@ export default function MoreScreen({
       : portalSession.status === 'pending_confirm'
         ? 'Подтвердить вход'
         : 'Войти на портал'
+  const unreadNotificationsCount = React.useMemo(
+    () => notifications.filter(notification => !notification.is_read).length,
+    [notifications],
+  )
 
   const openPortal = React.useCallback(() => {
     Linking.openURL(portalSession.portalUrl || PORTAL_URL).catch(() => {})
   }, [portalSession.portalUrl])
+
+  const loadNotifications = React.useCallback(async () => {
+    setIsNotificationsLoading(true)
+    setNotificationError(null)
+
+    try {
+      const nextNotifications = await notificationsApi.list(employeeId)
+      setNotifications(nextNotifications)
+    } catch {
+      setNotificationError('Не удалось загрузить уведомления')
+    } finally {
+      setIsNotificationsLoading(false)
+    }
+  }, [employeeId])
+
+  React.useEffect(() => {
+    setRoute(initialRoute)
+  }, [initialRoute])
+
+  React.useEffect(() => {
+    if (route !== 'root' && route !== 'notifications') {
+      return
+    }
+
+    void loadNotifications()
+  }, [loadNotifications, route])
+
+  const handleNotificationPress = React.useCallback(
+    async (notification: NotificationItem) => {
+      if (notification.is_read) {
+        return
+      }
+
+      setActiveNotificationId(notification.id)
+
+      try {
+        await notificationsApi.markRead(employeeId, notification.id)
+        setNotifications(prev =>
+          prev.map(item =>
+            item.id === notification.id
+              ? {
+                  ...item,
+                  is_read: true,
+                  read_at: item.read_at || new Date().toISOString(),
+                }
+              : item,
+          ),
+        )
+      } catch {
+        setNotificationError('Не удалось отметить уведомление как прочитанное')
+      } finally {
+        setActiveNotificationId(null)
+      }
+    },
+    [employeeId],
+  )
+
+  const handleMarkAllRead = React.useCallback(async () => {
+    if (!unreadNotificationsCount) {
+      return
+    }
+
+    setIsMarkAllReadLoading(true)
+    setNotificationError(null)
+
+    try {
+      await notificationsApi.markAllRead(employeeId)
+      const now = new Date().toISOString()
+      setNotifications(prev =>
+        prev.map(item =>
+          item.is_read
+            ? item
+            : {
+                ...item,
+                is_read: true,
+                read_at: item.read_at || now,
+              },
+        ),
+      )
+    } catch {
+      setNotificationError('Не удалось отметить уведомления как прочитанные')
+    } finally {
+      setIsMarkAllReadLoading(false)
+    }
+  }, [employeeId, unreadNotificationsCount])
 
   React.useEffect(() => {
     if (!isAndroid || route === 'root') {
@@ -547,6 +651,208 @@ export default function MoreScreen({
           </Pressable>
         </View>
       </View>
+    </>
+  )
+
+  const renderNotifications = () => (
+    <>
+      <View
+        style={[
+          styles.heroGlowCard,
+          {
+            backgroundColor: heroCardBackground,
+            borderColor: heroBorderColor,
+          },
+        ]}>
+        <View
+          style={[
+            styles.heroAccentBar,
+            { backgroundColor: isCompanyMode ? String(palette.primary) : materialSolidAccent },
+          ]}
+        />
+        <Text style={[styles.heroKicker, { color: heroKickerColor }]}>Super HR</Text>
+        <Text style={[styles.heroTitle, { color: String(palette.onSurface) }]}>
+          Центр уведомлений
+        </Text>
+        <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
+          Здесь собираются события по открытиям смен. Нажатие на карточку отмечает уведомление как
+          прочитанное.
+        </Text>
+
+        <View style={styles.portalStatRow}>
+          <View
+            style={[
+              styles.portalStatCard,
+              {
+                backgroundColor: String(palette.surfaceRaised),
+                borderColor: String(palette.outlineVariant),
+              },
+            ]}>
+            <Text style={[styles.portalStatLabel, { color: heroKickerColor }]}>Непрочитано</Text>
+            <Text style={[styles.portalStatValue, { color: String(palette.onSurface) }]}>
+              {unreadNotificationsCount}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.portalStatCard,
+              {
+                backgroundColor: String(palette.surfaceRaised),
+                borderColor: String(palette.outlineVariant),
+              },
+            ]}>
+            <Text style={[styles.portalStatLabel, { color: heroKickerColor }]}>Всего</Text>
+            <Text style={[styles.portalStatValue, { color: String(palette.onSurface) }]}>
+              {notifications.length}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: String(palette.surfaceRaised),
+            borderColor: String(palette.outlineVariant),
+          },
+        ]}>
+        <View style={styles.notificationsToolbar}>
+          <Text style={[styles.navRowMeta, { color: heroKickerColor }]}>Лента</Text>
+          <TouchableOpacity
+            style={[
+              styles.inlineActionButton,
+              styles.notificationsToolbarButton,
+              {
+                backgroundColor: String(palette.surface),
+                borderColor: String(palette.outlineVariant),
+              },
+            ]}
+            onPress={handleMarkAllRead}
+            disabled={isMarkAllReadLoading || unreadNotificationsCount === 0}>
+            <Text style={[styles.inlineActionText, { color: String(palette.onSurface) }]}>
+              {isMarkAllReadLoading ? 'Отмечаем…' : 'Прочитать все'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {notificationError ? (
+          <View
+            style={[
+              styles.noticeCard,
+              {
+                backgroundColor: String(palette.errorContainer),
+                borderColor: String(palette.errorBorder),
+              },
+            ]}>
+            <Text style={[styles.noticeText, { color: String(palette.error) }]}>
+              {notificationError}
+            </Text>
+          </View>
+        ) : null}
+
+        {isNotificationsLoading ? (
+          <View style={styles.notificationsLoadingWrap}>
+            <ActivityIndicator size="small" color={accentTextColor} />
+          </View>
+        ) : notifications.length === 0 ? (
+          <View
+            style={[
+              styles.emptyStateCard,
+              {
+                backgroundColor: String(palette.surface),
+                borderColor: String(palette.outlineVariant),
+              },
+            ]}>
+            <Text style={[styles.optionTitle, { color: String(palette.onSurface) }]}>
+              Пока пусто
+            </Text>
+            <Text style={[styles.helperText, { color: secondaryMutedColor }]}>
+              Когда сотрудники начнут открывать смены, уведомления появятся в этом списке.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.rowList}>
+            {notifications.map(notification => {
+              const isUnread = !notification.is_read
+              const isBusy = activeNotificationId === notification.id
+
+              return (
+                <TouchableOpacity
+                  key={notification.id}
+                  style={[
+                    styles.notificationCard,
+                    {
+                      backgroundColor: isUnread
+                        ? String(palette.surface)
+                        : String(palette.surfaceMuted),
+                      borderColor: isUnread
+                        ? isCompanyMode
+                          ? String(palette.primaryContainerStrong)
+                          : String(palette.outlineVariant)
+                        : String(palette.outlineVariant),
+                    },
+                  ]}
+                  onPress={() => handleNotificationPress(notification)}
+                  disabled={isBusy}>
+                  <View style={styles.notificationHeaderRow}>
+                    <Text style={[styles.notificationTitle, { color: String(palette.onSurface) }]}>
+                      {notification.title || 'Уведомление'}
+                    </Text>
+                    {isBusy ? (
+                      <ActivityIndicator size="small" color={accentTextColor} />
+                    ) : (
+                      <View
+                        style={[
+                          styles.notificationStateBadge,
+                          {
+                            backgroundColor: isUnread
+                              ? isCompanyMode
+                                ? String(palette.primary)
+                                : materialSolidAccent
+                              : String(palette.surfaceAccent),
+                          },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.notificationStateBadgeText,
+                            { color: isUnread ? '#FFFFFF' : String(palette.onSurfaceMuted) },
+                          ]}>
+                          {isUnread ? 'Новое' : 'Прочитано'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.notificationBody,
+                      { color: isUnread ? String(palette.onSurface) : secondaryMutedColor },
+                    ]}>
+                    {notification.body || 'Текст уведомления пока не добавлен'}
+                  </Text>
+                  <Text style={[styles.notificationMeta, { color: secondaryMutedColor }]}>
+                    {formatNotificationTimestamp(notification)}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        )}
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.secondaryButton,
+          {
+            backgroundColor: String(palette.surface),
+            borderColor: String(palette.outlineVariant),
+          },
+        ]}
+        onPress={() => setRoute('root')}>
+        <Text style={[styles.secondaryButtonText, { color: String(palette.onSurface) }]}>
+          Назад в настройки
+        </Text>
+      </TouchableOpacity>
     </>
   )
 
@@ -1046,10 +1352,14 @@ export default function MoreScreen({
         {route === 'portal'
           ? renderHeader('Портал', 'Быстрый вход в веб-портал сотрудника')
           : null}
+        {route === 'notifications'
+          ? renderHeader('Уведомления', 'Лента событий и открытия смен')
+          : null}
 
         {route === 'root' ? renderRoot() : null}
         {route === 'appearance' ? renderAppearance() : null}
         {route === 'portal' ? renderPortal() : null}
+        {route === 'notifications' ? renderNotifications() : null}
       </ScrollView>
     </View>
   )
