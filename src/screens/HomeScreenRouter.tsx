@@ -1,8 +1,11 @@
 import React from 'react'
 import type { AuthSession } from '../features/auth/types'
+import DeputyDirectorHomeScreen from './DeputyDirectorHomeScreen'
 import type { OpenedShift } from '../features/shift/types'
+
 import EmployeeHomeScreen from './EmployeeHomeScreen'
 import DirectorHomeScreen from './DirectorHomeScreen'
+import ManagerHomeScreen from './ManagerHomeScreen'
 import SuperHrHomeScreen from './SuperHrHomeScreen'
 import RolePlaceholderHomeScreen from './RolePlaceholderHomeScreen'
 
@@ -34,6 +37,17 @@ export default function HomeScreenRouter({
     )
   }
 
+  if (role === 1) {
+    return (
+      <ManagerHomeScreen
+        session={session}
+        onLogout={rest.onLogout}
+        onRefreshSession={onRefreshSession}
+        onGoProfile={rest.onGoProfile}
+      />
+    )
+  }
+
   if (role === 7) {
     return (
       <DirectorHomeScreen
@@ -48,6 +62,17 @@ export default function HomeScreenRouter({
   if (role === 10) {
     return (
       <SuperHrHomeScreen
+        session={session}
+        onLogout={rest.onLogout}
+        onRefreshSession={onRefreshSession}
+        onGoProfile={rest.onGoProfile}
+      />
+    )
+  }
+
+  if (role === 15) {
+    return (
+      <DeputyDirectorHomeScreen
         session={session}
         onLogout={rest.onLogout}
         onRefreshSession={onRefreshSession}

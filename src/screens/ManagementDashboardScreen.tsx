@@ -22,9 +22,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { AuthSession } from '../features/auth/types'
 import { buildApiUrl } from '../config/api'
 import { checkEmployeeAccess } from '../features/auth/authApi'
+import { notificationsApi } from '../features/notifications/notificationsApi'
+import { subscribeToNotificationsUnreadCount } from '../features/notifications/notificationsEvents'
+import { subscribeToForegroundPushMessages } from '../features/push/pushApi'
 
 type ManagementDashboardScreenProps = {
-  variant: 'superHr' | 'director'
+  variant: 'superHr' | 'director' | 'manager'
   session: AuthSession
   onLogout: () => void
   onRefreshSession?: () => Promise<void>
@@ -187,6 +190,10 @@ type HrRevenueYesterdayResponse = {
   total_revenue?: number | null
   total_invoices?: number | null
   shop_count?: number | null
+  previous_day_total_revenue?: number | null
+  previous_total_revenue?: number | null
+  previous_report_date?: string | null
+  revenue_change_percent?: number | null
   regions?: HrRevenueYesterdayRegionItem[]
   top_shops?: HrRevenueYesterdayTopShopItem[]
 }
@@ -216,6 +223,9 @@ type DirectorRevenueSummary = {
   totalRevenue: number
   totalInvoices: number
   shopCount: number
+  previousDayTotalRevenue: number | null
+  previousReportDate: string | null
+  revenueChangePercent: number | null
   regions: DirectorRevenueRegion[]
   topShops: DirectorRevenueTopShop[]
 }
@@ -256,6 +266,45 @@ function formatCurrency(value?: number | null) {
     currency: 'RUB',
     maximumFractionDigits: 0,
   }).format(Number(value || 0))
+}
+
+function getPresentWorkVerb(count: number) {
+  return Math.abs(Number(count)) === 1 ? 'работает' : 'работают'
+}
+
+function formatRevenueChangeLabel(changePercent?: number | null) {
+  if (!Number.isFinite(changePercent)) {
+    return null
+  }
+
+  const normalizedChange = Number(changePercent)
+  const roundedChange = Math.round(Math.abs(normalizedChange))
+
+  if (roundedChange === 0) {
+    return 'На уровне предыдущего дня'
+  }
+
+  return normalizedChange > 0
+    ? `На ${roundedChange}% выше, чем днём ранее`
+    : `На ${roundedChange}% ниже, чем днём ранее`
+}
+
+function getRevenueChangeTone(changePercent?: number | null) {
+  if (!Number.isFinite(changePercent)) {
+    return 'neutral'
+  }
+
+  const normalizedChange = Number(changePercent)
+
+  if (normalizedChange > 0) {
+    return 'positive'
+  }
+
+  if (normalizedChange < 0) {
+    return 'negative'
+  }
+
+  return 'neutral'
 }
 
 function formatCompactNumber(value?: number | null) {
@@ -537,7 +586,7 @@ function ManagementHeaderBrand({
   isDirectorRevenueLoading,
   directorRevenueError,
 }: {
-  variant: 'superHr' | 'director'
+  variant: 'superHr' | 'director' | 'manager'
   todayLabel: string
   isRevenueExpanded: boolean
   onToggleRevenue: () => void
@@ -551,6 +600,12 @@ function ManagementHeaderBrand({
     const hasDirectorRevenueData = Boolean(directorRevenueSummary)
     const visibleRevenueRegions = directorRevenueSummary?.regions.slice(0, 3) ?? []
     const visibleRevenueTopShops = directorRevenueSummary?.topShops.slice(0, 3) ?? []
+    const directorRevenueChangeLabel = directorRevenueSummary
+      ? formatRevenueChangeLabel(directorRevenueSummary.revenueChangePercent)
+      : null
+    const directorRevenueChangeTone = directorRevenueSummary
+      ? getRevenueChangeTone(directorRevenueSummary.revenueChangePercent)
+      : 'neutral'
 
     return (
       <View style={styles.directorHeaderContent}>
@@ -583,6 +638,20 @@ function ManagementHeaderBrand({
                         ? 'Не удалось загрузить сводку за вчера'
                         : 'Общий результат по сети с детализацией по регионам'}
                 </Text>
+                {hasDirectorRevenueData && directorRevenueChangeLabel ? (
+                  <Text
+                    style={[
+                      styles.directorHeaderRevenueDelta,
+                      directorRevenueChangeTone === 'positive'
+                        ? styles.directorHeaderRevenueDeltaPositive
+                        : null,
+                      directorRevenueChangeTone === 'negative'
+                        ? styles.directorHeaderRevenueDeltaNegative
+                        : null,
+                    ]}>
+                    {directorRevenueChangeLabel}
+                  </Text>
+                ) : null}
               </View>
               <Text
                 style={[
@@ -733,6 +802,23 @@ function ManagementHeaderBrand({
     )
   }
 
+  if (variant === 'manager') {
+    return (
+      <View style={styles.directorHeaderContent}>
+        <View style={styles.directorHeaderIntro}>
+          <Text style={styles.headerEyebrow}>Управление регионами</Text>
+          <View style={styles.directorHeaderTitleBlock}>
+            <Text style={styles.directorHeaderTitle}>Панель управления</Text>
+          </View>
+          <View style={styles.headerMetaRowDirector}>
+            <View style={styles.headerMetaAccentDirector} />
+            <Text style={styles.headerCaptionText}>{todayLabel}</Text>
+          </View>
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.headerTextBlock}>
       <Text style={styles.headerEyebrow}>Управление регионами</Text>
@@ -792,12 +878,66 @@ export default function ManagementDashboardScreen({
   const [unopenedRegionCards, setUnopenedRegionCards] = React.useState<HrUnopenedRegionItem[]>([])
   const [unopenedShopsMap, setUnopenedShopsMap] = React.useState<Record<string, HrUnopenedShopItem[]>>({})
   const [hasLoadedUnopenedRegions, setHasLoadedUnopenedRegions] = React.useState(false)
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = React.useState(0)
 
   const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase()
   const todayLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`
-  const unreadNotificationsCount = regionCards.filter(
-    region => region.employeeCount > 0 || region.shopCount > 0,
-  ).length
+
+  const loadUnreadNotificationsCount = React.useCallback(async () => {
+    try {
+      const notifications = await notificationsApi.list(session.user.id)
+      setUnreadNotificationsCount(
+        notifications.filter(notification => !notification.is_read).length,
+      )
+    } catch {
+      setUnreadNotificationsCount(0)
+    }
+  }, [session.user.id])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const syncUnreadNotifications = async () => {
+      if (!isMounted) {
+        return
+      }
+
+      await loadUnreadNotificationsCount()
+    }
+
+    void syncUnreadNotifications()
+
+    const intervalId = setInterval(() => {
+      void syncUnreadNotifications()
+    }, 30000)
+
+    const unsubscribeForegroundMessages = subscribeToForegroundPushMessages(() => {
+      void syncUnreadNotifications()
+    })
+
+    const unsubscribeUnreadCount = subscribeToNotificationsUnreadCount(
+      ({ employeeId, unreadCount }) => {
+        if (employeeId !== session.user.id) {
+          return
+        }
+
+        setTimeout(() => {
+          if (!isMounted) {
+            return
+          }
+
+          setUnreadNotificationsCount(unreadCount)
+        }, 0)
+      },
+    )
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+      unsubscribeForegroundMessages()
+      unsubscribeUnreadCount()
+    }
+  }, [loadUnreadNotificationsCount, session.user.id])
 
   const handleBackNavigation = React.useCallback(() => {
     if (isDirectorRevenueDetailsOpen) {
@@ -1208,10 +1348,25 @@ export default function ManagementDashboardScreen({
       }
 
       const data = (await res.json()) as HrRevenueYesterdayResponse
+      const previousDayTotalRevenueRaw = Number(
+        data.previous_day_total_revenue ?? data.previous_total_revenue ?? Number.NaN,
+      )
+      const previousDayTotalRevenue = Number.isFinite(previousDayTotalRevenueRaw)
+        ? previousDayTotalRevenueRaw
+        : null
+      const revenueChangePercentRaw = Number(data.revenue_change_percent ?? Number.NaN)
+      const revenueChangePercent = Number.isFinite(revenueChangePercentRaw)
+        ? revenueChangePercentRaw
+        : previousDayTotalRevenue && previousDayTotalRevenue > 0
+          ? ((Number(data.total_revenue ?? 0) - previousDayTotalRevenue) / previousDayTotalRevenue) * 100
+          : null
       const nextSummary: DirectorRevenueSummary = {
         totalRevenue: Number(data.total_revenue ?? 0),
         totalInvoices: Number(data.total_invoices ?? 0),
         shopCount: Number(data.shop_count ?? 0),
+        previousDayTotalRevenue,
+        previousReportDate: normalizeNullableText(data.previous_report_date),
+        revenueChangePercent,
         regions: Array.isArray(data.regions)
           ? data.regions
               .map(region => ({
@@ -2813,7 +2968,7 @@ export default function ManagementDashboardScreen({
             <Text style={styles.regionDetailTitle}>{selectedRegion.regionName}</Text>
             <Text style={styles.regionDetailSubtitle}>
               {selectedRegion.employeeCount > 0
-                ? `Сейчас работают ${selectedRegion.employeeCount} ${pluralizeRu(selectedRegion.employeeCount, 'сотрудник', 'сотрудника', 'сотрудников')}`
+                ? `Сейчас ${getPresentWorkVerb(selectedRegion.employeeCount)} ${selectedRegion.employeeCount} ${pluralizeRu(selectedRegion.employeeCount, 'сотрудник', 'сотрудника', 'сотрудников')}`
                 : 'Сейчас в регионе открытых смен нет'}
             </Text>
           </View>
@@ -3022,6 +3177,18 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,106,0,0.18)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 10,
+  },
+  directorHeaderRevenueDelta: {
+    color: '#FFCF9F',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  directorHeaderRevenueDeltaPositive: {
+    color: '#6EE7A8',
+  },
+  directorHeaderRevenueDeltaNegative: {
+    color: '#FF7D7D',
   },
   directorHeaderRevenueArrow: {
     color: '#FFB27A',
@@ -4023,6 +4190,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 22,
     includeFontPadding: false,
-    transform: [{ translateY: Platform.OS === 'android' ? -0.5 : 0 }],
+    transform: [{ translateY: Platform.OS === 'android' ? -0.5 : -1 }],
   },
 })

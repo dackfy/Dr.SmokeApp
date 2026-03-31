@@ -3,6 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { authApi, refreshEmployeeSession, type AuthApi } from './authApi'
 import type { AuthFormValues, AuthSession } from './types'
 import { validateAuthForm } from './validators'
+import {
+  deactivateCurrentDevicePushToken,
+  registerCurrentDevicePushToken,
+  subscribeToPushTokenRefresh,
+} from '../push/pushApi'
 
 const initialForm: AuthFormValues = {
   identifier: '+7',
@@ -72,6 +77,20 @@ export function useAuth(options: UseAuthOptions = {}) {
     }
   }, [])
 
+  useEffect(() => {
+    const employeeId = String(session?.user.id || '').trim()
+    if (!employeeId) {
+      return
+    }
+
+    void registerCurrentDevicePushToken(employeeId).catch(() => {})
+    const unsubscribe = subscribeToPushTokenRefresh(employeeId)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [session?.user.id])
+
   function updateField<K extends keyof AuthFormValues>(field: K, value: AuthFormValues[K]) {
     setForm(prev => ({ ...prev, [field]: value }))
     if (error) {
@@ -123,6 +142,11 @@ export function useAuth(options: UseAuthOptions = {}) {
   }
 
   function resetSession() {
+    const employeeId = String(session?.user.id || '').trim()
+    if (employeeId) {
+      void deactivateCurrentDevicePushToken(employeeId).catch(() => {})
+    }
+
     AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY).catch(() => {})
     setSession(null)
     setForm(initialForm)
