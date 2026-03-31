@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Dimensions,
   useColorScheme,
+  PlatformColor,
   type ImageSourcePropType,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -36,13 +37,19 @@ import AnimatedReanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BlurView } from '@react-native-community/blur';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import AnimatedEntranceView from '../components/AnimatedEntranceView';
 import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
 import MoreScreen from './MoreScreen';
 import CertificatesScreen from './CertificatesScreen';
 import HomeScreenRouter from './HomeScreenRouter';
+import ProductInfoScreen from './ProductInfoScreen';
 import { authApi } from '../features/auth/authApi';
+import { buildApiUrl } from '../config/api';
 import {
   formatNotificationTimestamp,
   notificationsApi,
@@ -57,19 +64,26 @@ import {
   subscribeToPushNotificationOpens,
 } from '../features/push/pushApi';
 import { trigger as triggerHaptic } from 'react-native-haptic-feedback';
+import type { OpenedShift } from '../features/shift/types';
 import { useAndroidThemeMode } from '../theme/androidAppTheme';
 import {
   getAndroidCompanyPalette,
+  getAndroidStatusBarColor,
   getAndroidStatusBarStyle,
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors';
+import {
+  androidLightImpact,
+  androidMediumImpact,
+  androidSuccessHaptic,
+} from '../utils/androidHaptics';
 
 const eyeOpenIcon: ImageSourcePropType = require('../assets/icons/eye-open.png');
 const eyeClosedIcon: ImageSourcePropType = require('../assets/icons/eye-closed.png');
 const homeIcon: ImageSourcePropType = require('../assets/icons/home.png');
 const profileIcon: ImageSourcePropType = require('../assets/icons/more.png');
 const mailIcon: ImageSourcePropType = require('../assets/icons/gift.png');
-const trashIcon: ImageSourcePropType = require('../assets/icons/trash.png');
+const trashIcon: ImageSourcePropType = require('../assets/icons/shop.png');
 const deleteIcon: ImageSourcePropType = require('../assets/icons/delete.png');
 const crossIcon: ImageSourcePropType = require('../assets/icons/cross.png');
 const lockIcon: ImageSourcePropType = require('../assets/icons/lock.png');
@@ -127,7 +141,9 @@ function formatPhoneInput(value: string) {
   }
 
   // User enters local digits after +7; if started with 7/8, drop prefix.
-  const local = (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10);
+  const local = (
+    digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits
+  ).slice(0, 10);
 
   if (!local) return '+7';
 
@@ -166,7 +182,10 @@ function formatLocalPhoneDisplay(value: string) {
   return out;
 }
 
-function formatLocalPhoneInputWithBackspace(prevValue: string, nextValue: string) {
+function formatLocalPhoneInputWithBackspace(
+  prevValue: string,
+  nextValue: string,
+) {
   const prevLocal = extractLocalPhoneDigits(prevValue);
   const nextLocal = extractLocalPhoneDigits(nextValue);
 
@@ -174,7 +193,10 @@ function formatLocalPhoneInputWithBackspace(prevValue: string, nextValue: string
     return formatLocalPhoneDisplay(prevLocal);
   }
 
-  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
+  if (
+    nextValue.length < prevValue.length &&
+    nextLocal.length === prevLocal.length
+  ) {
     return formatLocalPhoneDisplay(prevLocal.slice(0, -1));
   }
 
@@ -183,7 +205,9 @@ function formatLocalPhoneInputWithBackspace(prevValue: string, nextValue: string
 
 function extractLocalPhoneDigits(value: string) {
   const digits = String(value || '').replace(/\D/g, '');
-  return (digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits).slice(0, 10);
+  return (
+    digits.startsWith('7') || digits.startsWith('8') ? digits.slice(1) : digits
+  ).slice(0, 10);
 }
 
 function formatPhoneInputWithBackspace(prevValue: string, nextValue: string) {
@@ -192,7 +216,10 @@ function formatPhoneInputWithBackspace(prevValue: string, nextValue: string) {
 
   // If user deleted only mask symbols ( ) - and local digits count did not change,
   // treat it as deleting one digit to avoid "stuck" backspace behavior.
-  if (nextValue.length < prevValue.length && nextLocal.length === prevLocal.length) {
+  if (
+    nextValue.length < prevValue.length &&
+    nextLocal.length === prevLocal.length
+  ) {
     return formatPhoneInput(`+7${prevLocal.slice(0, -1)}`);
   }
 
@@ -293,19 +320,25 @@ function findNotificationFromPushMessage(
     }
   }
 
-  const pushType = getPushDataString(message, 'type') || getPushDataString(message, 'event');
+  const pushType =
+    getPushDataString(message, 'type') || getPushDataString(message, 'event');
   const pushEmployeeId = getComparableNumericString(
     getPushDataString(message, 'employee_id'),
   );
-  const pushShopId = getComparableNumericString(getPushDataString(message, 'shop_id'));
-  const pushRegionId = getComparableNumericString(getPushDataString(message, 'region_id'));
+  const pushShopId = getComparableNumericString(
+    getPushDataString(message, 'shop_id'),
+  );
+  const pushRegionId = getComparableNumericString(
+    getPushDataString(message, 'region_id'),
+  );
   const pushReportDate = getPushDataString(message, 'report_date');
   const pushOpenTime = getPushDataString(message, 'open_time');
 
   const payloadMatchedNotification = notifications.find(notification => {
     const payload = notification.payload;
     const notificationType =
-      String(notification.type || '').trim() || getNotificationPayloadString(payload, 'event');
+      String(notification.type || '').trim() ||
+      getNotificationPayloadString(payload, 'event');
     const notificationEmployeeId = getComparableNumericString(
       getNotificationPayloadString(payload, 'employee_id'),
     );
@@ -315,8 +348,14 @@ function findNotificationFromPushMessage(
     const notificationRegionId = getComparableNumericString(
       getNotificationPayloadString(payload, 'region_id'),
     );
-    const notificationReportDate = getNotificationPayloadString(payload, 'report_date');
-    const notificationOpenTime = getNotificationPayloadString(payload, 'open_time');
+    const notificationReportDate = getNotificationPayloadString(
+      payload,
+      'report_date',
+    );
+    const notificationOpenTime = getNotificationPayloadString(
+      payload,
+      'open_time',
+    );
 
     const comparablePairs: Array<[string | null, string | null]> = [
       [pushType, notificationType || null],
@@ -327,9 +366,11 @@ function findNotificationFromPushMessage(
       [pushOpenTime, notificationOpenTime],
     ];
 
-    const usablePairs = comparablePairs.filter(([pushValue, notificationValue]) => {
-      return Boolean(pushValue && notificationValue);
-    });
+    const usablePairs = comparablePairs.filter(
+      ([pushValue, notificationValue]) => {
+        return Boolean(pushValue && notificationValue);
+      },
+    );
 
     if (usablePairs.length === 0) {
       return false;
@@ -446,14 +487,19 @@ function ProfileNotificationDeleteAction({
   return (
     <View style={styles.profileNotificationRightActions}>
       <AnimatedReanimated.View
-        style={[styles.profileNotificationDeleteActionWrap, animatedStyle]}>
+        style={[styles.profileNotificationDeleteActionWrap, animatedStyle]}
+      >
         <TouchableOpacity
           style={styles.profileNotificationDeleteAction}
           onPress={onPress}
           disabled={isBusy}
           accessibilityRole="button"
-          accessibilityLabel="Удалить уведомление">
-          <Image source={deleteIcon} style={styles.profileNotificationDeleteIcon} />
+          accessibilityLabel="Удалить уведомление"
+        >
+          <Image
+            source={deleteIcon}
+            style={styles.profileNotificationDeleteIcon}
+          />
         </TouchableOpacity>
       </AnimatedReanimated.View>
     </View>
@@ -532,7 +578,8 @@ function ProfileNotificationRow({
           isBusy={isBusy}
           onPress={handleDeletePress}
         />
-      )}>
+      )}
+    >
       <View style={styles.profileNotificationSwipeWrap}>
         <View style={styles.profileNotificationSwipeCard}>
           <TouchableOpacity
@@ -542,13 +589,18 @@ function ProfileNotificationRow({
             ]}
             onPress={() => onPress(notification)}
             disabled={isBusy}
-            activeOpacity={0.92}>
-            {isUnread ? <View style={styles.profileNotificationUnreadStripe} /> : null}
+            activeOpacity={0.92}
+          >
+            {isUnread ? (
+              <View style={styles.profileNotificationUnreadStripe} />
+            ) : null}
             <View style={styles.profileNotificationItemHeader}>
               <Text style={styles.profileNotificationItemMeta}>
                 {formatNotificationTimestamp(notification)}
               </Text>
-              {isBusy ? <ActivityIndicator size="small" color="#FF6A00" /> : null}
+              {isBusy ? (
+                <ActivityIndicator size="small" color="#FF6A00" />
+              ) : null}
             </View>
             <Text style={styles.profileNotificationItemTitle}>
               {notification.title || 'Уведомление'}
@@ -570,7 +622,10 @@ export default function AuthScreen() {
   const androidPalette = isAndroid
     ? androidTheme.mode === 'company'
       ? getAndroidCompanyPalette()
-      : getAndroidThemePalette(colorScheme === 'dark')
+      : getAndroidThemePalette(
+          colorScheme === 'dark',
+          androidTheme.contrastMode,
+        )
     : null;
   const authAccessoryId = 'auth-keyboard-accessory';
   const insets = useSafeAreaInsets();
@@ -588,12 +643,19 @@ export default function AuthScreen() {
   const [focusedLoginField, setFocusedLoginField] = useState<
     'identifier' | 'password' | null
   >(null);
-  const [loginPhoneSelection, setLoginPhoneSelection] = useState({ start: 0, end: 0 });
+  const [loginPhoneSelection, setLoginPhoneSelection] = useState({
+    start: 0,
+    end: 0,
+  });
   const [focusedForgotField, setFocusedForgotField] = useState<
     'identity' | 'code' | 'newPassword' | null
   >(null);
-  const [forgotPhoneSelection, setForgotPhoneSelection] = useState({ start: 0, end: 0 });
+  const [forgotPhoneSelection, setForgotPhoneSelection] = useState({
+    start: 0,
+    end: 0,
+  });
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
+  const [openedShift, setOpenedShift] = useState<OpenedShift | null>(null);
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [forgotIdentity, setForgotIdentity] = useState('+7');
@@ -614,42 +676,78 @@ export default function AuthScreen() {
   const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
   const [previousTab, setPreviousTab] = useState<AuthTab>('home');
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
-  const [profileInitialRoute, setProfileInitialRoute] = useState<ProfileScreenRoute>('root');
+  const [profileInitialRoute, setProfileInitialRoute] =
+    useState<ProfileScreenRoute>('root');
   const [profileNotificationsCount, setProfileNotificationsCount] = useState(0);
-  const [isProfileNotificationsLoading, setIsProfileNotificationsLoading] = useState(false);
-  const [isRefreshingProfileNotifications, setIsRefreshingProfileNotifications] = useState(false);
-  const [isProfileNotificationsPulling, setIsProfileNotificationsPulling] = useState(false);
-  const [profileNotificationsPullDistance, setProfileNotificationsPullDistance] = useState(0);
-  const [profileSheetRoute, setProfileSheetRoute] = useState<ProfileSheetRoute>('root');
-  const [profileNotifications, setProfileNotifications] = useState<NotificationItem[]>([]);
+  const [isProfileNotificationsLoading, setIsProfileNotificationsLoading] =
+    useState(false);
+  const [
+    isRefreshingProfileNotifications,
+    setIsRefreshingProfileNotifications,
+  ] = useState(false);
+  const [isProfileNotificationsPulling, setIsProfileNotificationsPulling] =
+    useState(false);
+  const [
+    profileNotificationsPullDistance,
+    setProfileNotificationsPullDistance,
+  ] = useState(0);
+  const [profileSheetRoute, setProfileSheetRoute] =
+    useState<ProfileSheetRoute>('root');
+  const [profileNotifications, setProfileNotifications] = useState<
+    NotificationItem[]
+  >([]);
   const [selectedProfileNotification, setSelectedProfileNotification] =
     useState<NotificationItem | null>(null);
-  const [selectedProfileNotificationImage, setSelectedProfileNotificationImage] =
-    useState<string | null>(null);
-  const [selectedProfileNotificationImageSize, setSelectedProfileNotificationImageSize] =
-    useState<{ width: number; height: number } | null>(null);
-  const [isProfileNotificationImageLoading, setIsProfileNotificationImageLoading] = useState(false);
-  const [isProfileNotificationImageChromeVisible, setIsProfileNotificationImageChromeVisible] =
-    useState(true);
-  const [activeProfileNotificationId, setActiveProfileNotificationId] = useState<number | null>(null);
-  const [deletingProfileNotificationId, setDeletingProfileNotificationId] = useState<number | null>(null);
-  const [isProfileNotificationSwipeActive, setIsProfileNotificationSwipeActive] = useState(false);
-  const [isMarkingAllProfileNotificationsRead, setIsMarkingAllProfileNotificationsRead] =
-    useState(false);
+  const [
+    selectedProfileNotificationImage,
+    setSelectedProfileNotificationImage,
+  ] = useState<string | null>(null);
+  const [
+    selectedProfileNotificationImageSize,
+    setSelectedProfileNotificationImageSize,
+  ] = useState<{ width: number; height: number } | null>(null);
+  const [
+    isProfileNotificationImageLoading,
+    setIsProfileNotificationImageLoading,
+  ] = useState(false);
+  const [
+    isProfileNotificationImageChromeVisible,
+    setIsProfileNotificationImageChromeVisible,
+  ] = useState(true);
+  const [activeProfileNotificationId, setActiveProfileNotificationId] =
+    useState<number | null>(null);
+  const [deletingProfileNotificationId, setDeletingProfileNotificationId] =
+    useState<number | null>(null);
+  const [
+    isProfileNotificationSwipeActive,
+    setIsProfileNotificationSwipeActive,
+  ] = useState(false);
+  const [
+    isMarkingAllProfileNotificationsRead,
+    setIsMarkingAllProfileNotificationsRead,
+  ] = useState(false);
   const profileSheetProgress = useRef(new Animated.Value(0)).current;
   const profileSheetDragY = useRef(new Animated.Value(0)).current;
   const tabTransitionProgress = useRef(new Animated.Value(1)).current;
+  const activeTabRef = useRef<AuthTab>('home');
+  const isTabTransitioningRef = useRef(false);
+  const tabTransitionTokenRef = useRef(0);
+  const authKeyboardShift = useRef(new Animated.Value(0)).current;
   const authNoticeOpacity = useRef(new Animated.Value(0)).current;
   const forgotErrorOpacity = useRef(new Animated.Value(0)).current;
   const loginErrorOpacity = useRef(new Animated.Value(0)).current;
   const changePasswordErrorOpacity = useRef(new Animated.Value(0)).current;
   const changePasswordSuccessOpacity = useRef(new Animated.Value(0)).current;
+  const authScreenReveal = useRef(new Animated.Value(0)).current;
+  const appShellReveal = useRef(new Animated.Value(0)).current;
   const forgotSubmitLockRef = useRef(false);
   const profileNotificationSwipeablesRef = useRef(new Map<number, any>());
   const openedProfileNotificationIdRef = useRef<number | null>(null);
   const handledPushOpenMessageIdsRef = useRef(new Map<string, number>());
   const hasCheckedInitialPushOpenRef = useRef(false);
-  const isProfileNotificationImageViewerOpen = Boolean(selectedProfileNotificationImage);
+  const isProfileNotificationImageViewerOpen = Boolean(
+    selectedProfileNotificationImage,
+  );
   const profileNotificationImageScale = useSharedValue(1);
   const profileNotificationImageScaleOffset = useSharedValue(1);
   const profileNotificationImageTranslateX = useSharedValue(0);
@@ -660,8 +758,10 @@ export default function AuthScreen() {
   const profileNotificationImageBaseWidth = useSharedValue(SCREEN_WIDTH);
   const profileNotificationImageBaseHeight = useSharedValue(SCREEN_HEIGHT);
   const profileNotificationImageFrame = React.useMemo(() => {
-    const imageWidth = selectedProfileNotificationImageSize?.width ?? SCREEN_WIDTH;
-    const imageHeight = selectedProfileNotificationImageSize?.height ?? SCREEN_HEIGHT;
+    const imageWidth =
+      selectedProfileNotificationImageSize?.width ?? SCREEN_WIDTH;
+    const imageHeight =
+      selectedProfileNotificationImageSize?.height ?? SCREEN_HEIGHT;
 
     if (imageWidth <= 0 || imageHeight <= 0) {
       return { width: SCREEN_WIDTH, height: SCREEN_HEIGHT };
@@ -686,11 +786,16 @@ export default function AuthScreen() {
             return false;
           }
 
-          const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+          const isHorizontalSwipe =
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
           return gestureState.dx > 16 && isHorizontalSwipe;
         },
         onPanResponderRelease: (_event, gestureState) => {
-          if (profileSheetRoute === 'notifications' && gestureState.dx > 72 && Math.abs(gestureState.dy) < 48) {
+          if (
+            profileSheetRoute === 'notifications' &&
+            gestureState.dx > 72 &&
+            Math.abs(gestureState.dy) < 48
+          ) {
             setProfileSheetRoute('root');
           }
         },
@@ -706,8 +811,13 @@ export default function AuthScreen() {
             return false;
           }
 
-          const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
-          return event.nativeEvent.pageX < 36 && gestureState.dx > 14 && isHorizontalSwipe;
+          const isHorizontalSwipe =
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+          return (
+            event.nativeEvent.pageX < 36 &&
+            gestureState.dx > 14 &&
+            isHorizontalSwipe
+          );
         },
         onPanResponderRelease: (_event, gestureState) => {
           if (
@@ -723,8 +833,10 @@ export default function AuthScreen() {
   );
 
   useEffect(() => {
-    profileNotificationImageBaseWidth.value = profileNotificationImageFrame.width;
-    profileNotificationImageBaseHeight.value = profileNotificationImageFrame.height;
+    profileNotificationImageBaseWidth.value =
+      profileNotificationImageFrame.width;
+    profileNotificationImageBaseHeight.value =
+      profileNotificationImageFrame.height;
   }, [
     profileNotificationImageBaseHeight,
     profileNotificationImageBaseWidth,
@@ -787,24 +899,27 @@ export default function AuthScreen() {
     });
   }, [profileNotificationImageTranslateX, profileNotificationImageTranslateY]);
 
-  const dismissProfileNotificationImageViewerFromDrag = React.useCallback(() => {
-    profileNotificationImageTranslateX.value = withTiming(0, { duration: 180 });
-    profileNotificationImageTranslateY.value = withTiming(
-      SCREEN_HEIGHT,
-      {
-        duration: 200,
-      },
-      finished => {
-        if (finished) {
-          runOnJS(closeProfileNotificationImageViewer)();
-        }
-      },
-    );
-  }, [
-    closeProfileNotificationImageViewer,
-    profileNotificationImageTranslateX,
-    profileNotificationImageTranslateY,
-  ]);
+  const dismissProfileNotificationImageViewerFromDrag =
+    React.useCallback(() => {
+      profileNotificationImageTranslateX.value = withTiming(0, {
+        duration: 180,
+      });
+      profileNotificationImageTranslateY.value = withTiming(
+        SCREEN_HEIGHT,
+        {
+          duration: 200,
+        },
+        finished => {
+          if (finished) {
+            runOnJS(closeProfileNotificationImageViewer)();
+          }
+        },
+      );
+    }, [
+      closeProfileNotificationImageViewer,
+      profileNotificationImageTranslateX,
+      profileNotificationImageTranslateY,
+    ]);
 
   const profileNotificationImageViewerBackdropStyle = useAnimatedStyle(() => {
     return {
@@ -832,7 +947,11 @@ export default function AuthScreen() {
         { scale: profileNotificationImageScale.value },
       ],
     };
-  }, [profileNotificationImageScale, profileNotificationImageTranslateX, profileNotificationImageTranslateY]);
+  }, [
+    profileNotificationImageScale,
+    profileNotificationImageTranslateX,
+    profileNotificationImageTranslateY,
+  ]);
 
   const profileNotificationImageTapGesture = React.useMemo(
     () =>
@@ -851,7 +970,8 @@ export default function AuthScreen() {
     () =>
       Gesture.Pinch()
         .onStart(() => {
-          profileNotificationImageScaleOffset.value = profileNotificationImageScale.value;
+          profileNotificationImageScaleOffset.value =
+            profileNotificationImageScale.value;
         })
         .onUpdate(event => {
           const nextScale = clampValue(
@@ -968,8 +1088,10 @@ export default function AuthScreen() {
       Gesture.Pan()
         .maxPointers(1)
         .onStart(() => {
-          profileNotificationImagePanStartX.value = profileNotificationImageTranslateX.value;
-          profileNotificationImagePanStartY.value = profileNotificationImageTranslateY.value;
+          profileNotificationImagePanStartX.value =
+            profileNotificationImageTranslateX.value;
+          profileNotificationImagePanStartY.value =
+            profileNotificationImageTranslateY.value;
           profileNotificationImageGestureMode.value = 0;
         })
         .onUpdate(event => {
@@ -977,7 +1099,8 @@ export default function AuthScreen() {
             if (profileNotificationImageGestureMode.value === 0) {
               const absX = Math.abs(event.translationX);
               const absY = Math.abs(event.translationY);
-              const isDismissIntent = event.translationY > 8 && absY > absX * 1.1;
+              const isDismissIntent =
+                event.translationY > 8 && absY > absX * 1.1;
 
               if (isDismissIntent) {
                 profileNotificationImageGestureMode.value = 2;
@@ -987,8 +1110,12 @@ export default function AuthScreen() {
             }
 
             if (profileNotificationImageGestureMode.value === 2) {
-              profileNotificationImageTranslateX.value = event.translationX * 0.08;
-              profileNotificationImageTranslateY.value = Math.max(event.translationY, 0);
+              profileNotificationImageTranslateX.value =
+                event.translationX * 0.08;
+              profileNotificationImageTranslateY.value = Math.max(
+                event.translationY,
+                0,
+              );
               return;
             }
 
@@ -1015,7 +1142,10 @@ export default function AuthScreen() {
           }
 
           profileNotificationImageTranslateX.value = event.translationX * 0.16;
-          profileNotificationImageTranslateY.value = Math.max(event.translationY, 0);
+          profileNotificationImageTranslateY.value = Math.max(
+            event.translationY,
+            0,
+          );
         })
         .onEnd(event => {
           if (
@@ -1100,14 +1230,19 @@ export default function AuthScreen() {
     ],
   );
 
-  const loadSessionNotifications = React.useCallback(async (employeeId: string) => {
-    const notifications = await notificationsApi.list(employeeId);
-    const unreadCount = notifications.filter(notification => !notification.is_read).length;
-    setProfileNotifications(notifications);
-    setProfileNotificationsCount(unreadCount);
-    emitNotificationsUnreadCountChanged({ employeeId, unreadCount });
-    return notifications;
-  }, []);
+  const loadSessionNotifications = React.useCallback(
+    async (employeeId: string) => {
+      const notifications = await notificationsApi.list(employeeId);
+      const unreadCount = notifications.filter(
+        notification => !notification.is_read,
+      ).length;
+      setProfileNotifications(notifications);
+      setProfileNotificationsCount(unreadCount);
+      emitNotificationsUnreadCountChanged({ employeeId, unreadCount });
+      return notifications;
+    },
+    [],
+  );
 
   const {
     form,
@@ -1165,17 +1300,240 @@ export default function AuthScreen() {
     [closeOpenedProfileNotification],
   );
 
-  const handleProfileNotificationSwipeCloseStart = React.useCallback(() => {}, []);
+  const handleProfileNotificationSwipeCloseStart =
+    React.useCallback(() => {}, []);
 
-  const handleProfileNotificationSwipeOpened = React.useCallback((notificationId: number) => {
-    openedProfileNotificationIdRef.current = notificationId;
-  }, []);
+  const handleProfileNotificationSwipeOpened = React.useCallback(
+    (notificationId: number) => {
+      openedProfileNotificationIdRef.current = notificationId;
+    },
+    [],
+  );
 
-  const handleProfileNotificationSwipeClosed = React.useCallback((notificationId: number) => {
-    if (openedProfileNotificationIdRef.current === notificationId) {
-      openedProfileNotificationIdRef.current = null;
+  const handleProfileNotificationSwipeClosed = React.useCallback(
+    (notificationId: number) => {
+      if (openedProfileNotificationIdRef.current === notificationId) {
+        openedProfileNotificationIdRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const authIsMaterial = isAndroid && androidTheme.mode === 'material';
+  const supportsMaterialSystemColors =
+    isAndroid && authIsMaterial && Number(Platform.Version) >= 31;
+  const authBackgroundHex =
+    isAndroid && androidPalette
+      ? androidTheme.mode === 'company'
+        ? '#000000'
+        : getAndroidStatusBarColor(colorScheme === 'dark')
+      : '#000000';
+  const authBackground = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_900'
+          : '@android:color/system_neutral1_10',
+      )
+    : authBackgroundHex;
+  const authSurfaceMuted = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_800'
+          : '@android:color/system_neutral1_0',
+      )
+    : isAndroid && androidPalette
+    ? authIsMaterial
+      ? String(androidPalette.surfaceRaised)
+      : String(androidPalette.surface)
+    : '#1A1A1A';
+  const authBorder = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_700'
+          : '@android:color/system_neutral2_200',
+      )
+    : isAndroid && androidPalette
+    ? androidTheme.mode === 'company'
+      ? String(androidPalette.primaryContainerStrong)
+      : String(androidPalette.outline)
+    : '#2B2B2B';
+  const authText = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_50'
+          : '@android:color/system_neutral1_900',
+      )
+    : isAndroid && androidPalette
+    ? String(androidPalette.onSurface)
+    : '#FFFFFF';
+  const authMutedText = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_200'
+          : '@android:color/system_neutral2_700',
+      )
+    : isAndroid && androidPalette
+    ? String(androidPalette.onSurfaceMuted)
+    : '#A6A6A6';
+  const authPlaceholder = authMutedText;
+  const authAccent = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_300'
+          : '@android:color/system_accent1_500',
+      )
+    : isAndroid && androidPalette
+    ? String(androidPalette.primary)
+    : '#FF6A00';
+  const authOnAccent = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_50'
+          : '@android:color/system_neutral1_900',
+      )
+    : isAndroid && androidPalette
+    ? authIsMaterial
+      ? String(androidPalette.primaryStrong)
+      : String(androidPalette.buttonText)
+    : '#FFFFFF';
+  const authButtonBackground = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_800'
+          : '@android:color/system_accent1_100',
+      )
+    : isAndroid && androidPalette && authIsMaterial
+    ? String(androidPalette.primaryContainerStrong)
+    : authAccent;
+  const authButtonBorder = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_700'
+          : '@android:color/system_accent1_200',
+      )
+    : isAndroid && androidPalette && authIsMaterial
+    ? String(androidPalette.primaryContainer)
+    : authAccent;
+  const authBrandGlow =
+    isAndroid && androidTheme.mode === 'material'
+      ? colorScheme === 'dark'
+        ? 'rgba(169,184,255,0.18)'
+        : 'rgba(79,110,232,0.18)'
+      : 'rgba(255,106,0,0.16)';
+  const authBrandCapsuleBackground = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_800'
+          : '@android:color/system_neutral1_0',
+      )
+    : isAndroid && androidPalette && authIsMaterial
+    ? String(androidPalette.surfaceRaised)
+    : '#111111';
+  const authBrandCapsuleBorder = supportsMaterialSystemColors
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_700'
+          : '@android:color/system_neutral2_200',
+      )
+    : isAndroid && androidPalette && authIsMaterial
+    ? String(androidPalette.outlineVariant)
+    : 'rgba(255,255,255,0.08)';
+  const authInputFocusedStyle = {
+    borderColor: authAccent,
+    borderWidth: 1,
+    shadowColor: authAccent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 4,
+  };
+  const authStatusBarStyle = getAndroidStatusBarStyle(authBackgroundHex);
+  const [isAuthKeyboardVisible, setIsAuthKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isAndroid) {
+      authScreenReveal.setValue(1);
+      return;
     }
-  }, []);
+
+    if (session) {
+      authScreenReveal.setValue(0);
+      return;
+    }
+
+    if (androidTheme.shouldShowIntro) {
+      authScreenReveal.setValue(0);
+      return;
+    }
+
+    authScreenReveal.stopAnimation();
+    authScreenReveal.setValue(0);
+    Animated.parallel([
+      Animated.timing(authScreenReveal, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.bezier(0.2, 0.86, 0.24, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [androidTheme.shouldShowIntro, authScreenReveal, isAndroid, session]);
+
+  useEffect(() => {
+    if (!isAndroid) {
+      appShellReveal.setValue(1);
+      return;
+    }
+
+    if (!session) {
+      appShellReveal.setValue(0);
+      return;
+    }
+
+    appShellReveal.stopAnimation();
+    appShellReveal.setValue(0);
+    Animated.parallel([
+      Animated.timing(appShellReveal, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.bezier(0.18, 0.84, 0.22, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [appShellReveal, isAndroid, session]);
+
+  useEffect(() => {
+    if (!isAndroid || session) {
+      return;
+    }
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', event => {
+      setIsAuthKeyboardVisible(true);
+      const height = event.endCoordinates?.height ?? 0;
+      Animated.spring(authKeyboardShift, {
+        toValue: -Math.min(height * 0.18, 74),
+        stiffness: 210,
+        damping: 24,
+        mass: 0.92,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsAuthKeyboardVisible(false);
+      Animated.spring(authKeyboardShift, {
+        toValue: 0,
+        stiffness: 220,
+        damping: 26,
+        mass: 0.94,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [authKeyboardShift, isAndroid, session]);
 
   const openProfileSheet = React.useCallback(() => {
     setIsProfileSheetOpen(true);
@@ -1214,7 +1572,11 @@ export default function AuthScreen() {
         closeProfileNotificationImageViewer();
       }
     });
-  }, [closeProfileNotificationImageViewer, profileSheetDragY, profileSheetProgress]);
+  }, [
+    closeProfileNotificationImageViewer,
+    profileSheetDragY,
+    profileSheetProgress,
+  ]);
 
   const dismissProfileSheetFromDrag = React.useCallback(() => {
     profileSheetProgress.stopAnimation();
@@ -1234,17 +1596,23 @@ export default function AuthScreen() {
         closeProfileNotificationImageViewer();
       }
     });
-  }, [closeProfileNotificationImageViewer, profileSheetDragY, profileSheetProgress]);
+  }, [
+    closeProfileNotificationImageViewer,
+    profileSheetDragY,
+    profileSheetProgress,
+  ]);
 
   const profileSheetDismissResponder = React.useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gestureState) => {
-          const isVerticalPull = Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2;
+          const isVerticalPull =
+            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2;
           return gestureState.dy > 12 && isVerticalPull;
         },
         onPanResponderMove: (_event, gestureState) => {
-          const nextOffset = gestureState.dy > 0 ? gestureState.dy : gestureState.dy * 0.18;
+          const nextOffset =
+            gestureState.dy > 0 ? gestureState.dy : gestureState.dy * 0.18;
           profileSheetDragY.setValue(nextOffset);
         },
         onPanResponderRelease: (_event, gestureState) => {
@@ -1280,51 +1648,61 @@ export default function AuthScreen() {
     [dismissProfileSheetFromDrag, profileSheetDragY],
   );
 
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const applyTabSelection = React.useCallback((nextTab: AuthTab) => {
+    if (nextTab === 'home') {
+      setActiveTab('home');
+      setOldPassword('');
+      setNewPassword('');
+      setChangePasswordError(null);
+      setChangePasswordSuccess(null);
+      setIsOldPasswordVisible(false);
+      setIsNewPasswordVisible(false);
+      setFocusedProfileField(null);
+      setIsPasswordSectionOpen(false);
+    } else {
+      setActiveTab(nextTab);
+      setIsPasswordSectionOpen(false);
+    }
+    activeTabRef.current = nextTab;
+  }, []);
+
   const switchTab = React.useCallback(
     (nextTab: AuthTab) => {
-      if (nextTab === activeTab || isTabTransitioning) {
+      const currentTab = activeTabRef.current;
+      if (nextTab === currentTab) {
         return;
       }
 
-      setPreviousTab(activeTab);
+      const transitionToken = tabTransitionTokenRef.current + 1;
+      tabTransitionTokenRef.current = transitionToken;
+      setPreviousTab(currentTab);
       setIsTabTransitioning(true);
+      isTabTransitioningRef.current = true;
       tabTransitionProgress.stopAnimation();
       tabTransitionProgress.setValue(0);
 
-      if (nextTab === 'home') {
-        setActiveTab('home');
-        setProfileInitialRoute('root');
-        setOldPassword('');
-        setNewPassword('');
-        setChangePasswordError(null);
-        setChangePasswordSuccess(null);
-        setIsOldPasswordVisible(false);
-        setIsNewPasswordVisible(false);
-        setFocusedProfileField(null);
-        setIsPasswordSectionOpen(false);
-      } else {
-        setActiveTab(nextTab);
-        if (nextTab !== 'profile') {
-          setProfileInitialRoute('root');
-        }
-        setIsPasswordSectionOpen(false);
-      }
+      applyTabSelection(nextTab);
 
       Animated.timing(tabTransitionProgress, {
         toValue: 1,
-        duration: Platform.OS === 'android' ? 240 : 300,
+        duration: Platform.OS === 'android' ? 280 : 300,
         easing:
           Platform.OS === 'android'
-            ? Easing.out(Easing.cubic)
+            ? Easing.bezier(0.22, 0.92, 0.24, 1)
             : Easing.bezier(0.22, 1, 0.36, 1),
         useNativeDriver: true,
       }).start(({ finished }) => {
-        if (finished) {
+        if (finished && tabTransitionTokenRef.current === transitionToken) {
           setIsTabTransitioning(false);
+          isTabTransitioningRef.current = false;
         }
       });
     },
-    [activeTab, isTabTransitioning, tabTransitionProgress],
+    [applyTabSelection, tabTransitionProgress],
   );
 
   useEffect(() => {
@@ -1524,7 +1902,8 @@ export default function AuthScreen() {
       const messageKey = getPushNotificationOpenMessageKey(message);
       if (messageKey) {
         const now = Date.now();
-        const lastHandledAt = handledPushOpenMessageIdsRef.current.get(messageKey);
+        const lastHandledAt =
+          handledPushOpenMessageIdsRef.current.get(messageKey);
 
         if (lastHandledAt && now - lastHandledAt < 2500) {
           return;
@@ -1536,7 +1915,10 @@ export default function AuthScreen() {
       try {
         openProfileSheet();
         const notifications = await loadSessionNotifications(session.user.id);
-        const matchedNotification = findNotificationFromPushMessage(notifications, message);
+        const matchedNotification = findNotificationFromPushMessage(
+          notifications,
+          message,
+        );
 
         if (matchedNotification) {
           await handleProfileNotificationPress(matchedNotification);
@@ -1565,8 +1947,8 @@ export default function AuthScreen() {
       return;
     }
 
-    let isMounted = true;
     const employeeId = session.user.id;
+    let isMounted = true;
 
     async function syncProfileNotifications(showLoader: boolean) {
       if (showLoader) {
@@ -1574,6 +1956,38 @@ export default function AuthScreen() {
       }
 
       try {
+        const res = await fetch(
+          buildApiUrl(
+            `/employees/${encodeURIComponent(employeeId)}/hr/regions`,
+          ),
+        );
+
+        if (res.status === 404 || res.status === 501) {
+          if (isMounted) {
+            setProfileNotificationsCount(0);
+          }
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`HR regions HTTP ${res.status}`);
+        }
+
+        const data = (await res.json()) as {
+          regions?: Array<{
+            employee_count?: number | null;
+            shop_count?: number | null;
+          }>;
+        };
+
+        const nextCount = Array.isArray(data.regions)
+          ? data.regions.filter(region => {
+              const employeeCount = Number(region.employee_count ?? 0);
+              const shopCount = Number(region.shop_count ?? 0);
+              return employeeCount > 0 || shopCount > 0;
+            }).length
+          : 0;
+
         if (isMounted) {
           await loadSessionNotifications(employeeId);
         }
@@ -1591,21 +2005,26 @@ export default function AuthScreen() {
 
     void syncProfileNotifications(true);
 
-    const unsubscribeForegroundMessages = subscribeToForegroundPushMessages(() => {
-      if (!isMounted) {
-        return;
-      }
 
-      void syncProfileNotifications(false);
-    });
+    const unsubscribeForegroundMessages = subscribeToForegroundPushMessages(
+      () => {
+        if (!isMounted) {
+          return;
+        }
 
-    const unsubscribePushOpens = subscribeToPushNotificationOpens(remoteMessage => {
-      if (!isMounted) {
-        return;
-      }
+        void syncProfileNotifications(false);
+      },
+    );
 
-      void handleOpenNotificationFromPush(remoteMessage);
-    });
+    const unsubscribePushOpens = subscribeToPushNotificationOpens(
+      remoteMessage => {
+        if (!isMounted) {
+          return;
+        }
+
+        void handleOpenNotificationFromPush(remoteMessage);
+      },
+    );
 
     if (!hasCheckedInitialPushOpenRef.current) {
       hasCheckedInitialPushOpenRef.current = true;
@@ -1617,7 +2036,10 @@ export default function AuthScreen() {
             await handleOpenNotificationFromPush(initialPushMessage);
           }
         } catch (requestError) {
-          console.error('Failed to restore initial push notification', requestError);
+          console.error(
+            'Failed to restore initial push notification',
+            requestError,
+          );
         }
       })();
     }
@@ -1672,7 +2094,9 @@ export default function AuthScreen() {
 
       try {
         await notificationsApi.remove(session.user.id, notification.id);
-        setProfileNotifications(prev => prev.filter(item => item.id !== notification.id));
+        setProfileNotifications(prev =>
+          prev.filter(item => item.id !== notification.id),
+        );
         setProfileNotificationsCount(prev => {
           const nextCount = notification.is_read ? prev : Math.max(0, prev - 1);
           emitNotificationsUnreadCountChanged({
@@ -1752,7 +2176,7 @@ export default function AuthScreen() {
     };
   }, [error, errorVersion, loginErrorOpacity, clearError]);
 
-  const resetChangePasswordForm = () => {
+  const resetChangePasswordForm = React.useCallback(() => {
     setOldPassword('');
     setNewPassword('');
     setChangePasswordError(null);
@@ -1761,7 +2185,7 @@ export default function AuthScreen() {
     setIsNewPasswordVisible(false);
     setFocusedProfileField(null);
     setIsPasswordSectionOpen(false);
-  };
+  }, []);
 
   const resetForgotPasswordForm = () => {
     setIsForgotPasswordFlow(false);
@@ -1778,8 +2202,9 @@ export default function AuthScreen() {
   };
 
   useEffect(() => {
-    // On any auth session transition (login/logout/account switch),
-    // force UI back to the default Home state.
+    // On login/logout/account switch, force UI back to the default Home state.
+    // Do not reset on token refresh, otherwise pull-to-refresh inside tabs
+    // kicks the user back to Home.
     setActiveTab('home');
     setIsProfileSheetOpen(false);
     profileSheetProgress.stopAnimation();
@@ -1794,7 +2219,7 @@ export default function AuthScreen() {
     setIsPasswordVisible(false);
     setFocusedLoginField(null);
     setFocusedProfileField(null);
-  }, [session?.user?.id, session?.accessToken, profileSheetProgress]);
+  }, [session?.user?.id, profileSheetProgress]);
 
   const sendResetCode = async () => {
     if (isForgotSubmitting || forgotSubmitLockRef.current) {
@@ -1814,7 +2239,9 @@ export default function AuthScreen() {
       setIsCodeSent(true);
     } catch (requestError) {
       const message =
-        requestError instanceof Error ? requestError.message : 'Не удалось отправить код';
+        requestError instanceof Error
+          ? requestError.message
+          : 'Не удалось отправить код';
       setForgotError(message);
     } finally {
       setIsForgotSubmitting(false);
@@ -1866,7 +2293,9 @@ export default function AuthScreen() {
       setAuthNotice('Пароль успешно сброшен. Войдите с новым паролем');
     } catch (requestError) {
       const message =
-        requestError instanceof Error ? requestError.message : 'Не удалось сбросить пароль';
+        requestError instanceof Error
+          ? requestError.message
+          : 'Не удалось сбросить пароль';
       setForgotError(message);
     } finally {
       setIsForgotSubmitting(false);
@@ -1938,51 +2367,107 @@ export default function AuthScreen() {
       .join(' ');
     const displayName = fullName || session.user.email;
     const profileEmail = session.user.email || 'Почта не указана';
-    const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase();
+    const profileLetter = (
+      session.user.email?.trim()?.charAt(0) || 'П'
+    ).toUpperCase();
     const profileStatusBarStyle =
       isAndroid && androidPalette
-        ? getAndroidStatusBarStyle(String(androidPalette.background))
+        ? getAndroidStatusBarStyle(
+            androidTheme.mode === 'company'
+              ? '#000000'
+              : getAndroidStatusBarColor(colorScheme === 'dark'),
+          )
         : 'light-content';
     const isAndroidMaterialMode = isAndroid && androidTheme.mode === 'material';
-    const isAndroidMaterialDark = isAndroidMaterialMode && colorScheme === 'dark';
-    const androidTabThemeMode =
-      isAndroidMaterialMode && !isAndroidMaterialDark ? 'light' : 'dark';
+    const isAndroidMaterialDark =
+      isAndroidMaterialMode && colorScheme === 'dark';
+    const androidTabThemeMode = 'dark';
     const androidTabActiveBackground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.primaryContainerStrong)
+          ? 'rgba(120,70,39,0.58)'
           : isAndroidMaterialDark
-            ? String(androidPalette.surfaceAccent)
-            : String(androidPalette.primaryContainer)
+          ? 'rgba(255,255,255,0.14)'
+          : 'rgba(255,255,255,0.16)'
+        : undefined;
+    const androidTabActivePillSolid =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? 'rgba(58,36,24,0.96)'
+          : undefined
         : undefined;
     const androidTabActiveForeground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.onSurface)
+          ? '#FFF4EC'
           : isAndroidMaterialDark
-            ? String(androidPalette.onSurface)
-            : String(androidPalette.primaryStrong)
+          ? '#FFFFFF'
+          : '#FFFFFF'
         : undefined;
     const androidTabInactiveForeground =
       isAndroid && androidPalette
-        ? isAndroidMaterialDark
-          ? '#B7C0C9'
-          : String(androidPalette.onSurfaceMuted)
+        ? isAndroid && androidTheme.mode === 'company'
+          ? 'rgba(255,237,226,0.76)'
+          : isAndroidMaterialDark
+          ? 'rgba(235,241,247,0.78)'
+          : 'rgba(235,241,247,0.74)'
         : undefined;
     const androidTabShellBackground =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.surfaceRaised)
-          : isAndroidMaterialDark
-            ? 'rgba(18,22,26,0.92)'
-            : 'rgba(251,252,254,0.94)'
+          ? 'rgba(22,16,12,0.14)'
+          : 'rgba(13,16,19,0.18)'
         : undefined;
     const androidTabShellBorder =
       isAndroid && androidPalette
         ? isAndroid && androidTheme.mode === 'company'
-          ? String(androidPalette.primaryContainerStrong)
-          : String(androidPalette.outlineVariant)
+          ? 'rgba(255,140,56,0.16)'
+          : 'rgba(255,255,255,0.09)'
         : undefined;
+    const profileSheetSurface =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.background
+          : androidPalette.surfaceRaised
+        : '#1C1C1E';
+    const profileSurface =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceRaised
+          : androidPalette.surfaceRaised
+        : '#1C1C1E';
+    const profileSurfaceMuted =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceAccent
+          : androidPalette.surfaceMuted
+        : '#151515';
+    const profileSurfaceAccent =
+      isAndroid && androidPalette
+        ? isAndroidMaterialDark
+          ? androidPalette.surfaceMuted
+          : androidPalette.surfaceAccent
+        : '#3A3A3C';
+    const profileBorder =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? androidPalette.primaryContainerStrong
+          : isAndroidMaterialDark
+          ? androidPalette.outline
+          : androidPalette.outlineVariant
+        : '#2C2C2E';
+    const profileText =
+      isAndroid && androidPalette ? androidPalette.onSurface : '#F2F2F7';
+    const profileMutedText =
+      isAndroid && androidPalette ? androidPalette.onSurfaceMuted : '#8E8E93';
+    const profileAccent =
+      isAndroid && androidPalette
+        ? isAndroid && androidTheme.mode === 'company'
+          ? androidPalette.primary
+          : isAndroidMaterialDark
+          ? androidPalette.primaryStrong
+          : androidPalette.primary
+        : '#FF6A00';
 
     const showProfile = activeTab === 'profile';
     const showMail = activeTab === 'mail';
@@ -2025,7 +2510,8 @@ export default function AuthScreen() {
     const previousIndex = tabIndexMap[previousTab];
     const activeIndex = tabIndexMap[activeTab];
     const direction = activeIndex > previousIndex ? 1 : -1;
-    const travelDistance = Platform.OS === 'android' ? SCREEN_WIDTH * 0.045 : SCREEN_WIDTH * 0.14;
+    const travelDistance =
+      Platform.OS === 'android' ? SCREEN_WIDTH * 0.125 : SCREEN_WIDTH * 0.14;
 
     const createTabAnimatedStyle = (tab: AuthTab) => {
       const isIncoming = tab === activeTab;
@@ -2041,10 +2527,37 @@ export default function AuthScreen() {
       }
 
       if (isIncoming) {
+        if (Platform.OS === 'android') {
+          return {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 0.26, 1],
+              outputRange: [0.1, 0.48, 1],
+              extrapolate: 'clamp',
+            }),
+            zIndex: 3,
+            transform: [
+              {
+                translateX: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [direction * travelDistance, 0],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.992, 1],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          };
+        }
+
         return {
           opacity: tabTransitionProgress.interpolate({
             inputRange: [0, 0.12, 1],
-            outputRange: [0, Platform.OS === 'android' ? 0.22 : 0.1, 1],
+            outputRange: [0, 0.1, 1],
             extrapolate: 'clamp',
           }),
           zIndex: 3,
@@ -2061,10 +2574,37 @@ export default function AuthScreen() {
       }
 
       if (isOutgoing) {
+        if (Platform.OS === 'android') {
+          return {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0.22],
+              extrapolate: 'clamp',
+            }),
+            zIndex: 2,
+            transform: [
+              {
+                translateX: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -direction * travelDistance * 0.58],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: tabTransitionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0.988],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+          };
+        }
+
         return {
           opacity: tabTransitionProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: [1, Platform.OS === 'android' ? 0 : 0],
+            outputRange: [1, 0],
             extrapolate: 'clamp',
           }),
           zIndex: 2,
@@ -2072,7 +2612,7 @@ export default function AuthScreen() {
             {
               translateX: tabTransitionProgress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [0, Platform.OS === 'android' ? -direction * travelDistance * 0.35 : -direction * travelDistance * 0.7],
+                outputRange: [0, -direction * travelDistance * 0.7],
                 extrapolate: 'clamp',
               }),
             },
@@ -2091,16 +2631,49 @@ export default function AuthScreen() {
     const mailTabAnimatedStyle = createTabAnimatedStyle('mail');
     const trashTabAnimatedStyle = createTabAnimatedStyle('trash');
     const profileTabAnimatedStyle = createTabAnimatedStyle('profile');
-
+    const androidTabTransitionVeilStyle =
+      isAndroid && isTabTransitioning
+        ? {
+            opacity: tabTransitionProgress.interpolate({
+              inputRange: [0, 0.24, 1],
+              outputRange: [0.018, 0.014, 0],
+              extrapolate: 'clamp',
+            }),
+          }
+        : undefined;
+    const appShellAnimatedStyle = isAndroid
+      ? {
+          opacity: appShellReveal,
+          transform: [
+            {
+              translateY: appShellReveal.interpolate({
+                inputRange: [0, 1],
+                outputRange: [18, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+            {
+              scale: appShellReveal.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.992, 1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        }
+      : undefined;
     return (
-      <View style={styles.authenticatedScreen}>
+      <Animated.View
+        style={[styles.authenticatedScreen, appShellAnimatedStyle]}
+      >
         <Animated.View
           style={[styles.homeLayer, homeTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
-          pointerEvents={activeTab === 'home' ? 'auto' : 'none'}>
+          pointerEvents={activeTab === 'home' ? 'auto' : 'none'}
+        >
           <HomeScreenRouter
             session={session}
             isRefreshingSession={isRefreshingSession}
+            onShiftStatusChange={setOpenedShift}
             onLogout={() => {
               resetChangePasswordForm();
               setActiveTab('home');
@@ -2122,59 +2695,36 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, mailTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
-          pointerEvents={showMail ? 'auto' : 'none'}>
-          <CertificatesScreen employeeId={session.user.id} />
-          </Animated.View>
+          pointerEvents={showMail ? 'auto' : 'none'}
+        >
+          <CertificatesScreen
+            employeeId={session.user.id}
+            isActive={showMail}
+            isShiftOpen={openedShift ? true : false}
+            currentShopName={openedShift?.shopName ?? null}
+          />
+        </Animated.View>
 
         <Animated.View
           style={[styles.tabLayer, trashTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
-          pointerEvents={showTrash ? 'auto' : 'none'}>
-            {isAndroid ? (
-              <SafeAreaView
-                style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]}
-                edges={['top', 'bottom']}>
-                <View style={styles.comingSoonWrap}>
-                  <Image
-                    source={lockIcon}
-                    fadeDuration={0}
-                    style={styles.comingSoonIcon}
-                  />
-                  <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
-                </View>
-              </SafeAreaView>
-            ) : (
-              <View style={[styles.authenticatedScreen, { backgroundColor: '#000000' }]} />
-            )}
-          </Animated.View>
-
-        {!isAndroid ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.iosComingSoonOverlay,
-              { opacity: showTrash ? 1 : 0 },
-            ]}>
-              <View style={styles.comingSoonWrap}>
-                <Image
-                  source={lockIcon}
-                  fadeDuration={0}
-                  style={styles.comingSoonIcon}
-                />
-              <Text style={styles.comingSoonText}>Этот раздел еще не доступен</Text>
-            </View>
-          </View>
-        ) : null}
+          pointerEvents={showTrash ? 'auto' : 'none'}
+        >
+          <ProductInfoScreen
+            session={session}
+            isRefreshing={isRefreshingSession}
+            onRefresh={refreshSession}
+          />
+        </Animated.View>
 
         {!isAndroid && showTrash ? (
           <View pointerEvents="box-none" style={styles.iosFloatingHeaderWrap}>
-              <View
-                style={[
-                  styles.tabHeaderContainer,
-                  styles.iosFloatingHeaderContainer,
-                  { paddingTop: insets.top + 25 },
-                ]}>
+            <View
+              style={[
+                styles.tabHeaderContainer,
+                styles.iosFloatingHeaderContainer,
+                { paddingTop: insets.top + 25 },
+              ]}
+            >
               <View
                 style={[
                   styles.tabHeaderRow,
@@ -2188,55 +2738,103 @@ export default function AuthScreen() {
 
         <Animated.View
           style={[styles.tabLayer, profileTabAnimatedStyle]}
-          renderToHardwareTextureAndroid
-          pointerEvents={showProfile ? 'auto' : 'none'}>
-            <SafeAreaView
-              style={[
-                styles.authenticatedScreen,
-                {
-                  backgroundColor:
-                    isAndroid && androidPalette
-                      ? String(androidPalette.background)
-                      : '#000000',
-                },
-              ]}
-              edges={['top', 'bottom']}>
-              <StatusBar barStyle={profileStatusBarStyle} />
-              <MoreScreen
-                employeeId={session.user.id}
-                userRole={Number(session.user.userRole ?? 3)}
-                initialRoute={profileInitialRoute}
-              />
-            </SafeAreaView>
-          </Animated.View>
+          pointerEvents={showProfile ? 'auto' : 'none'}
+        >
+          <SafeAreaView
+            style={[
+              styles.authenticatedScreen,
+              {
+                backgroundColor:
+                  isAndroid && androidPalette
+                    ? androidTheme.mode === 'company'
+                      ? '#000000'
+                      : androidPalette.background
+                    : '#000000',
+              },
+            ]}
+            edges={['top', 'bottom']}
+          >
+            <StatusBar barStyle={profileStatusBarStyle} />
+            <MoreScreen
+              employeeId={session.user.id}
+              userRole={Number(session.user.userRole ?? 3)}
+              initialRoute={profileInitialRoute}
+            />
+          </SafeAreaView>
+        </Animated.View>
+
+        {isAndroid && isTabTransitioning ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                zIndex: 4,
+                backgroundColor:
+                  androidTheme.mode === 'company'
+                    ? 'rgba(0,0,0,0.92)'
+                    : colorScheme === 'dark'
+                    ? 'rgba(8,10,12,0.94)'
+                    : 'rgba(245,248,252,0.92)',
+              },
+              androidTabTransitionVeilStyle,
+            ]}
+          />
+        ) : null}
 
         {isProfileSheetOpen ? (
           <View style={styles.profileSheetRoot} pointerEvents="box-none">
-            <Pressable style={StyleSheet.absoluteFill} onPress={closeProfileSheet}>
-              <Animated.View style={[styles.profileSheetBackdrop, { opacity: profileOverlayOpacity }]} />
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeProfileSheet}
+            >
+              <Animated.View
+                style={[
+                  styles.profileSheetBackdrop,
+                  { opacity: profileOverlayOpacity },
+                ]}
+              />
             </Pressable>
 
             <Animated.View
               style={[
                 styles.profileSheetCard,
                 {
+                  backgroundColor: profileSheetSurface,
+                  borderColor: profileBorder,
                   top: insets.top + 6,
                   transform: [
-                    { translateY: Animated.add(profileSheetTranslateY, profileSheetDragY) },
-                    { scale: Animated.multiply(profileSheetScale, profileSheetDragScale) },
+                    {
+                      translateY: Animated.add(
+                        profileSheetTranslateY,
+                        profileSheetDragY,
+                      ),
+                    },
+                    {
+                      scale: Animated.multiply(
+                        profileSheetScale,
+                        profileSheetDragScale,
+                      ),
+                    },
                   ],
                 },
-              ]}>
+              ]}
+            >
               {!isProfileNotificationImageViewerOpen ? (
                 <TouchableOpacity
                   style={styles.profileSheetCloseButton}
                   onPress={closeProfileSheet}
                   accessibilityRole="button"
-                  accessibilityLabel="Закрыть профиль">
-                  <Image source={crossIcon} style={styles.profileSheetCloseIcon} />
+                  accessibilityLabel="Закрыть профиль"
+                >
+                  <Image
+                    source={crossIcon}
+                    style={styles.profileSheetCloseIcon}
+                  />
                 </TouchableOpacity>
               ) : null}
-              {profileSheetRoute !== 'root' && !isProfileNotificationImageViewerOpen ? (
+              {profileSheetRoute !== 'root' &&
+              !isProfileNotificationImageViewerOpen ? (
                 <TouchableOpacity
                   style={styles.profileSheetBackButton}
                   onPress={() => {
@@ -2248,56 +2846,76 @@ export default function AuthScreen() {
                     setProfileSheetRoute('root');
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Вернуться в профиль">
+                  accessibilityLabel="Вернуться в профиль"
+                >
                   <Text style={styles.profileSheetBackButtonText}>‹</Text>
                 </TouchableOpacity>
               ) : null}
               {profileSheetRoute === 'notifications' ? (
                 <View
                   style={styles.profileSheetHeaderTitleWrap}
-                  {...profileSheetDismissResponder.panHandlers}>
-                  <Text style={styles.profileSheetHeaderTitle}>Центр уведомлений</Text>
+                  {...profileSheetDismissResponder.panHandlers}
+                >
+                  <Text style={styles.profileSheetHeaderTitle}>
+                    Центр уведомлений
+                  </Text>
                 </View>
-              ) : profileSheetRoute === 'notification-detail' && !isProfileNotificationImageViewerOpen ? (
+              ) : profileSheetRoute === 'notification-detail' &&
+                !isProfileNotificationImageViewerOpen ? (
                 <View
                   style={styles.profileSheetHeaderTitleWrap}
-                  {...profileSheetDismissResponder.panHandlers}>
-                  <Text style={styles.profileSheetHeaderTitle}>Уведомление</Text>
+                  {...profileSheetDismissResponder.panHandlers}
+                >
+                  <Text style={styles.profileSheetHeaderTitle}>
+                    Уведомление
+                  </Text>
                 </View>
               ) : isProfileNotificationImageViewerOpen ? null : (
                 <View
                   style={styles.profileSheetHeaderTitleWrap}
-                  {...profileSheetDismissResponder.panHandlers}>
+                  {...profileSheetDismissResponder.panHandlers}
+                >
                   <Text style={styles.profileSheetHeaderTitle}>Уч. запись</Text>
                 </View>
               )}
 
               <SafeAreaView
                 style={styles.profileSheetSafeArea}
-                edges={profileSheetRoute === 'root' ? ['top', 'bottom'] : ['top']}>
+                edges={
+                  profileSheetRoute === 'root' ? ['top', 'bottom'] : ['top']
+                }
+              >
                 <View
                   style={[
                     styles.profileSheetContent,
-                    profileSheetRoute !== 'root' && styles.profileSheetContentNotifications,
-                  ]}>
+                    profileSheetRoute !== 'root' &&
+                      styles.profileSheetContentNotifications,
+                  ]}
+                >
                   {profileSheetRoute === 'notifications' ? (
                     <>
                       <View
                         style={[
                           styles.profileNotificationsListWrap,
                           styles.profileNotificationsListWrapNotifications,
-                        ]}>
+                        ]}
+                      >
                         {isRefreshingProfileNotifications ||
-                        (isProfileNotificationsPulling && profileNotificationsPullDistance > 0) ? (
+                        (isProfileNotificationsPulling &&
+                          profileNotificationsPullDistance > 0) ? (
                           <View
                             style={[
                               styles.profileNotificationsRefreshCard,
                               !isRefreshingProfileNotifications &&
-                              isProfileNotificationsPulling && {
-                                opacity: Math.min(profileNotificationsPullDistance / 72, 1),
-                              },
+                                isProfileNotificationsPulling && {
+                                  opacity: Math.min(
+                                    profileNotificationsPullDistance / 72,
+                                    1,
+                                  ),
+                                },
                             ]}
-                            pointerEvents="none">
+                            pointerEvents="none"
+                          >
                             <ActivityIndicator size="small" color="#FF6A00" />
                           </View>
                         ) : null}
@@ -2311,12 +2929,17 @@ export default function AuthScreen() {
                           directionalLockEnabled
                           scrollEnabled={!isProfileNotificationSwipeActive}
                           onScroll={event => {
-                            if (isRefreshingProfileNotifications || isProfileNotificationsLoading) {
+                            if (
+                              isRefreshingProfileNotifications ||
+                              isProfileNotificationsLoading
+                            ) {
                               return;
                             }
 
                             const offsetY = event.nativeEvent.contentOffset.y;
-                            setProfileNotificationsPullDistance(offsetY < 0 ? Math.min(-offsetY, 96) : 0);
+                            setProfileNotificationsPullDistance(
+                              offsetY < 0 ? Math.min(-offsetY, 96) : 0,
+                            );
                           }}
                           onScrollBeginDrag={() => {
                             setIsProfileNotificationsPulling(true);
@@ -2344,24 +2967,42 @@ export default function AuthScreen() {
                             }
                           }}
                           scrollEventThrottle={16}
-                          showsVerticalScrollIndicator={false}>
-                          {isProfileNotificationsLoading && profileNotifications.length === 0 ? (
+                          showsVerticalScrollIndicator={false}
+                        >
+                          {isProfileNotificationsLoading &&
+                          profileNotifications.length === 0 ? (
                             <View style={styles.profileNotificationsEmptyCard}>
                               <ActivityIndicator size="small" color="#FF6A00" />
                             </View>
                           ) : profileNotifications.length === 0 ? (
-                            <View style={styles.profileNotificationsEmptyStateCard}>
-                              <View style={styles.profileNotificationsEmptyAccent} />
-                              <Text style={styles.profileNotificationsEmptyStateTitle}>Тут пока пусто</Text>
-                              <Text style={styles.profileNotificationsEmptyStateText}>
+                            <View
+                              style={styles.profileNotificationsEmptyStateCard}
+                            >
+                              <View
+                                style={styles.profileNotificationsEmptyAccent}
+                              />
+                              <Text
+                                style={
+                                  styles.profileNotificationsEmptyStateTitle
+                                }
+                              >
+                                Тут пока пусто
+                              </Text>
+                              <Text
+                                style={
+                                  styles.profileNotificationsEmptyStateText
+                                }
+                              >
                                 Новые уведомления появятся здесь
                               </Text>
                             </View>
                           ) : (
                             profileNotifications.map(notification => {
                               const isBusy =
-                                activeProfileNotificationId === notification.id ||
-                                deletingProfileNotificationId === notification.id;
+                                activeProfileNotificationId ===
+                                  notification.id ||
+                                deletingProfileNotificationId ===
+                                  notification.id;
 
                               return (
                                 <ProfileNotificationRow
@@ -2374,12 +3015,24 @@ export default function AuthScreen() {
                                   onDelete={item => {
                                     void handleDeleteProfileNotification(item);
                                   }}
-                                  onRegisterSwipeable={registerProfileNotificationSwipeable}
-                                  onSwipeOpenStart={handleProfileNotificationSwipeOpenStart}
-                                  onSwipeCloseStart={handleProfileNotificationSwipeCloseStart}
-                                  onSwipeOpened={handleProfileNotificationSwipeOpened}
-                                  onSwipeClosed={handleProfileNotificationSwipeClosed}
-                                  onSwipeActiveChange={setIsProfileNotificationSwipeActive}
+                                  onRegisterSwipeable={
+                                    registerProfileNotificationSwipeable
+                                  }
+                                  onSwipeOpenStart={
+                                    handleProfileNotificationSwipeOpenStart
+                                  }
+                                  onSwipeCloseStart={
+                                    handleProfileNotificationSwipeCloseStart
+                                  }
+                                  onSwipeOpened={
+                                    handleProfileNotificationSwipeOpened
+                                  }
+                                  onSwipeClosed={
+                                    handleProfileNotificationSwipeClosed
+                                  }
+                                  onSwipeActiveChange={
+                                    setIsProfileNotificationSwipeActive
+                                  }
                                 />
                               );
                             })
@@ -2391,24 +3044,35 @@ export default function AuthScreen() {
                     <View style={styles.profileNotificationDetailScreen}>
                       <ScrollView
                         style={styles.profileNotificationDetailScroll}
-                        contentContainerStyle={styles.profileNotificationDetailContent}
+                        contentContainerStyle={
+                          styles.profileNotificationDetailContent
+                        }
                         {...profileNotificationDetailSwipeResponder.panHandlers}
-                        pointerEvents={isProfileNotificationImageViewerOpen ? 'none' : 'auto'}
+                        pointerEvents={
+                          isProfileNotificationImageViewerOpen ? 'none' : 'auto'
+                        }
                         scrollEnabled={!isProfileNotificationImageViewerOpen}
-                        showsVerticalScrollIndicator={false}>
+                        showsVerticalScrollIndicator={false}
+                      >
                         {selectedProfileNotification ? (
                           <View style={styles.profileNotificationDetailCard}>
                             {!selectedProfileNotification.is_read ? (
-                              <View style={styles.profileNotificationUnreadStripe} />
+                              <View
+                                style={styles.profileNotificationUnreadStripe}
+                              />
                             ) : null}
                             <Text style={styles.profileNotificationDetailMeta}>
-                              {formatNotificationTimestamp(selectedProfileNotification)}
+                              {formatNotificationTimestamp(
+                                selectedProfileNotification,
+                              )}
                             </Text>
                             <Text style={styles.profileNotificationDetailTitle}>
-                              {selectedProfileNotification.title || 'Уведомление'}
+                              {selectedProfileNotification.title ||
+                                'Уведомление'}
                             </Text>
                             <Text style={styles.profileNotificationDetailBody}>
-                              {selectedProfileNotification.body || 'Текст уведомления не указан'}
+                              {selectedProfileNotification.body ||
+                                'Текст уведомления не указан'}
                             </Text>
 
                             {getNotificationPayloadImageUrl(
@@ -2426,24 +3090,33 @@ export default function AuthScreen() {
                                     styles.profileNotificationDetailGalleryBlockHidden,
                                 ]}
                                 pointerEvents={
-                                  isProfileNotificationImageViewerOpen ? 'none' : 'auto'
-                                }>
+                                  isProfileNotificationImageViewerOpen
+                                    ? 'none'
+                                    : 'auto'
+                                }
+                              >
                                 {getNotificationPayloadImageUrl(
                                   selectedProfileNotification.payload,
                                   'photo_opening_check',
                                 ) ? (
                                   <TouchableOpacity
-                                    style={styles.profileNotificationDetailGalleryItem}
+                                    style={
+                                      styles.profileNotificationDetailGalleryItem
+                                    }
                                     activeOpacity={0.95}
                                     onPress={() => {
-                                      const imageUrl = getNotificationPayloadImageUrl(
-                                        selectedProfileNotification.payload,
-                                        'photo_opening_check',
-                                      );
+                                      const imageUrl =
+                                        getNotificationPayloadImageUrl(
+                                          selectedProfileNotification.payload,
+                                          'photo_opening_check',
+                                        );
                                       if (imageUrl) {
-                                        openProfileNotificationImageViewer(imageUrl);
+                                        openProfileNotificationImageViewer(
+                                          imageUrl,
+                                        );
                                       }
-                                    }}>
+                                    }}
+                                  >
                                     <Image
                                       source={{
                                         uri:
@@ -2452,7 +3125,9 @@ export default function AuthScreen() {
                                             'photo_opening_check',
                                           ) || undefined,
                                       }}
-                                      style={styles.profileNotificationDetailGalleryImage}
+                                      style={
+                                        styles.profileNotificationDetailGalleryImage
+                                      }
                                     />
                                   </TouchableOpacity>
                                 ) : null}
@@ -2462,17 +3137,23 @@ export default function AuthScreen() {
                                   'photo_opening_em',
                                 ) ? (
                                   <TouchableOpacity
-                                    style={styles.profileNotificationDetailGalleryItem}
+                                    style={
+                                      styles.profileNotificationDetailGalleryItem
+                                    }
                                     activeOpacity={0.95}
                                     onPress={() => {
-                                      const imageUrl = getNotificationPayloadImageUrl(
-                                        selectedProfileNotification.payload,
-                                        'photo_opening_em',
-                                      );
+                                      const imageUrl =
+                                        getNotificationPayloadImageUrl(
+                                          selectedProfileNotification.payload,
+                                          'photo_opening_em',
+                                        );
                                       if (imageUrl) {
-                                        openProfileNotificationImageViewer(imageUrl);
+                                        openProfileNotificationImageViewer(
+                                          imageUrl,
+                                        );
                                       }
-                                    }}>
+                                    }}
+                                  >
                                     <Image
                                       source={{
                                         uri:
@@ -2481,7 +3162,9 @@ export default function AuthScreen() {
                                             'photo_opening_em',
                                           ) || undefined,
                                       }}
-                                      style={styles.profileNotificationDetailGalleryImage}
+                                      style={
+                                        styles.profileNotificationDetailGalleryImage
+                                      }
                                     />
                                   </TouchableOpacity>
                                 ) : null}
@@ -2489,35 +3172,87 @@ export default function AuthScreen() {
                             ) : null}
                           </View>
                         ) : (
-                          <View style={styles.profileNotificationsEmptyStateCard}>
-                            <View style={styles.profileNotificationsEmptyAccent} />
-                            <Text style={styles.profileNotificationsEmptyStateTitle}>
+                          <View
+                            style={styles.profileNotificationsEmptyStateCard}
+                          >
+                            <View
+                              style={styles.profileNotificationsEmptyAccent}
+                            />
+                            <Text
+                              style={styles.profileNotificationsEmptyStateTitle}
+                            >
                               Тут пока пусто
                             </Text>
-                            <Text style={styles.profileNotificationsEmptyStateText}>
+                            <Text
+                              style={styles.profileNotificationsEmptyStateText}
+                            >
                               Уведомление не найдено
                             </Text>
                           </View>
                         )}
                       </ScrollView>
-
                     </View>
                   ) : (
                     <>
-                      <View style={styles.profileAccountCard}>
+                      <View
+                        style={[
+                          styles.profileAccountCard,
+                          {
+                            backgroundColor: profileSurface,
+                            borderColor: profileBorder,
+                          },
+                        ]}
+                      >
                         <View style={styles.profileAccountRow}>
-                          <View style={styles.profileAvatarCircle}>
-                            <Text style={styles.profileAvatarLetter}>{profileLetter}</Text>
+                          <View
+                            style={[
+                              styles.profileAvatarCircle,
+                              {
+                                backgroundColor: profileSurfaceMuted,
+                                borderColor: profileBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.profileAvatarLetter,
+                                { color: profileText },
+                              ]}
+                            >
+                              {profileLetter}
+                            </Text>
                           </View>
                           <View style={styles.profileIdentityBlock}>
-                            <Text style={styles.profileAccountName}>{displayName}</Text>
-                            <Text style={styles.profileAccountEmail}>{profileEmail}</Text>
+                            <Text
+                              style={[
+                                styles.profileAccountName,
+                                { color: profileText },
+                              ]}
+                            >
+                              {displayName}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.profileAccountEmail,
+                                { color: profileMutedText },
+                              ]}
+                            >
+                              {profileEmail}
+                            </Text>
                           </View>
                         </View>
                       </View>
 
                       {!isPasswordSectionOpen ? (
-                        <View style={styles.profileActionsCard}>
+                        <View
+                          style={[
+                            styles.profileActionsCard,
+                            {
+                              backgroundColor: profileSurface,
+                              borderColor: profileBorder,
+                            },
+                          ]}
+                        >
                           <>
                             <TouchableOpacity
                               style={styles.profileRowButton}
@@ -2525,22 +3260,59 @@ export default function AuthScreen() {
                               delayPressIn={0}
                               onPressIn={() => {
                                 setProfileSheetRoute('notifications');
-                              }}>
-                              <Text style={styles.profileRowButtonText}>Уведомления</Text>
-                              <View style={styles.profileNotificationsMetaInline}>
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.profileRowButtonText,
+                                  { color: profileText },
+                                ]}
+                              >
+                                Уведомления
+                              </Text>
+                              <View
+                                style={styles.profileNotificationsMetaInline}
+                              >
                                 {isProfileNotificationsLoading ? (
-                                  <ActivityIndicator size="small" color="#FF6A00" />
+                                  <ActivityIndicator
+                                    size="small"
+                                    color="#FF6A00"
+                                  />
                                 ) : profileNotificationsCount > 0 ? (
-                                  <View style={styles.profileNotificationCountBadge}>
-                                    <Text style={styles.profileNotificationCountBadgeText}>
-                                      {profileNotificationsCount > 99 ? '99+' : profileNotificationsCount}
+                                  <View
+                                    style={[
+                                      styles.profileNotificationCountBadge,
+                                      { backgroundColor: profileAccent },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={
+                                        styles.profileNotificationCountBadgeText
+                                      }
+                                    >
+                                      {profileNotificationsCount > 99
+                                        ? '99+'
+                                        : profileNotificationsCount}
                                     </Text>
                                   </View>
                                 ) : null}
-                                <Text style={styles.profileRowChevron}>›</Text>
+                                <Text
+                                  style={[
+                                    styles.profileRowChevron,
+                                    { color: profileAccent },
+                                  ]}
+                                >
+                                  ›
+                                </Text>
                               </View>
                             </TouchableOpacity>
-                            <View style={styles.profileDivider} />
+
+                            <View
+                              style={[
+                                styles.profileDivider,
+                                { backgroundColor: profileBorder },
+                              ]}
+                            />
                           </>
 
                           <TouchableOpacity
@@ -2552,171 +3324,257 @@ export default function AuthScreen() {
                               setChangePasswordError(null);
                               setChangePasswordSuccess(null);
                             }}
-                            disabled={isChangingPassword}>
-                            <Text style={styles.profileRowButtonText}>Смена пароля</Text>
-                            <Text style={styles.profileRowChevron}>›</Text>
+                            disabled={isChangingPassword}
+                          >
+                            <Text
+                              style={[
+                                styles.profileRowButtonText,
+                                { color: profileText },
+                              ]}
+                            >
+                              Смена пароля
+                            </Text>
+                            <Text
+                              style={[
+                                styles.profileRowChevron,
+                                { color: profileAccent },
+                              ]}
+                            >
+                              ›
+                            </Text>
                           </TouchableOpacity>
 
-                          <View style={styles.profileDivider} />
+                          <View
+                            style={[
+                              styles.profileDivider,
+                              { backgroundColor: profileBorder },
+                            ]}
+                          />
+
                           <View style={styles.profileRowStatic}>
-                            <Text style={styles.profileRowMutedText}>
+                            <Text
+                              style={[
+                                styles.profileRowMutedText,
+                                { color: profileMutedText },
+                              ]}
+                            >
                               Скоро здесь появится больше возможностей
                             </Text>
                           </View>
                         </View>
                       ) : (
-                        <View style={styles.profilePasswordCard}>
-                      <View style={styles.profileForm}>
-                        <View style={styles.passwordField}>
-                          <TextInput
-                            style={[
-                              styles.input,
-                              styles.passwordInput,
-                              styles.profileInput,
-                              focusedProfileField === 'oldPassword' && styles.inputFocused,
-                            ]}
-                            placeholder="Старый пароль"
-                            placeholderTextColor="#7A7A7A"
-                            secureTextEntry={!isOldPasswordVisible}
-                            autoCapitalize="none"
-                            value={oldPassword}
-                            onFocus={() => setFocusedProfileField('oldPassword')}
-                            onBlur={() => setFocusedProfileField(null)}
-                            onChangeText={text => {
-                              setOldPassword(text);
-                              if (changePasswordError) {
-                                setChangePasswordError(null);
-                              }
-                            }}
-                            editable={!isChangingPassword}
-                          />
-                          <TouchableOpacity
-                            style={styles.eyeButton}
-                            onPress={() => setIsOldPasswordVisible(prev => !prev)}
-                            disabled={isChangingPassword}
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              isOldPasswordVisible
-                                ? 'Скрыть старый пароль'
-                                : 'Показать старый пароль'
-                            }>
-                            <Image
-                              source={isOldPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                              style={styles.eyeImage}
-                            />
-                          </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.passwordField}>
-                          <TextInput
-                            style={[
-                              styles.input,
-                              styles.passwordInput,
-                              styles.profileInput,
-                              focusedProfileField === 'newPassword' && styles.inputFocused,
-                            ]}
-                            placeholder="Новый пароль"
-                            placeholderTextColor="#7A7A7A"
-                            secureTextEntry={!isNewPasswordVisible}
-                            autoCapitalize="none"
-                            value={newPassword}
-                            onFocus={() => setFocusedProfileField('newPassword')}
-                            onBlur={() => setFocusedProfileField(null)}
-                            onChangeText={text => {
-                              setNewPassword(text);
-                              if (changePasswordError) {
-                                setChangePasswordError(null);
-                              }
-                            }}
-                            editable={!isChangingPassword}
-                          />
-                          <TouchableOpacity
-                            style={styles.eyeButton}
-                            onPress={() => setIsNewPasswordVisible(prev => !prev)}
-                            disabled={isChangingPassword}
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              isNewPasswordVisible
-                                ? 'Скрыть новый пароль'
-                                : 'Показать новый пароль'
-                            }>
-                            <Image
-                              source={isNewPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                              style={styles.eyeImage}
-                            />
-                          </TouchableOpacity>
-                        </View>
-
-                        {changePasswordError ? (
-                          <Animated.View
-                            style={[
-                              styles.flashMessage,
-                              styles.flashMessageError,
-                              { opacity: changePasswordErrorOpacity },
-                            ]}>
-                            <View style={styles.flashMessageLeft}>
-                              <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
-                                <Text style={styles.flashIconText}>!</Text>
-                              </View>
-                              <Text style={styles.flashMessageText}>{changePasswordError}</Text>
+                        <View
+                          style={[
+                            styles.profilePasswordCard,
+                            {
+                              backgroundColor: profileSurface,
+                              borderColor: profileBorder,
+                            },
+                          ]}
+                        >
+                          <View style={styles.profileForm}>
+                            <View style={styles.passwordField}>
+                              <TextInput
+                                style={[
+                                  styles.input,
+                                  styles.passwordInput,
+                                  styles.profileInput,
+                                  focusedProfileField === 'oldPassword' &&
+                                    styles.inputFocused,
+                                ]}
+                                placeholder="Старый пароль"
+                                placeholderTextColor="#7A7A7A"
+                                secureTextEntry={!isOldPasswordVisible}
+                                autoCapitalize="none"
+                                value={oldPassword}
+                                onFocus={() =>
+                                  setFocusedProfileField('oldPassword')
+                                }
+                                onBlur={() => setFocusedProfileField(null)}
+                                onChangeText={text => {
+                                  setOldPassword(text);
+                                  if (changePasswordError) {
+                                    setChangePasswordError(null);
+                                  }
+                                }}
+                                editable={!isChangingPassword}
+                              />
+                              <TouchableOpacity
+                                style={styles.eyeButton}
+                                onPress={() =>
+                                  setIsOldPasswordVisible(prev => !prev)
+                                }
+                                disabled={isChangingPassword}
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                  isOldPasswordVisible
+                                    ? 'Скрыть старый пароль'
+                                    : 'Показать старый пароль'
+                                }
+                              >
+                                <Image
+                                  source={
+                                    isOldPasswordVisible
+                                      ? eyeClosedIcon
+                                      : eyeOpenIcon
+                                  }
+                                  style={styles.eyeImage}
+                                />
+                              </TouchableOpacity>
                             </View>
-                            <TouchableOpacity
-                              style={styles.flashCloseButton}
-                              onPress={() => setChangePasswordError(null)}
-                              accessibilityRole="button"
-                              accessibilityLabel="Закрыть сообщение об ошибке">
-                              <Text style={styles.flashCloseText}>✕</Text>
-                            </TouchableOpacity>
-                          </Animated.View>
-                        ) : null}
-                        {changePasswordSuccess ? (
-                          <Animated.View
-                            style={[
-                              styles.flashMessage,
-                              styles.flashMessageSuccess,
-                              { opacity: changePasswordSuccessOpacity },
-                            ]}>
-                            <View style={styles.flashMessageLeft}>
-                              <View style={[styles.flashIconCircle, styles.flashIconCircleSuccess]}>
-                                <Text style={styles.flashIconText}>✓</Text>
-                              </View>
-                              <Text style={styles.flashMessageText}>{changePasswordSuccess}</Text>
+
+                            <View style={styles.passwordField}>
+                              <TextInput
+                                style={[
+                                  styles.input,
+                                  styles.passwordInput,
+                                  styles.profileInput,
+                                  focusedProfileField === 'newPassword' &&
+                                    styles.inputFocused,
+                                ]}
+                                placeholder="Новый пароль"
+                                placeholderTextColor="#7A7A7A"
+                                secureTextEntry={!isNewPasswordVisible}
+                                autoCapitalize="none"
+                                value={newPassword}
+                                onFocus={() =>
+                                  setFocusedProfileField('newPassword')
+                                }
+                                onBlur={() => setFocusedProfileField(null)}
+                                onChangeText={text => {
+                                  setNewPassword(text);
+                                  if (changePasswordError) {
+                                    setChangePasswordError(null);
+                                  }
+                                }}
+                                editable={!isChangingPassword}
+                              />
+                              <TouchableOpacity
+                                style={styles.eyeButton}
+                                onPress={() =>
+                                  setIsNewPasswordVisible(prev => !prev)
+                                }
+                                disabled={isChangingPassword}
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                  isNewPasswordVisible
+                                    ? 'Скрыть новый пароль'
+                                    : 'Показать новый пароль'
+                                }
+                              >
+                                <Image
+                                  source={
+                                    isNewPasswordVisible
+                                      ? eyeClosedIcon
+                                      : eyeOpenIcon
+                                  }
+                                  style={styles.eyeImage}
+                                />
+                              </TouchableOpacity>
                             </View>
+
+                            {changePasswordError ? (
+                              <Animated.View
+                                style={[
+                                  styles.flashMessage,
+                                  styles.flashMessageError,
+                                  { opacity: changePasswordErrorOpacity },
+                                ]}
+                              >
+                                <View style={styles.flashMessageLeft}>
+                                  <View
+                                    style={[
+                                      styles.flashIconCircle,
+                                      styles.flashIconCircleError,
+                                    ]}
+                                  >
+                                    <Text style={styles.flashIconText}>!</Text>
+                                  </View>
+                                  <Text style={styles.flashMessageText}>
+                                    {changePasswordError}
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                  style={styles.flashCloseButton}
+                                  onPress={() => setChangePasswordError(null)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Закрыть сообщение об ошибке"
+                                >
+                                  <Text style={styles.flashCloseText}>✕</Text>
+                                </TouchableOpacity>
+                              </Animated.View>
+                            ) : null}
+                            {changePasswordSuccess ? (
+                              <Animated.View
+                                style={[
+                                  styles.flashMessage,
+                                  styles.flashMessageSuccess,
+                                  { opacity: changePasswordSuccessOpacity },
+                                ]}
+                              >
+                                <View style={styles.flashMessageLeft}>
+                                  <View
+                                    style={[
+                                      styles.flashIconCircle,
+                                      styles.flashIconCircleSuccess,
+                                    ]}
+                                  >
+                                    <Text style={styles.flashIconText}>✓</Text>
+                                  </View>
+                                  <Text style={styles.flashMessageText}>
+                                    {changePasswordSuccess}
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                  style={styles.flashCloseButton}
+                                  onPress={() => setChangePasswordSuccess(null)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Закрыть сообщение об успехе"
+                                >
+                                  <Text style={styles.flashCloseText}>✕</Text>
+                                </TouchableOpacity>
+                              </Animated.View>
+                            ) : null}
+
                             <TouchableOpacity
-                              style={styles.flashCloseButton}
-                              onPress={() => setChangePasswordSuccess(null)}
-                              accessibilityRole="button"
-                              accessibilityLabel="Закрыть сообщение об успехе">
-                              <Text style={styles.flashCloseText}>✕</Text>
+                              style={[styles.button, styles.logoutButton]}
+                              onPress={submitChangePassword}
+                              disabled={isChangingPassword}
+                            >
+                              {isChangingPassword ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                              ) : (
+                                <Text style={styles.buttonText}>
+                                  Сохранить пароль
+                                </Text>
+                              )}
                             </TouchableOpacity>
-                          </Animated.View>
-                        ) : null}
 
-                        <TouchableOpacity
-                          style={[styles.button, styles.logoutButton]}
-                          onPress={submitChangePassword}
-                          disabled={isChangingPassword}>
-                          {isChangingPassword ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                          ) : (
-                            <Text style={styles.buttonText}>Сохранить пароль</Text>
-                          )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.linkButton}
-                          onPress={resetChangePasswordForm}
-                          disabled={isChangingPassword}>
-                          <Text style={styles.linkButtonText}>Назад в профиль</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                            <TouchableOpacity
+                              style={styles.linkButton}
+                              onPress={resetChangePasswordForm}
+                              disabled={isChangingPassword}
+                            >
+                              <Text style={styles.linkButtonText}>
+                                Назад в профиль
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
                       )}
                     </>
                   )}
 
                   {profileSheetRoute === 'root' ? (
-                    <View style={styles.profileBottomBlock}>
+                    <View
+                      style={[
+                        styles.profileBottomBlock,
+                        {
+                          backgroundColor: profileSurface,
+                          borderColor: profileBorder,
+                        },
+                      ]}
+                    >
                       <TouchableOpacity
                         style={styles.profileLogoutButton}
                         onPress={() => {
@@ -2724,8 +3582,11 @@ export default function AuthScreen() {
                           closeProfileSheet();
                           setActiveTab('home');
                           resetSession();
-                        }}>
-                        <Text style={styles.profileLogoutButtonText}>Выйти</Text>
+                        }}
+                      >
+                        <Text style={styles.profileLogoutButtonText}>
+                          Выйти
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -2742,17 +3603,24 @@ export default function AuthScreen() {
           presentationStyle="overFullScreen"
           hardwareAccelerated
           statusBarTranslucent
-          onRequestClose={closeProfileNotificationImageViewer}>
-          <View style={styles.profileNotificationImageViewerScreen} pointerEvents="auto">
+          onRequestClose={closeProfileNotificationImageViewer}
+        >
+          <View
+            style={styles.profileNotificationImageViewerScreen}
+            pointerEvents="auto"
+          >
             <AnimatedReanimated.View
               style={[
                 styles.profileNotificationImageViewerBackdrop,
                 profileNotificationImageViewerBackdropStyle,
               ]}
-              pointerEvents="none">
+              pointerEvents="none"
+            >
               <BlurView
                 style={styles.profileNotificationImageViewerBlur}
-                blurType={Platform.OS === 'ios' ? 'ultraThinMaterialDark' : 'dark'}
+                blurType={
+                  Platform.OS === 'ios' ? 'ultraThinMaterialDark' : 'dark'
+                }
                 blurAmount={14}
                 reducedTransparencyFallbackColor="rgba(18, 18, 20, 0.55)"
               />
@@ -2766,13 +3634,17 @@ export default function AuthScreen() {
                   {
                     paddingTop: insets.top + 6,
                   },
-                ]}>
+                ]}
+              >
                 <TouchableOpacity
                   style={styles.profileNotificationImageViewerCloseButton}
                   onPress={closeProfileNotificationImageViewer}
                   accessibilityRole="button"
-                  accessibilityLabel="Закрыть просмотр фото">
-                  <Text style={styles.profileNotificationImageViewerCloseText}>✕</Text>
+                  accessibilityLabel="Закрыть просмотр фото"
+                >
+                  <Text style={styles.profileNotificationImageViewerCloseText}>
+                    ✕
+                  </Text>
                 </TouchableOpacity>
               </AnimatedReanimated.View>
             ) : null}
@@ -2786,12 +3658,17 @@ export default function AuthScreen() {
                       height: profileNotificationImageFrame.height,
                     },
                     profileNotificationImageViewerSurfaceStyle,
-                  ]}>
+                  ]}
+                >
                   <Image
-                    source={{ uri: selectedProfileNotificationImage || undefined }}
+                    source={{
+                      uri: selectedProfileNotificationImage || undefined,
+                    }}
                     style={styles.profileNotificationImageViewerImage}
                     resizeMode="contain"
-                    onLoadStart={() => setIsProfileNotificationImageLoading(true)}
+                    onLoadStart={() =>
+                      setIsProfileNotificationImageLoading(true)
+                    }
                     onLoad={event => {
                       const source = event.nativeEvent.source;
 
@@ -2808,7 +3685,9 @@ export default function AuthScreen() {
                         });
                       }
                     }}
-                    onLoadEnd={() => setIsProfileNotificationImageLoading(false)}
+                    onLoadEnd={() =>
+                      setIsProfileNotificationImageLoading(false)
+                    }
                   />
                 </AnimatedReanimated.View>
               </GestureDetector>
@@ -2830,372 +3709,614 @@ export default function AuthScreen() {
             profileLabel="Ещё"
             themeMode={androidTabThemeMode}
             activeTintColor={
-              isAndroid && androidPalette ? String(androidPalette.primary) : undefined
+              isAndroid && androidPalette ? androidPalette.primary : undefined
             }
             activeBackgroundColor={androidTabActiveBackground}
+            activePillSolidColor={androidTabActivePillSolid}
             activeForegroundColor={androidTabActiveForeground}
             inactiveTintColor={androidTabInactiveForeground}
             shellBackgroundColor={androidTabShellBackground}
             shellBorderColor={androidTabShellBorder}
             mailIcon={mailIcon}
             trashIcon={trashIcon}
+            trashLabel="Товары"
           />
         </View>
-      </View>
+      </Animated.View>
     );
   }
 
+  const authScreenAnimatedStyle = isAndroid
+    ? {
+        opacity: authScreenReveal,
+        transform: [
+          {
+            translateY: authScreenReveal.interpolate({
+              inputRange: [0, 1],
+              outputRange: [28, 0],
+              extrapolate: 'clamp',
+            }),
+          },
+          {
+            scale: authScreenReveal.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.986, 1],
+              extrapolate: 'clamp',
+            }),
+          },
+        ],
+      }
+    : undefined;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: authBackground }]}
+      edges={['top', 'bottom']}
+    >
+      <StatusBar
+        barStyle={authStatusBarStyle}
+        backgroundColor={authBackgroundHex}
+      />
 
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.authContent}>
-      <View style={styles.formCard}>
-        {isForgotPasswordFlow ? (
-          <>
-            <Text style={styles.sectionTitle}>Восстановление пароля</Text>
-            {!isCodeSent ? (
-              <Pressable
-                style={[
-                  styles.phoneInputWrap,
-                  focusedForgotField === 'identity' && styles.inputFocused,
-                ]}
-                onPress={() => forgotPhoneInputRef.current?.focus()}>
-                <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
-                <TextInput
-                  ref={forgotPhoneInputRef}
-                  style={styles.phoneInputControl}
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={formatLocalPhoneDisplay(forgotIdentity)}
-                  maxLength={13}
-                  selection={forgotPhoneSelection}
-                  onFocus={() => {
-                    setFocusedForgotField('identity');
-                    const caret = formatLocalPhoneDisplay(forgotIdentity).length;
-                    setForgotPhoneSelection({ start: caret, end: caret });
-                  }}
-                  onBlur={() => setFocusedForgotField(null)}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    Keyboard.dismiss();
-                    if (!isForgotSubmitting) {
-                      sendResetCode();
-                    }
-                  }}
-                  inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-                  onChangeText={text => {
-                    const nextDisplay = formatLocalPhoneInputWithBackspace(
-                      formatLocalPhoneDisplay(forgotIdentity),
-                      text,
-                    );
-                    const nextIdentifier = formatPhoneInput(`+7${nextDisplay}`);
-                    setForgotIdentity(nextIdentifier);
-                    const caret = nextDisplay.length;
-                    setForgotPhoneSelection({ start: caret, end: caret });
-                    if (forgotError) {
-                      setForgotError(null);
-                    }
-                  }}
-                  editable={!isForgotSubmitting}
-                />
-              </Pressable>
-            ) : null}
-
-            <View style={styles.forgotFlashSlot}>
-              {forgotError ? (
-                <Animated.View
-                  style={[
-                    styles.flashMessage,
-                    styles.flashMessageError,
-                    { opacity: forgotErrorOpacity },
-                  ]}>
-                  <View style={styles.flashMessageLeft}>
-                    <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
-                      <Text style={styles.flashIconText}>!</Text>
-                    </View>
-                    <Text style={styles.flashMessageText}>{forgotError}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.flashCloseButton}
-                    onPress={() => setForgotError(null)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Закрыть сообщение об ошибке">
-                    <Text style={styles.flashCloseText}>✕</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              ) : null}
-            </View>
-
-            {!isCodeSent ? (
-              <TouchableOpacity
-                style={[styles.button, isForgotSubmitting && styles.buttonDisabled]}
-                onPress={sendResetCode}
-                disabled={isForgotSubmitting}
-              >
-                {isForgotSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Получить код</Text>
-                )}
-              </TouchableOpacity>
-            ) : null}
-
-            {isCodeSent ? (
+        <Animated.View
+          style={[
+            styles.authContent,
+            {
+              backgroundColor: authBackground,
+              justifyContent:
+                isAndroid && isAuthKeyboardVisible ? 'flex-start' : 'center',
+              paddingTop:
+                isAndroid && isAuthKeyboardVisible
+                  ? Math.max(insets.top + 72, 92)
+                  : 0,
+            },
+            authScreenAnimatedStyle,
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.formCard,
+              {
+                transform: [{ translateY: authKeyboardShift }],
+              },
+            ]}
+          >
+            {isForgotPasswordFlow ? (
               <>
-                <TextInput
-                  style={[
-                    styles.input,
-                    focusedForgotField === 'code' && styles.inputFocused,
-                  ]}
-                  placeholder="Код из почты"
-                  placeholderTextColor="#7A7A7A"
-                  keyboardType="number-pad"
-                  value={resetCode}
-                  onFocus={() => setFocusedForgotField('code')}
-                  onBlur={() => setFocusedForgotField(null)}
-                  inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-                  onChangeText={text => {
-                    setResetCode(text);
-                    if (forgotError) {
-                      setForgotError(null);
-                    }
-                  }}
-                  editable={!isForgotSubmitting}
-                />
-
-                <View style={styles.passwordField}>
-                  <TextInput
+                <Text style={[styles.sectionTitle, { color: authText }]}>
+                  Восстановление пароля
+                </Text>
+                {!isCodeSent ? (
+                  <Pressable
                     style={[
-                      styles.input,
-                      styles.passwordInput,
-                      focusedForgotField === 'newPassword' && styles.inputFocused,
+                      styles.phoneInputWrap,
+                      {
+                        backgroundColor: authSurfaceMuted,
+                        borderColor: authBorder,
+                      },
+                      focusedForgotField === 'identity' &&
+                        authInputFocusedStyle,
                     ]}
-                    placeholder="Новый пароль"
-                    placeholderTextColor="#7A7A7A"
-                    secureTextEntry={!isResetPasswordVisible}
-                    autoCapitalize="none"
-                    value={resetNewPassword}
-                    onFocus={() => setFocusedForgotField('newPassword')}
-                    onBlur={() => setFocusedForgotField(null)}
-                    returnKeyType="done"
-                    onSubmitEditing={Keyboard.dismiss}
-                    inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-                    onChangeText={text => {
-                      setResetNewPassword(text);
-                      if (forgotError) {
-                        setForgotError(null);
-                      }
-                    }}
-                    editable={!isForgotSubmitting}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setIsResetPasswordVisible(prev => !prev)}
-                    disabled={isForgotSubmitting}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      isResetPasswordVisible ? 'Скрыть новый пароль' : 'Показать новый пароль'
-                    }
+                    onPress={() => forgotPhoneInputRef.current?.focus()}
                   >
-                    <Image
-                      source={isResetPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-                      style={styles.eyeImage}
+                    <Text
+                      style={[styles.phonePrefix, { color: authPlaceholder }]}
+                      pointerEvents="none"
+                    >
+                      +7
+                    </Text>
+                    <TextInput
+                      ref={forgotPhoneInputRef}
+                      style={[styles.phoneInputControl, { color: authText }]}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={formatLocalPhoneDisplay(forgotIdentity)}
+                      maxLength={13}
+                      selection={forgotPhoneSelection}
+                      onFocus={() => {
+                        setFocusedForgotField('identity');
+                        const caret =
+                          formatLocalPhoneDisplay(forgotIdentity).length;
+                        setForgotPhoneSelection({ start: caret, end: caret });
+                      }}
+                      onBlur={() => setFocusedForgotField(null)}
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        Keyboard.dismiss();
+                        if (!isForgotSubmitting) {
+                          sendResetCode();
+                        }
+                      }}
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? authAccessoryId : undefined
+                      }
+                      onChangeText={text => {
+                        const nextDisplay = formatLocalPhoneInputWithBackspace(
+                          formatLocalPhoneDisplay(forgotIdentity),
+                          text,
+                        );
+                        const nextIdentifier = formatPhoneInput(
+                          `+7${nextDisplay}`,
+                        );
+                        setForgotIdentity(nextIdentifier);
+                        const caret = nextDisplay.length;
+                        setForgotPhoneSelection({ start: caret, end: caret });
+                        if (forgotError) {
+                          setForgotError(null);
+                        }
+                      }}
+                      editable={!isForgotSubmitting}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
+                ) : null}
+
+                <View style={styles.forgotFlashSlot}>
+                  {forgotError ? (
+                    <Animated.View
+                      style={[
+                        styles.flashMessage,
+                        styles.flashMessageError,
+                        { opacity: forgotErrorOpacity },
+                      ]}
+                    >
+                      <View style={styles.flashMessageLeft}>
+                        <View
+                          style={[
+                            styles.flashIconCircle,
+                            styles.flashIconCircleError,
+                          ]}
+                        >
+                          <Text style={styles.flashIconText}>!</Text>
+                        </View>
+                        <Text style={styles.flashMessageText}>
+                          {forgotError}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.flashCloseButton}
+                        onPress={() => setForgotError(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Закрыть сообщение об ошибке"
+                      >
+                        <Text style={styles.flashCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
                 </View>
 
+                {!isCodeSent ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      {
+                        backgroundColor: authButtonBackground,
+                        borderColor: authButtonBorder,
+                        shadowColor: authAccent,
+                        shadowOpacity: authIsMaterial ? 0.16 : 0.4,
+                        shadowRadius: authIsMaterial ? 12 : 8,
+                        elevation: authIsMaterial ? 3 : 6,
+                      },
+                      isForgotSubmitting && styles.buttonDisabled,
+                    ]}
+                    onPress={() => {
+                      androidMediumImpact();
+                      sendResetCode();
+                    }}
+                    disabled={isForgotSubmitting}
+                  >
+                    {isForgotSubmitting ? (
+                      <ActivityIndicator color={authOnAccent} />
+                    ) : (
+                      <Text
+                        style={[styles.buttonText, { color: authOnAccent }]}
+                      >
+                        Получить код
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+
+                {isCodeSent ? (
+                  <>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: authSurfaceMuted,
+                          borderColor: authBorder,
+                          color: authText,
+                        },
+                        focusedForgotField === 'code' && authInputFocusedStyle,
+                      ]}
+                      placeholder="Код из почты"
+                      placeholderTextColor={authPlaceholder}
+                      keyboardType="number-pad"
+                      value={resetCode}
+                      onFocus={() => setFocusedForgotField('code')}
+                      onBlur={() => setFocusedForgotField(null)}
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? authAccessoryId : undefined
+                      }
+                      onChangeText={text => {
+                        setResetCode(text);
+                        if (forgotError) {
+                          setForgotError(null);
+                        }
+                      }}
+                      editable={!isForgotSubmitting}
+                    />
+
+                    <View style={styles.passwordField}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.passwordInput,
+                          {
+                            backgroundColor: authSurfaceMuted,
+                            borderColor: authBorder,
+                            color: authText,
+                          },
+                          focusedForgotField === 'newPassword' &&
+                            authInputFocusedStyle,
+                        ]}
+                        placeholder="Новый пароль"
+                        placeholderTextColor={authPlaceholder}
+                        secureTextEntry={!isResetPasswordVisible}
+                        autoCapitalize="none"
+                        value={resetNewPassword}
+                        onFocus={() => setFocusedForgotField('newPassword')}
+                        onBlur={() => setFocusedForgotField(null)}
+                        returnKeyType="done"
+                        onSubmitEditing={Keyboard.dismiss}
+                        inputAccessoryViewID={
+                          Platform.OS === 'ios' ? authAccessoryId : undefined
+                        }
+                        onChangeText={text => {
+                          setResetNewPassword(text);
+                          if (forgotError) {
+                            setForgotError(null);
+                          }
+                        }}
+                        editable={!isForgotSubmitting}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() => setIsResetPasswordVisible(prev => !prev)}
+                        disabled={isForgotSubmitting}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          isResetPasswordVisible
+                            ? 'Скрыть новый пароль'
+                            : 'Показать новый пароль'
+                        }
+                      >
+                        <Image
+                          source={
+                            isResetPasswordVisible ? eyeClosedIcon : eyeOpenIcon
+                          }
+                          style={[styles.eyeImage, { tintColor: authText }]}
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.button,
+                        {
+                          backgroundColor: authAccent,
+                          shadowColor: authAccent,
+                        },
+                        isForgotSubmitting && styles.buttonDisabled,
+                      ]}
+                      onPress={() => {
+                        androidSuccessHaptic();
+                        submitResetPassword();
+                      }}
+                      disabled={isForgotSubmitting}
+                    >
+                      {isForgotSubmitting ? (
+                        <ActivityIndicator color={authOnAccent} />
+                      ) : (
+                        <Text
+                          style={[styles.buttonText, { color: authOnAccent }]}
+                        >
+                          Сбросить пароль
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                ) : null}
+
                 <TouchableOpacity
-                  style={[styles.button, isForgotSubmitting && styles.buttonDisabled]}
-                  onPress={submitResetPassword}
+                  style={styles.linkButton}
+                  onPress={resetForgotPasswordForm}
                   disabled={isForgotSubmitting}
                 >
-                  {isForgotSubmitting ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.buttonText}>Сбросить пароль</Text>
-                  )}
+                  <Text style={[styles.linkButtonText, { color: authAccent }]}>
+                    Назад
+                  </Text>
                 </TouchableOpacity>
               </>
-            ) : null}
+            ) : (
+              <>
+                <AnimatedEntranceView delay={30} style={styles.brandBlock}>
+                  <View
+                    style={[
+                      styles.brandMarkRow,
+                      {
+                        backgroundColor: authBrandCapsuleBackground,
+                        borderColor: authBrandCapsuleBorder,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.brandMarkGlow,
+                        { backgroundColor: authBrandGlow },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.brandMarkDot,
+                        { backgroundColor: authAccent },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.brandMark,
+                        { backgroundColor: authAccent },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.brandEyebrow, { color: authMutedText }]}>
+                    платформа компании
+                  </Text>
+                  <Text style={[styles.brandTitle, { color: authText }]}>
+                    Dr. Smoke
+                  </Text>
+                  <Text
+                    style={[styles.brandSubtitle, { color: authMutedText }]}
+                  >
+                    Авторизация
+                  </Text>
+                </AnimatedEntranceView>
+                <AnimatedEntranceView delay={90}>
+                  <Pressable
+                    style={[
+                      styles.phoneInputWrap,
+                      {
+                        backgroundColor: authSurfaceMuted,
+                        borderColor: authBorder,
+                      },
+                      focusedLoginField === 'identifier' &&
+                        authInputFocusedStyle,
+                    ]}
+                    onPress={() => loginPhoneInputRef.current?.focus()}
+                  >
+                    <Text
+                      style={[styles.phonePrefix, { color: authPlaceholder }]}
+                      pointerEvents="none"
+                    >
+                      +7
+                    </Text>
+                    <TextInput
+                      ref={loginPhoneInputRef}
+                      style={[styles.phoneInputControl, { color: authText }]}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? authAccessoryId : undefined
+                      }
+                      returnKeyType="next"
+                      value={formatLocalPhoneDisplay(form.identifier)}
+                      maxLength={13}
+                      selection={loginPhoneSelection}
+                      onChangeText={text => {
+                        const nextDisplay = formatLocalPhoneInputWithBackspace(
+                          formatLocalPhoneDisplay(form.identifier),
+                          text,
+                        );
+                        updateField(
+                          'identifier',
+                          formatPhoneInput(`+7${nextDisplay}`),
+                        );
+                        const caret = nextDisplay.length;
+                        setLoginPhoneSelection({ start: caret, end: caret });
+                        if (authNotice) {
+                          setAuthNotice(null);
+                        }
+                      }}
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      onFocus={() => {
+                        setFocusedLoginField('identifier');
+                        const caret = formatLocalPhoneDisplay(
+                          form.identifier,
+                        ).length;
+                        setLoginPhoneSelection({ start: caret, end: caret });
+                      }}
+                      onBlur={() => setFocusedLoginField(null)}
+                      editable={!isSubmitting}
+                    />
+                  </Pressable>
 
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={resetForgotPasswordForm}
-              disabled={isForgotSubmitting}
-            >
-              <Text style={styles.linkButtonText}>Назад</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-        <Pressable
-          style={[
-            styles.phoneInputWrap,
-            focusedLoginField === 'identifier' && styles.inputFocused,
-          ]}
-          onPress={() => loginPhoneInputRef.current?.focus()}>
-          <Text style={styles.phonePrefix} pointerEvents="none">+7</Text>
-          <TextInput
-            ref={loginPhoneInputRef}
-            style={styles.phoneInputControl}
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-            autoCorrect={false}
-            inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-            returnKeyType="next"
-            value={formatLocalPhoneDisplay(form.identifier)}
-            maxLength={13}
-            selection={loginPhoneSelection}
-            onChangeText={text => {
-              const nextDisplay = formatLocalPhoneInputWithBackspace(
-                formatLocalPhoneDisplay(form.identifier),
-                text,
-              );
-              updateField('identifier', formatPhoneInput(`+7${nextDisplay}`));
-              const caret = nextDisplay.length;
-              setLoginPhoneSelection({ start: caret, end: caret });
-              if (authNotice) {
-                setAuthNotice(null);
-              }
-            }}
-            onSubmitEditing={() => passwordInputRef.current?.focus()}
-            onFocus={() => {
-              setFocusedLoginField('identifier');
-              const caret = formatLocalPhoneDisplay(form.identifier).length;
-              setLoginPhoneSelection({ start: caret, end: caret });
-            }}
-            onBlur={() => setFocusedLoginField(null)}
-            editable={!isSubmitting}
-          />
-        </Pressable>
+                  <View style={styles.passwordField}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.passwordInput,
+                        {
+                          backgroundColor: authSurfaceMuted,
+                          borderColor: authBorder,
+                          color: authText,
+                        },
+                        focusedLoginField === 'password' &&
+                          authInputFocusedStyle,
+                      ]}
+                      placeholder="Пароль"
+                      placeholderTextColor={authPlaceholder}
+                      secureTextEntry={!isPasswordVisible}
+                      autoCapitalize="none"
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? authAccessoryId : undefined
+                      }
+                      ref={passwordInputRef}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                      value={form.password}
+                      onChangeText={text => {
+                        updateField('password', text);
+                        if (authNotice) {
+                          setAuthNotice(null);
+                        }
+                      }}
+                      onFocus={() => setFocusedLoginField('password')}
+                      onBlur={() => setFocusedLoginField(null)}
+                      editable={!isSubmitting}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setIsPasswordVisible(prev => !prev)}
+                      disabled={isSubmitting}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'
+                      }
+                    >
+                      <Image
+                        source={isPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
+                        style={[styles.eyeImage, { tintColor: authText }]}
+                      />
+                    </TouchableOpacity>
+                  </View>
 
-        <View style={styles.passwordField}>
-          <TextInput
-            style={[
-              styles.input,
-              styles.passwordInput,
-              focusedLoginField === 'password' && styles.inputFocused,
-            ]}
-            placeholder="Пароль"
-            placeholderTextColor="#7A7A7A"
-            secureTextEntry={!isPasswordVisible}
-            autoCapitalize="none"
-            inputAccessoryViewID={Platform.OS === 'ios' ? authAccessoryId : undefined}
-            ref={passwordInputRef}
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-            value={form.password}
-            onChangeText={text => {
-              updateField('password', text);
-              if (authNotice) {
-                setAuthNotice(null);
-              }
-            }}
-            onFocus={() => setFocusedLoginField('password')}
-            onBlur={() => setFocusedLoginField(null)}
-            editable={!isSubmitting}
-          />
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setIsPasswordVisible(prev => !prev)}
-            disabled={isSubmitting}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'
-            }
-          >
-            <Image
-              source={isPasswordVisible ? eyeClosedIcon : eyeOpenIcon}
-              style={styles.eyeImage}
-            />
-          </TouchableOpacity>
-        </View>
+                  {authNotice ? (
+                    <Animated.View
+                      style={[
+                        styles.flashMessage,
+                        styles.flashMessageSuccess,
+                        { opacity: authNoticeOpacity },
+                      ]}
+                    >
+                      <View style={styles.flashMessageLeft}>
+                        <View
+                          style={[
+                            styles.flashIconCircle,
+                            styles.flashIconCircleSuccess,
+                          ]}
+                        >
+                          <Text style={styles.flashIconText}>✓</Text>
+                        </View>
+                        <Text style={styles.flashMessageText}>
+                          {authNotice}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.flashCloseButton}
+                        onPress={() => setAuthNotice(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Закрыть сообщение об успехе"
+                      >
+                        <Text style={styles.flashCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
 
-        {authNotice ? (
-          <Animated.View
-            style={[
-              styles.flashMessage,
-              styles.flashMessageSuccess,
-              { opacity: authNoticeOpacity },
-            ]}>
-            <View style={styles.flashMessageLeft}>
-              <View style={[styles.flashIconCircle, styles.flashIconCircleSuccess]}>
-                <Text style={styles.flashIconText}>✓</Text>
-              </View>
-              <Text style={styles.flashMessageText}>{authNotice}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.flashCloseButton}
-              onPress={() => setAuthNotice(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Закрыть сообщение об успехе">
-              <Text style={styles.flashCloseText}>✕</Text>
-            </TouchableOpacity>
+                  {error ? (
+                    <Animated.View
+                      style={[
+                        styles.flashMessage,
+                        styles.flashMessageError,
+                        { opacity: loginErrorOpacity },
+                      ]}
+                    >
+                      <View style={styles.flashMessageLeft}>
+                        <View
+                          style={[
+                            styles.flashIconCircle,
+                            styles.flashIconCircleError,
+                          ]}
+                        >
+                          <Text style={styles.flashIconText}>!</Text>
+                        </View>
+                        <Text style={styles.flashMessageText}>{error}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.flashCloseButton}
+                        onPress={clearError}
+                        accessibilityRole="button"
+                        accessibilityLabel="Закрыть сообщение об ошибке"
+                      >
+                        <Text style={styles.flashCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      {
+                        backgroundColor: authButtonBackground,
+                        borderColor: authButtonBorder,
+                        shadowColor: authAccent,
+                        shadowOpacity: authIsMaterial ? 0.16 : 0.4,
+                        shadowRadius: authIsMaterial ? 12 : 8,
+                        elevation: authIsMaterial ? 3 : 6,
+                      },
+                      isSubmitting && styles.buttonDisabled,
+                    ]}
+                    onPress={() => {
+                      androidMediumImpact();
+                      submit();
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color={authOnAccent} />
+                    ) : (
+                      <Text
+                        style={[styles.buttonText, { color: authOnAccent }]}
+                      >
+                        Войти
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => {
+                      androidLightImpact();
+                      setIsForgotPasswordFlow(true);
+                      setForgotIdentity('+7');
+                      updateField('identifier', '+7');
+                      updateField('password', '');
+                      setForgotError(null);
+                      setAuthNotice(null);
+                      setIsCodeSent(false);
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    <Text
+                      style={[styles.linkButtonText, { color: authAccent }]}
+                    >
+                      Забыли пароль?
+                    </Text>
+                  </TouchableOpacity>
+                </AnimatedEntranceView>
+              </>
+            )}
           </Animated.View>
-        ) : null}
-
-        {error ? (
-          <Animated.View
-            style={[
-              styles.flashMessage,
-              styles.flashMessageError,
-              { opacity: loginErrorOpacity },
-            ]}>
-            <View style={styles.flashMessageLeft}>
-              <View style={[styles.flashIconCircle, styles.flashIconCircleError]}>
-                <Text style={styles.flashIconText}>!</Text>
-              </View>
-              <Text style={styles.flashMessageText}>{error}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.flashCloseButton}
-              onPress={clearError}
-              accessibilityRole="button"
-              accessibilityLabel="Закрыть сообщение об ошибке">
-              <Text style={styles.flashCloseText}>✕</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ) : null}
-
-        <TouchableOpacity
-          style={[styles.button, isSubmitting && styles.buttonDisabled]}
-          onPress={submit}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>Войти</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.linkButton}
-          onPress={() => {
-            setIsForgotPasswordFlow(true);
-            setForgotIdentity('+7');
-            updateField('identifier', '+7');
-            updateField('password', '');
-            setForgotError(null);
-            setAuthNotice(null);
-            setIsCodeSent(false);
-          }}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.linkButtonText}>Забыли пароль?</Text>
-        </TouchableOpacity>
-          </>
-        )}
-      </View>
-      </View>
+        </Animated.View>
       </TouchableWithoutFeedback>
       {Platform.OS === 'ios' ? (
         <InputAccessoryView nativeID={authAccessoryId}>
           <View style={styles.keyboardAccessory}>
-            <TouchableOpacity onPress={Keyboard.dismiss} style={styles.keyboardAccessoryButton}>
+            <TouchableOpacity
+              onPress={Keyboard.dismiss}
+              style={styles.keyboardAccessoryButton}
+            >
               <Text style={styles.keyboardAccessoryText}>Готово</Text>
             </TouchableOpacity>
           </View>

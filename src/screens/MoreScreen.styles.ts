@@ -12,6 +12,35 @@ export const styles = StyleSheet.create({
     gap: 16,
   },
 
+  staticScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
+
+  staticContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+    gap: 20,
+  },
+
+  staticContentWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  staticTopContentWrap: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+
+  portalStaticContent: {
+    flex: 1,
+    gap: 12,
+    paddingBottom: 112,
+  },
+
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -34,12 +63,165 @@ export const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 30,
     borderWidth: 1,
-    padding: 18,
+    padding: 20,
+    gap: 16,
+  },
+
+  appearanceSectionCard: {
+    gap: 12,
+  },
+
+  appearanceOptionList: {
+    gap: 16,
+  },
+
+  appearanceIntro: {
+    gap: 10,
+  },
+
+  appearanceIntroBar: {
+    width: 64,
+    height: 6,
+    borderRadius: 999,
+  },
+
+  appearanceIntroKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.38,
+    textTransform: 'uppercase',
+  },
+
+  appearanceIntroText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  appearanceNoteCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+
+  appearanceNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  appearanceNoteDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  appearanceNoteLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.32,
+    textTransform: 'uppercase',
+  },
+
+  appearanceNoteText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  preferencesCard: {
     gap: 14,
+  },
+
+  preferencesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  preferencesHeaderText: {
+    flex: 1,
+    gap: 4,
+  },
+
+  preferencesSummary: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+
+  preferencesChevron: {
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+
+  preferencesPanel: {
+    gap: 14,
+    paddingTop: 4,
+  },
+
+  preferencesRow: {
+    gap: 10,
+  },
+
+  preferencesLabelWrap: {
+    gap: 4,
+  },
+
+  preferencesTitle: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+
+  preferencesSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  segmentButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+
+  segmentButtonActive: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+
+  segmentButtonText: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '800',
   },
 
   heroCard: {
     gap: 10,
+    marginBottom: 14,
+  },
+
+  rootLinksCard: {
+    marginTop: 14,
   },
 
   heroAccentBar: {
@@ -49,10 +231,10 @@ export const styles = StyleSheet.create({
   },
 
   heroGlowCard: {
-    borderRadius: 34,
+    borderRadius: 30,
     borderWidth: 1,
     padding: 20,
-    gap: 12,
+    gap: 14,
   },
 
   heroKicker: {
@@ -101,26 +283,26 @@ export const styles = StyleSheet.create({
   },
 
   navRow: {
-    minHeight: 72,
+    minHeight: 76,
     borderRadius: 22,
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: 16,
   },
 
   navRowTextWrap: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
 
   navRowBadge: {
     minWidth: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -146,8 +328,8 @@ export const styles = StyleSheet.create({
   },
 
   navRowSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
   },
 
@@ -179,7 +361,7 @@ export const styles = StyleSheet.create({
   backButton: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -219,10 +401,11 @@ export const styles = StyleSheet.create({
   },
 
   portalLinkCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 16,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
   },
 
   portalHeroGrid: {
@@ -237,15 +420,16 @@ export const styles = StyleSheet.create({
 
   portalStatCard: {
     flex: 1,
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 14,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
   },
 
   portalStatValue: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '800',
   },
 
@@ -264,80 +448,32 @@ export const styles = StyleSheet.create({
   },
 
   portalLinkValue: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
   },
 
   portalCodeCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 16,
-    gap: 10,
-  },
-
-  portalAccentStrip: {
-    height: 6,
-    borderRadius: 999,
-    width: 64,
-  },
-
-  portalCodeValue: {
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '800',
-    letterSpacing: 2.2,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
   },
 
   helperText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
   },
 
   buttonRow: {
-    gap: 10,
-  },
-
-  inlineActionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-
-  inlineActionButton: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderWidth: 1,
-  },
-
-  inlineActionText: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.12,
-  },
-
-  primaryButton: {
-    minHeight: 56,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    borderWidth: 1,
-  },
-
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.15,
+    gap: 8,
   },
 
   secondaryButton: {
     minHeight: 52,
-    borderRadius: 22,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
@@ -347,7 +483,43 @@ export const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.1,
+    letterSpacing: 0.12,
+  },
+
+  inlineActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+
+  inlineActionButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+  },
+
+  inlineActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.12,
+  },
+
+  primaryButton: {
+    minHeight: 52,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderWidth: 1,
+  },
+
+  primaryButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.15,
   },
 
   badgeRow: {
@@ -374,14 +546,14 @@ export const styles = StyleSheet.create({
   radio: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: 10,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   optionCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -394,7 +566,17 @@ export const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    borderRadius: 24,
+    borderRadius: 22,
+  },
+
+  optionHoldCircle: {
+    position: 'absolute',
+  },
+
+  optionHoldStroke: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 22,
+    borderWidth: 1.5,
   },
 
   optionHeader: {
@@ -432,6 +614,14 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
 
+  themeSupportNote: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    paddingHorizontal: 2,
+    marginTop: -2,
+  },
+
   previewRail: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -441,7 +631,7 @@ export const styles = StyleSheet.create({
 
   previewCard: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 10,
@@ -450,7 +640,7 @@ export const styles = StyleSheet.create({
 
   previewTall: {
     width: 22,
-    borderRadius: 14,
+    borderRadius: 16,
   },
 
   previewDot: {

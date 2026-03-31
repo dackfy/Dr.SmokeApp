@@ -29,33 +29,35 @@ export type AndroidThemePalette = {
   secondaryButton: ColorValue
 }
 
+export type AndroidContrastMode = 'balanced' | 'high'
+
 const lightFallback: AndroidThemePalette = {
-  primary: '#315f55',
-  primaryStrong: '#22483f',
-  secondary: '#54635d',
-  tertiary: '#65597a',
-  primaryContainer: '#e8edf1',
-  primaryContainerStrong: '#dbe4eb',
-  background: '#f5f7f8',
-  surface: '#fbfcfd',
+  primary: '#4F6EE8',
+  primaryStrong: '#2E4FD6',
+  secondary: '#6C7FD9',
+  tertiary: '#7B63BF',
+  primaryContainer: '#E4EAFF',
+  primaryContainerStrong: '#D2DCFF',
+  background: '#F5F7FC',
+  surface: '#FCFDFF',
   surfaceRaised: '#ffffff',
-  surfaceMuted: '#eef2f5',
-  surfaceAccent: '#e7edf1',
-  outline: '#c6d0d8',
-  outlineVariant: '#d7dee5',
-  onSurface: '#161a1d',
-  onSurfaceMuted: '#5b6670',
+  surfaceMuted: '#EEF2FF',
+  surfaceAccent: '#E4EAFF',
+  outline: '#C7D1F1',
+  outlineVariant: '#D8E0F8',
+  onSurface: '#121826',
+  onSurfaceMuted: '#5F6781',
   onPrimary: '#ffffff',
   error: '#b3261e',
   errorContainer: '#ffd9d4',
   errorBorder: '#d99a94',
-  success: '#245b38',
-  successContainer: '#d8f0df',
-  successBorder: '#97c8a7',
+  success: '#1F6A46',
+  successContainer: '#DDF6E7',
+  successBorder: '#9FD6B7',
   buttonText: '#ffffff',
-  closedBadge: '#efe4d7',
-  closedBadgeBorder: '#d2bc9e',
-  secondaryButton: '#dfe8e3',
+  closedBadge: '#ECE4FF',
+  closedBadgeBorder: '#C8BAF4',
+  secondaryButton: '#E3E9FF',
 }
 
 const companyPalette: AndroidThemePalette = {
@@ -88,103 +90,165 @@ const companyPalette: AndroidThemePalette = {
 }
 
 const darkFallback: AndroidThemePalette = {
-  primary: '#8fdbc7',
-  primaryStrong: '#b7f4e5',
-  secondary: '#b0ccc3',
-  tertiary: '#d5bde7',
-  primaryContainer: '#20272d',
-  primaryContainerStrong: '#29323a',
-  background: '#0b0e11',
-  surface: '#12161a',
-  surfaceRaised: '#171c21',
-  surfaceMuted: '#1d2329',
-  surfaceAccent: '#232b32',
-  outline: '#3a434d',
-  outlineVariant: '#2b333b',
-  onSurface: '#f3f6f8',
-  onSurfaceMuted: '#a9b3bb',
-  onPrimary: '#0b1f19',
+  primary: '#A9B8FF',
+  primaryStrong: '#D9E0FF',
+  secondary: '#C2C9F5',
+  tertiary: '#D9C3FF',
+  primaryContainer: '#243165',
+  primaryContainerStrong: '#31407E',
+  background: '#090B14',
+  surface: '#111522',
+  surfaceRaised: '#171C2B',
+  surfaceMuted: '#1D2436',
+  surfaceAccent: '#243052',
+  outline: '#3F4A6B',
+  outlineVariant: '#2B3451',
+  onSurface: '#F4F6FF',
+  onSurfaceMuted: '#AAB2CF',
+  onPrimary: '#0A1024',
   error: '#ffb4ab',
   errorContainer: '#4b1915',
   errorBorder: '#8a3c36',
-  success: '#9fdbb2',
+  success: '#A7E2B7',
   successContainer: '#173524',
   successBorder: '#306348',
-  buttonText: '#082119',
-  closedBadge: '#3b2b20',
-  closedBadgeBorder: '#6a5241',
-  secondaryButton: '#232b31',
+  buttonText: '#0A1024',
+  closedBadge: '#33264C',
+  closedBadgeBorder: '#65528A',
+  secondaryButton: '#212949',
 }
 
-const USE_DYNAMIC_ANDROID_COLORS = true
-
-function systemColor(name: string, fallback: ColorValue) {
-  if (!USE_DYNAMIC_ANDROID_COLORS) {
-    return fallback
-  }
-
+function supportsAndroidDynamicColors() {
   return Platform.OS === 'android' && Number(Platform.Version) >= 31
-    ? PlatformColor(`@android:color/${name}`)
-    : fallback
 }
 
-export function getAndroidThemePalette(isDark: boolean): AndroidThemePalette {
+function dynamicColor(token: string, fallback: ColorValue): ColorValue {
+  return supportsAndroidDynamicColors() ? PlatformColor(token) : fallback
+}
+
+export function getAndroidThemePalette(
+  isDark: boolean,
+  contrastMode: AndroidContrastMode = 'balanced',
+): AndroidThemePalette {
+  const isHighContrast = contrastMode === 'high'
   if (isDark) {
     return {
-      ...darkFallback,
-      primary: systemColor('system_accent1_300', darkFallback.primary),
-      primaryStrong: systemColor('system_accent1_100', darkFallback.primaryStrong),
-      secondary: systemColor('system_accent2_300', darkFallback.secondary),
-      tertiary: systemColor('system_accent3_300', darkFallback.tertiary),
-      // Keep containers neutral so dark Material You does not become muddy.
-      primaryContainer: darkFallback.primaryContainer,
-      primaryContainerStrong: darkFallback.primaryContainerStrong,
-      // Keep surfaces and text on stable contrast-safe fallbacks.
-      background: darkFallback.background,
-      surface: darkFallback.surface,
-      surfaceRaised: darkFallback.surfaceRaised,
-      surfaceMuted: darkFallback.surfaceMuted,
-      surfaceAccent: darkFallback.surfaceAccent,
-      outline: darkFallback.outline,
-      outlineVariant: darkFallback.outlineVariant,
-      onSurface: darkFallback.onSurface,
-      onSurfaceMuted: darkFallback.onSurfaceMuted,
-      onPrimary: darkFallback.onPrimary,
-      closedBadge: systemColor('system_accent2_700', darkFallback.closedBadge),
-      closedBadgeBorder: systemColor(
-        'system_accent2_500',
+      primary: dynamicColor('@android:color/system_accent1_300', darkFallback.primary),
+      primaryStrong: dynamicColor('@android:color/system_accent1_200', darkFallback.primaryStrong),
+      secondary: dynamicColor('@android:color/system_accent2_300', darkFallback.secondary),
+      tertiary: dynamicColor('@android:color/system_accent3_300', darkFallback.tertiary),
+      primaryContainer: dynamicColor(
+        '@android:color/system_accent1_800',
+        darkFallback.primaryContainer,
+      ),
+      primaryContainerStrong: dynamicColor(
+        '@android:color/system_accent1_700',
+        darkFallback.primaryContainerStrong,
+      ),
+      background: dynamicColor('@android:color/system_neutral1_900', darkFallback.background),
+      surface: dynamicColor('@android:color/system_neutral2_900', darkFallback.surface),
+      surfaceRaised: dynamicColor(
+        isHighContrast ? '@android:color/system_neutral2_700' : '@android:color/system_neutral2_800',
+        isHighContrast ? '#1C2230' : darkFallback.surfaceRaised,
+      ),
+      surfaceMuted: dynamicColor(
+        isHighContrast ? '@android:color/system_neutral2_600' : '@android:color/system_neutral2_700',
+        isHighContrast ? '#232B3C' : darkFallback.surfaceMuted,
+      ),
+      surfaceAccent: dynamicColor(
+        isHighContrast ? '@android:color/system_accent1_800' : '@android:color/system_accent1_800',
+        isHighContrast ? '#273657' : darkFallback.surfaceAccent,
+      ),
+      outline: dynamicColor(
+        isHighContrast ? '@android:color/system_neutral2_300' : '@android:color/system_neutral2_400',
+        isHighContrast ? '#6B7790' : darkFallback.outline,
+      ),
+      outlineVariant: dynamicColor(
+        isHighContrast ? '@android:color/system_neutral2_500' : '@android:color/system_neutral2_600',
+        isHighContrast ? '#4B5872' : darkFallback.outlineVariant,
+      ),
+      onSurface: dynamicColor('@android:color/system_neutral1_50', darkFallback.onSurface),
+      onSurfaceMuted: dynamicColor(
+        isHighContrast ? '@android:color/system_neutral2_100' : '@android:color/system_neutral2_200',
+        isHighContrast ? '#C7D0E0' : darkFallback.onSurfaceMuted,
+      ),
+      onPrimary: dynamicColor('@android:color/system_neutral1_900', darkFallback.onPrimary),
+      error: darkFallback.error,
+      errorContainer: darkFallback.errorContainer,
+      errorBorder: darkFallback.errorBorder,
+      success: darkFallback.success,
+      successContainer: darkFallback.successContainer,
+      successBorder: darkFallback.successBorder,
+      buttonText: dynamicColor('@android:color/system_neutral1_900', darkFallback.buttonText),
+      closedBadge: dynamicColor('@android:color/system_accent3_800', darkFallback.closedBadge),
+      closedBadgeBorder: dynamicColor(
+        '@android:color/system_accent3_700',
         darkFallback.closedBadgeBorder,
       ),
-      secondaryButton: systemColor('system_neutral2_700', darkFallback.secondaryButton),
+      secondaryButton: dynamicColor(
+        '@android:color/system_neutral2_800',
+        darkFallback.secondaryButton,
+      ),
     }
   }
 
   return {
-    ...lightFallback,
-    primary: systemColor('system_accent1_600', lightFallback.primary),
-    primaryStrong: systemColor('system_accent1_800', lightFallback.primaryStrong),
-    secondary: systemColor('system_accent2_600', lightFallback.secondary),
-    tertiary: systemColor('system_accent3_600', lightFallback.tertiary),
-    // Keep containers neutral so accent lives in controls instead of whole surfaces.
-    primaryContainer: lightFallback.primaryContainer,
-    primaryContainerStrong: lightFallback.primaryContainerStrong,
-    // Stable neutrals keep the UI readable even with aggressive device accents.
-    background: lightFallback.background,
-    surface: lightFallback.surface,
-    surfaceRaised: lightFallback.surfaceRaised,
-    surfaceMuted: lightFallback.surfaceMuted,
-    surfaceAccent: lightFallback.surfaceAccent,
-    outline: lightFallback.outline,
-    outlineVariant: lightFallback.outlineVariant,
-    onSurface: lightFallback.onSurface,
-    onSurfaceMuted: lightFallback.onSurfaceMuted,
-    onPrimary: lightFallback.onPrimary,
-    closedBadge: systemColor('system_accent2_100', lightFallback.closedBadge),
-    closedBadgeBorder: systemColor(
-      'system_accent2_300',
+    primary: dynamicColor('@android:color/system_accent1_500', lightFallback.primary),
+    primaryStrong: dynamicColor('@android:color/system_accent1_700', lightFallback.primaryStrong),
+    secondary: dynamicColor('@android:color/system_accent2_500', lightFallback.secondary),
+    tertiary: dynamicColor('@android:color/system_accent3_500', lightFallback.tertiary),
+    primaryContainer: dynamicColor(
+      '@android:color/system_accent1_100',
+      lightFallback.primaryContainer,
+    ),
+    primaryContainerStrong: dynamicColor(
+      '@android:color/system_accent1_200',
+      lightFallback.primaryContainerStrong,
+    ),
+    background: dynamicColor('@android:color/system_neutral1_10', lightFallback.background),
+    surface: dynamicColor('@android:color/system_neutral1_0', lightFallback.surface),
+    surfaceRaised: dynamicColor(
+      isHighContrast ? '@android:color/system_neutral1_0' : '@android:color/system_neutral1_10',
+      isHighContrast ? '#FBFCFF' : lightFallback.surfaceRaised,
+    ),
+    surfaceMuted: dynamicColor(
+      isHighContrast ? '@android:color/system_neutral2_100' : '@android:color/system_neutral2_50',
+      isHighContrast ? '#EDF2FB' : lightFallback.surfaceMuted,
+    ),
+    surfaceAccent: dynamicColor(
+      isHighContrast ? '@android:color/system_accent1_100' : '@android:color/system_accent1_50',
+      isHighContrast ? '#E2EAFA' : lightFallback.surfaceAccent,
+    ),
+    outline: dynamicColor(
+      isHighContrast ? '@android:color/system_neutral2_400' : '@android:color/system_neutral2_300',
+      isHighContrast ? '#99A6BC' : lightFallback.outline,
+    ),
+    outlineVariant: dynamicColor(
+      isHighContrast ? '@android:color/system_neutral2_300' : '@android:color/system_neutral2_200',
+      isHighContrast ? '#B9C5D9' : lightFallback.outlineVariant,
+    ),
+    onSurface: dynamicColor('@android:color/system_neutral1_900', lightFallback.onSurface),
+    onSurfaceMuted: dynamicColor(
+      isHighContrast ? '@android:color/system_neutral2_800' : '@android:color/system_neutral2_700',
+      isHighContrast ? '#596476' : lightFallback.onSurfaceMuted,
+    ),
+    onPrimary: dynamicColor('@android:color/system_neutral1_10', lightFallback.onPrimary),
+    error: lightFallback.error,
+    errorContainer: lightFallback.errorContainer,
+    errorBorder: lightFallback.errorBorder,
+    success: lightFallback.success,
+    successContainer: lightFallback.successContainer,
+    successBorder: lightFallback.successBorder,
+    buttonText: dynamicColor('@android:color/system_neutral1_10', lightFallback.buttonText),
+    closedBadge: dynamicColor('@android:color/system_accent3_100', lightFallback.closedBadge),
+    closedBadgeBorder: dynamicColor(
+      '@android:color/system_accent3_200',
       lightFallback.closedBadgeBorder,
     ),
-    secondaryButton: systemColor('system_neutral2_100', lightFallback.secondaryButton),
+    secondaryButton: dynamicColor(
+      '@android:color/system_neutral2_100',
+      lightFallback.secondaryButton,
+    ),
   }
 }
 

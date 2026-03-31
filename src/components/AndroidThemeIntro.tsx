@@ -1,18 +1,24 @@
 import React from 'react'
 import {
   Animated,
+  Easing,
+  type GestureResponderEvent,
   Platform,
+  PlatformColor,
   Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
-  Vibration,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAndroidThemeMode } from '../theme/androidAppTheme'
+import {
+  androidLightImpact,
+  androidPeakImpact,
+} from '../utils/androidHaptics'
 import {
   getAndroidCompanyPalette,
   getAndroidStatusBarStyle,
@@ -20,6 +26,7 @@ import {
 } from '../theme/androidDynamicColors'
 
 type ThemeMode = 'company' | 'material'
+const ambientTeeth = Array.from({ length: 22 }, (_, index) => index)
 
 export default function AndroidThemeIntro() {
   const colorScheme = useColorScheme()
@@ -27,8 +34,17 @@ export default function AndroidThemeIntro() {
   const progress = React.useRef(new Animated.Value(0)).current
   const previewPulse = React.useRef(new Animated.Value(1)).current
   const footerPulse = React.useRef(new Animated.Value(1)).current
-  const [selectedMode, setSelectedMode] = React.useState<ThemeMode>('material')
+  const selectionPulse = React.useRef(new Animated.Value(0)).current
+  const revealProgress = React.useRef(new Animated.Value(0)).current
+  const revealFade = React.useRef(new Animated.Value(0)).current
+  const ambienceProgress = React.useRef(new Animated.Value(0)).current
+  const orbitRotateA = React.useRef(new Animated.Value(0)).current
+  const orbitRotateB = React.useRef(new Animated.Value(0)).current
+  const [selectedMode, setSelectedMode] = React.useState<ThemeMode>(androidTheme.mode)
   const [isCompleting, setIsCompleting] = React.useState(false)
+  const [revealTarget, setRevealTarget] = React.useState<ThemeMode>('material')
+  const [revealOrigin, setRevealOrigin] = React.useState({ x: 0, y: 0 })
+  const [rootSize, setRootSize] = React.useState({ width: 1, height: 1 })
 
   React.useEffect(() => {
     if (!androidTheme.shouldShowIntro || Platform.OS !== 'android') {
@@ -37,14 +53,56 @@ export default function AndroidThemeIntro() {
 
     setSelectedMode(androidTheme.mode)
     progress.setValue(0)
-    Animated.spring(progress, {
-      toValue: 1,
-      stiffness: 170,
-      damping: 22,
-      mass: 0.92,
-      useNativeDriver: true,
-    }).start()
-  }, [androidTheme.mode, androidTheme.shouldShowIntro, progress])
+    ambienceProgress.setValue(0)
+    Animated.parallel([
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 520,
+        easing: Easing.bezier(0.2, 0.88, 0.24, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(ambienceProgress, {
+        toValue: 1,
+        duration: 760,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start()
+  }, [ambienceProgress, androidTheme.mode, androidTheme.shouldShowIntro, progress])
+
+  React.useEffect(() => {
+    if (!androidTheme.shouldShowIntro || Platform.OS !== 'android') {
+      return
+    }
+
+    orbitRotateA.setValue(0)
+    orbitRotateB.setValue(0)
+
+    const loopA = Animated.loop(
+      Animated.timing(orbitRotateA, {
+        toValue: 1,
+        duration: 24000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    )
+    const loopB = Animated.loop(
+      Animated.timing(orbitRotateB, {
+        toValue: 1,
+        duration: 32000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    )
+
+    loopA.start()
+    loopB.start()
+
+    return () => {
+      loopA.stop()
+      loopB.stop()
+    }
+  }, [androidTheme.shouldShowIntro, orbitRotateA, orbitRotateB])
 
   React.useEffect(() => {
     if (!androidTheme.shouldShowIntro || Platform.OS !== 'android') {
@@ -76,29 +134,151 @@ export default function AndroidThemeIntro() {
     return null
   }
 
-  const materialPalette = getAndroidThemePalette(colorScheme === 'dark')
+  const supportsSystemPalette = Number(Platform.Version) >= 31
+  const materialPalette = getAndroidThemePalette(colorScheme === 'dark', androidTheme.contrastMode)
   const companyPalette = getAndroidCompanyPalette()
-  const activePalette = selectedMode === 'company' ? companyPalette : materialPalette
-  const activeAccent = selectedMode === 'company' ? '#FF6A00' : String(materialPalette.primary)
+  const materialSystemAccent = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_300'
+          : '@android:color/system_accent1_500',
+      )
+    : materialPalette.primary
+  const materialSystemAccentStrong = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_100'
+          : '@android:color/system_accent1_700',
+      )
+    : materialPalette.primaryStrong
+  const materialSystemBackground = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_900'
+          : '@android:color/system_neutral1_10',
+      )
+    : materialPalette.background
+  const materialSystemBackgroundSecondary = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_900'
+          : '@android:color/system_accent1_50',
+      )
+    : materialPalette.primaryContainer
+  const materialSystemSurface = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_800'
+          : '@android:color/system_neutral1_0',
+      )
+    : materialPalette.surfaceRaised
+  const materialSystemSurfaceMuted = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_800'
+          : '@android:color/system_neutral2_50',
+      )
+    : materialPalette.surfaceMuted
+  const materialSystemOutline = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_700'
+          : '@android:color/system_neutral2_200',
+      )
+    : materialPalette.outlineVariant
+  const materialSystemText = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral1_50'
+          : '@android:color/system_neutral1_900',
+      )
+    : materialPalette.onSurface
+  const materialSystemMutedText = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_neutral2_200'
+          : '@android:color/system_neutral2_700',
+      )
+    : materialPalette.onSurfaceMuted
+  const materialSystemContainer = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_800'
+          : '@android:color/system_accent1_100',
+      )
+    : materialPalette.primaryContainer
+  const materialSystemContainerStrong = supportsSystemPalette
+    ? PlatformColor(
+        colorScheme === 'dark'
+          ? '@android:color/system_accent1_700'
+          : '@android:color/system_accent1_200',
+      )
+    : materialPalette.primaryContainerStrong
+  const materialPreviewAccent = String(
+    colorScheme === 'dark' ? materialPalette.primaryStrong : materialPalette.primary,
+  )
+  const materialOptionSurfaceMuted = materialSystemSurfaceMuted
+  const materialOptionOutline = materialSystemOutline
+  const materialOptionText = materialSystemText
+  const materialOptionMutedText = materialSystemMutedText
+  const materialOptionAccent = materialSystemAccent
+  const materialOptionAccentStrong = materialSystemAccentStrong
+  const materialOptionContainerStrong = materialSystemContainerStrong
+  const activeBackground =
+    selectedMode === 'company'
+      ? String(companyPalette.background)
+      : colorScheme === 'dark'
+        ? '#0B1020'
+        : '#EDF3FF'
   const activeAccentStrong =
-    selectedMode === 'company' ? '#FF8C38' : String(materialPalette.primaryStrong)
-  const activeOnPrimary = '#FFFFFF'
-  const statusBarStyle = getAndroidStatusBarStyle(String(materialPalette.background))
-  const isDarkMaterial = colorScheme === 'dark'
-  const materialReadableText = isDarkMaterial
-    ? '#F3F6F8'
-    : String(materialPalette.onSurface)
-  const materialReadableMuted = isDarkMaterial
-    ? '#B2BCC4'
-    : String(materialPalette.onSurfaceMuted)
-  const materialReadableChip = isDarkMaterial
-    ? '#DCE6EE'
-    : String(materialPalette.onSurface)
-  const materialReadableBadge = isDarkMaterial
-    ? '#D7E3EC'
-    : String(materialPalette.primaryStrong)
-  const materialReadablePrimarySurface = isDarkMaterial ? '#212A33' : String(materialPalette.surfaceMuted)
-  const materialReadableSecondarySurface = isDarkMaterial ? '#181F26' : String(materialPalette.surface)
+    selectedMode === 'company' ? '#FF8C38' : materialPreviewAccent
+  const activeBackgroundColorValue =
+    selectedMode === 'company' ? companyPalette.background : materialSystemBackground
+  const activeBackgroundSecondaryColorValue =
+    selectedMode === 'company'
+      ? companyPalette.surface
+      : materialSystemBackgroundSecondary
+  const activeSurfaceColorValue =
+    selectedMode === 'company' ? companyPalette.surfaceRaised : materialSystemSurface
+  const activeSurfaceMutedColorValue =
+    selectedMode === 'company' ? companyPalette.surface : materialSystemSurfaceMuted
+  const activeOutlineColorValue =
+    selectedMode === 'company' ? companyPalette.outlineVariant : materialSystemOutline
+  const activeTextColorValue =
+    selectedMode === 'company' ? companyPalette.onSurface : materialSystemText
+  const activeMutedTextColorValue =
+    selectedMode === 'company' ? companyPalette.onSurfaceMuted : materialSystemMutedText
+  const activeContainerColorValue =
+    selectedMode === 'company' ? companyPalette.primaryContainer : materialSystemContainer
+  const activeContainerStrongColorValue =
+    selectedMode === 'company'
+      ? companyPalette.primaryContainerStrong
+      : materialSystemContainerStrong
+  const activeAccentColorValue =
+    selectedMode === 'company' ? companyPalette.primary : materialSystemAccent
+  const activeAccentStrongColorValue =
+    selectedMode === 'company'
+      ? companyPalette.primaryStrong
+      : materialSystemAccentStrong
+  const activeOnPrimary =
+    selectedMode === 'company'
+      ? '#FFFFFF'
+      : colorScheme === 'dark'
+        ? '#08120F'
+        : '#FFFFFF'
+  const statusBarStyle = getAndroidStatusBarStyle(activeBackground)
+  const ambientGlowColor =
+    selectedMode === 'company'
+      ? 'rgba(255,106,0,0.22)'
+      : colorScheme === 'dark'
+        ? 'rgba(167,199,255,0.26)'
+        : 'rgba(69,123,255,0.18)'
+  const ambientGlowStrongColor =
+    selectedMode === 'company'
+      ? 'rgba(255,140,56,0.18)'
+      : colorScheme === 'dark'
+        ? 'rgba(221,233,255,0.16)'
+        : 'rgba(98,142,255,0.14)'
 
   const sheetTranslateY = progress.interpolate({
     inputRange: [0, 1],
@@ -123,6 +303,57 @@ export default function AndroidThemeIntro() {
   const continueOpacity = footerPulse.interpolate({
     inputRange: [0.97, 1],
     outputRange: [0.88, 1],
+    extrapolate: 'clamp',
+  })
+  const ambientTopStyle = {
+    opacity: ambienceProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    }),
+    transform: [
+      {
+        translateY: ambienceProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-22, 0],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        scale: ambienceProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.92, 1],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  }
+  const ambientBottomStyle = {
+    opacity: ambienceProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    }),
+    transform: [
+      {
+        translateY: ambienceProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [26, 0],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        scale: ambienceProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.9, 1],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  }
+  const backgroundSecondaryOpacity = ambienceProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.12, 0.3],
     extrapolate: 'clamp',
   })
 
@@ -156,9 +387,27 @@ export default function AndroidThemeIntro() {
       style={[
         styles.previewShell,
         {
-          backgroundColor: String(activePalette.surfaceRaised),
-          borderColor: String(activePalette.outlineVariant),
-          transform: [{ scale: previewPulse }],
+          backgroundColor: activeSurfaceColorValue,
+          borderColor: activeOutlineColorValue,
+          transform: [
+            {
+              scale: Animated.multiply(
+                previewPulse,
+                selectionPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.01],
+                  extrapolate: 'clamp',
+                }),
+              ),
+            },
+            {
+              translateY: selectionPulse.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -4],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
         },
       ]}>
       <View style={styles.previewTopRow}>
@@ -169,11 +418,11 @@ export default function AndroidThemeIntro() {
               backgroundColor:
                 selectedMode === 'company'
                   ? String(companyPalette.primaryContainer)
-                  : materialReadablePrimarySurface,
+                  : activeContainerStrongColorValue,
               borderColor:
                 selectedMode === 'company'
                   ? '#503016'
-                  : String(materialPalette.outlineVariant),
+                  : activeOutlineColorValue,
             },
           ]}>
           <Text
@@ -181,7 +430,7 @@ export default function AndroidThemeIntro() {
               styles.previewChipText,
               {
                 color:
-                  selectedMode === 'company' ? activeAccentStrong : materialReadableChip,
+                  selectedMode === 'company' ? activeAccentStrong : activeAccentStrongColorValue,
               },
             ]}>
             {selectedMode === 'company' ? 'Код компании' : 'Material You'}
@@ -190,14 +439,14 @@ export default function AndroidThemeIntro() {
         <View
           style={[
             styles.previewAvatar,
-            { backgroundColor: String(activePalette.primaryContainer) },
+            { backgroundColor: activeContainerColorValue },
           ]}>
           <Text
             style={[
               styles.previewAvatarText,
               {
                 color:
-                  selectedMode === 'company' ? activeAccentStrong : materialReadableText,
+                  selectedMode === 'company' ? activeAccentStrong : activeTextColorValue,
               },
             ]}>
             D
@@ -209,8 +458,8 @@ export default function AndroidThemeIntro() {
         style={[
           styles.previewHeroCard,
           {
-            backgroundColor: String(activePalette.surface),
-            borderColor: String(activePalette.outlineVariant),
+            backgroundColor: activeSurfaceMutedColorValue,
+            borderColor: activeOutlineColorValue,
           },
         ]}>
         <View
@@ -220,11 +469,11 @@ export default function AndroidThemeIntro() {
               backgroundColor:
                 selectedMode === 'company'
                   ? String(companyPalette.closedBadge)
-                  : materialReadablePrimarySurface,
+                  : activeContainerStrongColorValue,
               borderColor:
                 selectedMode === 'company'
                   ? String(companyPalette.closedBadgeBorder)
-                  : String(activePalette.outlineVariant),
+                  : activeOutlineColorValue,
             },
           ]}>
           <Text
@@ -234,7 +483,7 @@ export default function AndroidThemeIntro() {
                 color:
                   selectedMode === 'company'
                     ? String(companyPalette.primaryStrong)
-                    : materialReadableChip,
+                    : activeAccentStrongColorValue,
               },
             ]}>
             {selectedMode === 'company' ? 'Фирменный режим' : 'Системный режим'}
@@ -243,13 +492,13 @@ export default function AndroidThemeIntro() {
         <View
           style={[
             styles.previewLineLong,
-            { backgroundColor: String(activePalette.onSurface) },
+            { backgroundColor: activeTextColorValue },
           ]}
         />
         <View
           style={[
             styles.previewLineMedium,
-            { backgroundColor: String(activePalette.onSurfaceMuted) },
+            { backgroundColor: activeMutedTextColorValue },
           ]}
         />
       </View>
@@ -259,17 +508,15 @@ export default function AndroidThemeIntro() {
           style={[
             styles.previewMiniCard,
             {
-              backgroundColor: String(activePalette.surface),
-              borderColor: String(activePalette.outlineVariant),
+              backgroundColor: activeSurfaceMutedColorValue,
+              borderColor: activeOutlineColorValue,
             },
           ]}>
-          <View
-            style={[styles.previewMiniDot, { backgroundColor: activeAccent }]}
-          />
+          <View style={[styles.previewMiniDot, { backgroundColor: activeAccentColorValue }]} />
           <View
             style={[
               styles.previewMiniLineWide,
-              { backgroundColor: String(activePalette.onSurface) },
+              { backgroundColor: activeTextColorValue },
             ]}
           />
         </View>
@@ -280,8 +527,8 @@ export default function AndroidThemeIntro() {
               backgroundColor:
                 selectedMode === 'company'
                   ? String(companyPalette.primaryContainer)
-                  : materialReadablePrimarySurface,
-              borderColor: String(activePalette.outlineVariant),
+                  : activeContainerStrongColorValue,
+              borderColor: activeOutlineColorValue,
             },
           ]}>
           <View
@@ -291,14 +538,14 @@ export default function AndroidThemeIntro() {
                 backgroundColor:
                   selectedMode === 'company'
                     ? '#FFFFFF'
-                    : materialReadableBadge,
+                    : activeAccentStrongColorValue,
               },
             ]}
           />
           <View
             style={[
               styles.previewMiniLineShort,
-              { backgroundColor: String(activePalette.onSurfaceMuted) },
+              { backgroundColor: activeMutedTextColorValue },
             ]}
           />
         </View>
@@ -306,14 +553,89 @@ export default function AndroidThemeIntro() {
     </Animated.View>
   )
   const selectedOption = optionData.find(option => option.mode === selectedMode) ?? optionData[0]
+  const animateReveal = (mode: ThemeMode, persist = false) => {
+    setRevealTarget(mode)
+    revealProgress.stopAnimation()
+    revealFade.stopAnimation()
+    revealProgress.setValue(0)
+    revealFade.setValue(0)
+
+    if (persist) {
+      Animated.parallel([
+        Animated.timing(revealProgress, {
+          toValue: 1,
+          duration: 760,
+          easing: Easing.bezier(0.16, 0.92, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(revealFade, {
+          toValue: 1,
+          duration: 760,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start()
+      return
+    }
+
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(revealProgress, {
+          toValue: 1,
+          duration: 620,
+          easing: Easing.bezier(0.18, 0.82, 0.22, 1),
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(revealFade, {
+            toValue: 0.6,
+            duration: 300,
+            easing: Easing.bezier(0.2, 0.84, 0.24, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(revealFade, {
+            toValue: 0,
+            duration: 340,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ]).start()
+  }
+
+  const handleSelectPressIn = (mode: ThemeMode, event: GestureResponderEvent) => {
+    if (mode === selectedMode || isCompleting) {
+      return
+    }
+
+    const { pageX, pageY } = event.nativeEvent
+    setRevealOrigin({ x: pageX, y: pageY })
+  }
+
   const handleSelectMode = (mode: ThemeMode) => {
     if (mode === selectedMode || isCompleting) {
       return
     }
 
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(mode === 'company' ? 7 : 5)
-    }
+    androidLightImpact()
+    selectionPulse.stopAnimation()
+    selectionPulse.setValue(0)
+    Animated.sequence([
+      Animated.timing(selectionPulse, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.bezier(0.2, 0.88, 0.24, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(selectionPulse, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start()
+    animateReveal(mode)
     setSelectedMode(mode)
   }
 
@@ -322,10 +644,9 @@ export default function AndroidThemeIntro() {
       return
     }
 
-    if (Platform.OS === 'android') {
-      Vibration.vibrate([0, 10, 24, 16])
-    }
+    androidPeakImpact()
     setIsCompleting(true)
+    animateReveal(selectedMode, true)
     Animated.parallel([
       Animated.timing(progress, {
         toValue: 0,
@@ -343,21 +664,271 @@ export default function AndroidThemeIntro() {
     })
   }
 
+  const revealAccent =
+    revealTarget === 'company' ? '#FF6A00' : materialOptionAccent
+  const revealRadius = Math.max(
+    Math.hypot(revealOrigin.x, revealOrigin.y),
+    Math.hypot(rootSize.width - revealOrigin.x, revealOrigin.y),
+    Math.hypot(revealOrigin.x, rootSize.height - revealOrigin.y),
+    Math.hypot(rootSize.width - revealOrigin.x, rootSize.height - revealOrigin.y),
+    1,
+  )
+  const revealSize = revealRadius * 2
+  const orbitRotationA = orbitRotateA.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  })
+  const orbitRotationB = orbitRotateB.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '-360deg'],
+  })
+  const topOrbitSize = Math.max(rootSize.width * 0.88, 320)
+  const topOrbitCenterX = rootSize.width * 0.78
+  const topOrbitCenterY = topOrbitSize * 0.16
+  const topOrbitLeft = topOrbitCenterX - topOrbitSize / 2
+  const topOrbitTop = topOrbitCenterY - topOrbitSize / 2
+  const topOrbitCoreSize = topOrbitSize * 0.62
+  const topOrbitRingSize = topOrbitSize * 0.76
+
+  const bottomOrbitSize = Math.max(rootSize.width * 1.16, 380)
+  const bottomOrbitCenterX = rootSize.width * 0.14
+  const bottomOrbitCenterY = rootSize.height * 1.08
+  const bottomOrbitLeft = bottomOrbitCenterX - bottomOrbitSize / 2
+  const bottomOrbitTop = bottomOrbitCenterY - bottomOrbitSize / 2
+  const bottomOrbitRingSize = bottomOrbitSize * 0.88
+
   return (
-    <View style={styles.root} pointerEvents="box-none">
+    <View
+      style={styles.root}
+      onLayout={event => {
+        const { width, height } = event.nativeEvent.layout
+        setRootSize({ width, height })
+      }}>
+      <View style={[styles.backgroundBase, { backgroundColor: activeBackgroundColorValue }]} />
+      <Animated.View
+        style={[
+          styles.backgroundSecondary,
+          {
+            backgroundColor: activeBackgroundSecondaryColorValue,
+            opacity: backgroundSecondaryOpacity,
+          },
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.ambientOrbit,
+          {
+            width: topOrbitSize,
+            height: topOrbitSize,
+            left: topOrbitLeft,
+            top: topOrbitTop,
+          },
+          {
+            transform: [
+              ...ambientTopStyle.transform,
+              { rotate: orbitRotationA },
+            ],
+            opacity: ambientTopStyle.opacity,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.ambientOrbitCore,
+            {
+              width: topOrbitCoreSize,
+              height: topOrbitCoreSize,
+              borderRadius: topOrbitCoreSize / 2,
+              backgroundColor: ambientGlowColor,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.ambientOrbitRing,
+            {
+              width: topOrbitRingSize,
+              height: topOrbitRingSize,
+              borderRadius: topOrbitRingSize / 2,
+              borderColor: ambientGlowStrongColor,
+            },
+          ]}
+        />
+        {ambientTeeth.map(index => {
+          const angle = (Math.PI * 2 * index) / ambientTeeth.length
+          const degrees = (index / ambientTeeth.length) * 360
+          if (degrees < 110 || degrees > 255) {
+            return null
+          }
+          const radius = topOrbitSize * 0.385
+          const segmentWidth = 18
+          const segmentHeight = 5
+          return (
+            <View
+              key={`orbit-top-${index}`}
+              style={[
+                styles.ambientOrbitTooth,
+                {
+                  backgroundColor: ambientGlowStrongColor,
+                  width: segmentWidth,
+                  height: segmentHeight,
+                  borderRadius: segmentHeight / 2,
+                  left:
+                    topOrbitSize / 2 - segmentWidth / 2 + Math.cos(angle) * radius,
+                  top:
+                    topOrbitSize / 2 - segmentHeight / 2 + Math.sin(angle) * radius,
+                  transform: [{ rotate: `${degrees + 90}deg` }],
+                },
+              ]}
+            />
+          )
+        })}
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.ambientOrbit,
+          {
+            width: bottomOrbitSize,
+            height: bottomOrbitSize,
+            left: bottomOrbitLeft,
+            top: bottomOrbitTop,
+          },
+          {
+            transform: [
+              ...ambientBottomStyle.transform,
+              { rotate: orbitRotationB },
+            ],
+            opacity: ambientBottomStyle.opacity,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.ambientOrbitRingSmall,
+            {
+              width: bottomOrbitRingSize,
+              height: bottomOrbitRingSize,
+              borderRadius: bottomOrbitRingSize / 2,
+              borderColor: ambientGlowColor,
+            },
+          ]}
+        />
+      </Animated.View>
+      <View pointerEvents="none" style={styles.revealOverlay}>
+        <Animated.View
+          style={[
+            styles.revealVeil,
+            {
+              backgroundColor: revealAccent,
+              opacity: revealFade.interpolate({
+                inputRange: [0, 0.24, 0.8, 1],
+                outputRange: [0, 0.035, 0.075, 0.085],
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.revealHalo,
+            {
+              width: revealSize,
+              height: revealSize,
+              borderRadius: revealRadius,
+              left: revealOrigin.x - revealRadius,
+              top: revealOrigin.y - revealRadius,
+              backgroundColor: revealAccent,
+              opacity: revealFade.interpolate({
+                inputRange: [0, 0.22, 0.7, 1],
+                outputRange: [0, 0.04, 0.07, 0.045],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  scale: revealProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.16, 1.14],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.revealCircle,
+            {
+              width: revealSize,
+              height: revealSize,
+              borderRadius: revealRadius,
+              left: revealOrigin.x - revealRadius,
+              top: revealOrigin.y - revealRadius,
+              backgroundColor: revealAccent,
+              opacity: revealFade.interpolate({
+                inputRange: [0, 0.22, 0.7, 1],
+                outputRange: [0, 0.055, 0.085, 0.06],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  scale: revealProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.18, 1.02],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.revealRing,
+            {
+              width: revealSize,
+              height: revealSize,
+              borderRadius: revealRadius,
+              left: revealOrigin.x - revealRadius,
+              top: revealOrigin.y - revealRadius,
+              borderColor: revealAccent,
+              opacity: revealFade.interpolate({
+                inputRange: [0, 0.18, 0.46, 1],
+                outputRange: [0, 0.16, 0.08, 0],
+                extrapolate: 'clamp',
+              }),
+              transform: [
+                {
+                  scale: revealProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.24, 1.06],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      </View>
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
         <Animated.View
           style={[
             styles.sheet,
             {
-              backgroundColor: String(materialPalette.background),
+              backgroundColor: activeSurfaceColorValue,
+              borderColor:
+                selectedMode === 'company'
+                  ? 'rgba(255,255,255,0.06)'
+                  : activeOutlineColorValue,
               opacity: sheetOpacity,
               transform: [{ translateY: sheetTranslateY }, { scale: sheetScale }],
             },
           ]}>
           <StatusBar
             barStyle={statusBarStyle}
-            backgroundColor={String(materialPalette.background)}
+            backgroundColor={activeBackground}
           />
 
           <ScrollView
@@ -373,18 +944,18 @@ export default function AndroidThemeIntro() {
                     color:
                       selectedMode === 'company'
                         ? '#FF8C38'
-                        : materialReadableBadge,
+                        : activeAccentStrongColorValue,
                   },
                 ]}>
                 Первый запуск
               </Text>
-              <Text style={[styles.title, { color: String(materialPalette.onSurface) }]}>
+              <Text style={[styles.title, { color: activeTextColorValue }]}>
                 Выбери стиль приложения
               </Text>
               <Text
                 style={[
                   styles.subtitle,
-                  { color: String(materialPalette.onSurfaceMuted) },
+                  { color: activeMutedTextColorValue },
                 ]}>
                 Выбери один из двух режимов. Настройку потом можно поменять во вкладке
                 «Ещё».
@@ -399,94 +970,137 @@ export default function AndroidThemeIntro() {
                 const optionAccent =
                   option.mode === 'company'
                     ? '#FF6A00'
-                    : String(materialPalette.primary)
+                    : materialOptionAccent
 
                 return (
-                  <Pressable
+                  <Animated.View
                     key={option.mode}
                     style={[
-                      styles.optionCard,
-                      {
-                        backgroundColor: isSelected
-                          ? option.mode === 'material'
-                            ? materialReadablePrimarySurface
-                            : String(materialPalette.surfaceRaised)
-                          : option.mode === 'material'
-                            ? materialReadableSecondarySurface
-                            : String(materialPalette.surface),
-                        borderColor: isSelected
-                          ? optionAccent
-                          : String(materialPalette.outlineVariant),
-                      },
-                    ]}
-                    onPress={() => handleSelectMode(option.mode)}>
-                    <View style={styles.optionTop}>
-                      <View style={styles.optionCopy}>
-                        <Text
+                      styles.optionCardWrap,
+                      isSelected
+                        ? {
+                            transform: [
+                              {
+                                translateY: selectionPulse.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0, -6],
+                                  extrapolate: 'clamp',
+                                }),
+                              },
+                              {
+                                scale: selectionPulse.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [1, 1.018],
+                                  extrapolate: 'clamp',
+                                }),
+                              },
+                            ],
+                          }
+                        : null,
+                    ]}>
+                    <Pressable
+                      style={[
+                        styles.optionCard,
+                        {
+                          backgroundColor: isSelected
+                            ? option.mode === 'material'
+                              ? materialOptionContainerStrong
+                              : String(companyPalette.surfaceRaised)
+                            : option.mode === 'material'
+                              ? materialOptionSurfaceMuted
+                              : String(companyPalette.surface),
+                          borderColor: isSelected
+                            ? optionAccent
+                            : option.mode === 'material'
+                              ? materialOptionOutline
+                              : String(companyPalette.outlineVariant),
+                        },
+                      ]}
+                      onPressIn={event => handleSelectPressIn(option.mode, event)}
+                      onPress={() => handleSelectMode(option.mode)}>
+                      <View style={styles.optionTop}>
+                        <View style={styles.optionCopy}>
+                          <Text
+                            style={[
+                              styles.optionTitle,
+                              {
+                                color: isSelected
+                                  ? option.mode === 'material'
+                                    ? materialOptionText
+                                    : String(companyPalette.onSurface)
+                                  : option.mode === 'material'
+                                    ? materialOptionMutedText
+                                    : String(companyPalette.onSurfaceMuted),
+                              },
+                            ]}>
+                            {option.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.optionMeta,
+                              {
+                                color: isSelected
+                                  ? option.mode === 'company'
+                                    ? '#FF8C38'
+                                    : materialOptionAccentStrong
+                                  : option.mode === 'material'
+                                    ? materialOptionMutedText
+                                    : String(companyPalette.onSurfaceMuted),
+                              },
+                            ]}>
+                            {option.mode === 'company' ? 'Фирменный' : 'Системная'}
+                          </Text>
+                        </View>
+                        <View
                           style={[
-                            styles.optionTitle,
+                            styles.optionRadio,
                             {
-                        color: isSelected
-                                ? option.mode === 'material'
-                                  ? materialReadableText
-                                  : String(materialPalette.onSurface)
+                              backgroundColor: isSelected ? optionAccent : 'transparent',
+                              borderColor: isSelected
+                                ? optionAccent
                                 : option.mode === 'material'
-                                  ? materialReadableMuted
-                                  : String(materialPalette.onSurfaceMuted),
+                                  ? materialOptionOutline
+                                  : String(companyPalette.outline),
                             },
                           ]}>
-                          {option.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.optionMeta,
-                            {
-                              color: isSelected
-                                ? option.mode === 'company'
-                                  ? '#FF8C38'
-                                  : materialReadableBadge
-                                : option.mode === 'material'
-                                  ? materialReadableMuted
-                                  : String(materialPalette.onSurfaceMuted),
-                            },
-                          ]}>
-                          {option.mode === 'company' ? 'Фирменный' : 'Системная'}
-                        </Text>
+                          {isSelected ? <View style={styles.optionRadioInner} /> : null}
+                        </View>
                       </View>
-                      <View
-                        style={[
-                          styles.optionRadio,
-                          {
-                            backgroundColor: isSelected ? optionAccent : 'transparent',
-                            borderColor: isSelected
-                              ? optionAccent
-                              : String(materialPalette.outline),
-                          },
-                        ]}>
-                        {isSelected ? <View style={styles.optionRadioInner} /> : null}
-                      </View>
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </Animated.View>
                 )
               })}
             </View>
+
+            <Text
+              style={[
+                styles.footerCaption,
+                {
+                  color: activeMutedTextColorValue,
+                  marginTop: 10,
+                  paddingHorizontal: 2,
+                },
+              ]}>
+              Доступность и внешний вид Material You зависят от версии Android и оболочки
+              устройства. На некоторых устройствах оформление может отличаться.
+            </Text>
           </ScrollView>
 
           <View
             style={[
               styles.footer,
               {
-                backgroundColor: String(materialPalette.background),
-                borderTopColor: String(materialPalette.outlineVariant),
+                backgroundColor: activeSurfaceColorValue,
+                borderTopColor: activeOutlineColorValue,
               },
             ]}>
             <Text
               style={[
                 styles.footerCaption,
-                { color: String(materialPalette.onSurfaceMuted) },
+                { color: activeMutedTextColorValue },
               ]}>
               Выбран режим:{' '}
-              <Text style={{ color: String(materialPalette.onSurface), fontWeight: '800' }}>
+              <Text style={[styles.footerSelectedValue, { color: activeTextColorValue }]}>
                 {selectedOption.title}
               </Text>
             </Text>
@@ -495,8 +1109,11 @@ export default function AndroidThemeIntro() {
               style={[
                 styles.continueButton,
                 {
-                  backgroundColor: activeAccent,
-                  borderColor: selectedMode === 'company' ? '#FF8C38' : materialReadablePrimarySurface,
+                  backgroundColor: activeAccentColorValue,
+                  borderColor:
+                    selectedMode === 'company'
+                      ? '#FF8C38'
+                      : activeAccentStrongColorValue,
                 },
               ]}
               onPress={handleComplete}>
@@ -523,15 +1140,62 @@ const styles = StyleSheet.create({
     zIndex: 400,
     elevation: 400,
   },
+  backgroundBase: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backgroundSecondary: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.22,
+  },
+  ambientOrbit: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ambientOrbitCore: {
+    opacity: 0.26,
+  },
+  ambientOrbitRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    opacity: 0.12,
+  },
+  ambientOrbitRingSmall: {
+    position: 'absolute',
+    borderWidth: 1,
+    opacity: 0.1,
+  },
+  ambientOrbitTooth: {
+    position: 'absolute',
+    opacity: 0.42,
+  },
+  revealOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    zIndex: 6,
+  },
+  revealVeil: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  revealHalo: {
+    position: 'absolute',
+  },
+  revealCircle: {
+    position: 'absolute',
+  },
+  revealRing: {
+    position: 'absolute',
+    borderWidth: 2,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(4,7,10,0.62)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   sheet: {
     maxHeight: '74%',
-    borderRadius: 32,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     overflow: 'hidden',
@@ -570,7 +1234,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   previewShell: {
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 12,
     gap: 10,
@@ -649,7 +1313,7 @@ const styles = StyleSheet.create({
   previewMiniCard: {
     flex: 1,
     minHeight: 52,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     padding: 10,
     justifyContent: 'center',
@@ -676,10 +1340,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  optionCardWrap: {
+    flex: 1,
+  },
   optionCard: {
     flex: 1,
     minHeight: 64,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -738,9 +1405,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
   },
+  footerSelectedValue: {
+    fontWeight: '800',
+  },
   continueButton: {
     minHeight: 52,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

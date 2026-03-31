@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Animated,
+  type ColorValue,
   Easing,
   Image,
   ImageSourcePropType,
@@ -34,14 +35,16 @@ type LiquidTabBarProps = {
   mailIcon?: ImageSourcePropType;
   trashIcon?: ImageSourcePropType;
   homeLabel?: string;
+  trashLabel?: string;
   profileLabel?: string;
   themeMode?: 'dark' | 'light';
-  activeTintColor?: string;
-  activeBackgroundColor?: string;
-  inactiveTintColor?: string;
-  shellBackgroundColor?: string;
-  shellBorderColor?: string;
-  activeForegroundColor?: string;
+  activeTintColor?: ColorValue;
+  activeBackgroundColor?: ColorValue;
+  inactiveTintColor?: ColorValue;
+  shellBackgroundColor?: ColorValue;
+  shellBorderColor?: ColorValue;
+  activeForegroundColor?: ColorValue;
+  activePillSolidColor?: ColorValue;
 };
 
 const BAR_HORIZONTAL_PADDING = 46;
@@ -68,6 +71,7 @@ function SharedLiquidTabBar({
   mailIcon,
   trashIcon,
   homeLabel = 'Главная',
+  trashLabel = 'Корзина',
   profileLabel = 'Профиль',
   themeMode = 'dark',
 }: LiquidTabBarProps) {
@@ -96,14 +100,14 @@ function SharedLiquidTabBar({
         ? [
             { key: 'home', icon: homeIcon, label: homeLabel },
             { key: 'mail', icon: mailIcon as ImageSourcePropType, label: 'Сертификаты' },
-            { key: 'trash', icon: trashIcon as ImageSourcePropType, label: 'Корзина' },
+            { key: 'trash', icon: trashIcon as ImageSourcePropType, label: trashLabel },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ]
         : [
             { key: 'home', icon: homeIcon, label: homeLabel },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ],
-    [hasExtraTabs, homeIcon, homeLabel, mailIcon, profileIcon, profileLabel, trashIcon],
+    [hasExtraTabs, homeIcon, homeLabel, mailIcon, profileIcon, profileLabel, trashIcon, trashLabel],
   );
 
   const activeSlotIndex = Math.max(0, tabs.findIndex(tab => tab.key === activeTab));
