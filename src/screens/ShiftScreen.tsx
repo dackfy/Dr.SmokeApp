@@ -54,6 +54,8 @@ import {
   getAndroidThemePalette,
 } from '../theme/androidDynamicColors'
 import { checkEmployeeAccess } from '../features/auth/authApi'
+import { partnerLossApi } from '../features/partnerLoss/partnerLossApi'
+import { dovozApi } from '../features/dovoz/dovozApi'
 import type { OpenedShift } from '../features/shift/types'
 import {
   androidHeavyImpact,
@@ -73,8 +75,10 @@ type ShiftScreenProps = {
   onBack?: () => void
   onGoHome?: () => void
   onGoMail?: () => void
+  onOpenCertificates?: () => void
   onGoTrash?: () => void
   onGoProfile?: () => void
+  onOpenHouseholdOrders?: () => void
   activeTab?: TabKey
   showHeaderActions?: boolean
   showTabBar?: boolean
@@ -173,7 +177,7 @@ type SalaryPeriodKey = 'current' | 'previous'
 
 const homeIcon = require('../assets/icons/home.png')
 const profileIcon = require('../assets/icons/more.png')
-const mailIcon = require('../assets/icons/gift.png')
+const mailIcon = require('../assets/icons/clip.png')
 const trashIcon = require('../assets/icons/trash.png')
 const shopIcon = require('../assets/icons/shop.png')
 const rubleIcon = require('../assets/icons/ruble.png')
@@ -612,8 +616,10 @@ export default function ShiftScreen({
   onBack,
   onGoHome,
   onGoMail,
+  onOpenCertificates,
   onGoTrash,
   onGoProfile,
+  onOpenHouseholdOrders,
   activeTab = 'home',
   showHeaderActions = true,
   showTabBar = true,
@@ -716,8 +722,17 @@ export default function ShiftScreen({
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [isDcHistoryExpanded, setIsDcHistoryExpanded] = React.useState(false)
   const [isSalaryExpanded, setIsSalaryExpanded] = React.useState(false)
+  const [partnerLossReason, setPartnerLossReason] = React.useState('')
+  const [partnerLossError, setPartnerLossError] = React.useState<string | null>(null)
+  const [partnerLossSuccess, setPartnerLossSuccess] = React.useState<string | null>(null)
+  const [isPartnerLossSubmitting, setIsPartnerLossSubmitting] = React.useState(false)
+  const [opsNotice, setOpsNotice] = React.useState<string | null>(null)
+  const [opsError, setOpsError] = React.useState<string | null>(null)
+  const [opsActionLoading, setOpsActionLoading] = React.useState<null | 'start' | 'arrive' | 'finish'>(null)
   const scrollViewRef = React.useRef<ScrollView | null>(null)
   const scrollOffsetYRef = React.useRef(0)
+  const compactHeaderProgress = React.useRef(new Animated.Value(0)).current
+  const compactHeaderVisibleRef = React.useRef(false)
   const salarySectionYRef = React.useRef(0)
   const dcHistoryAnim = React.useRef(new Animated.Value(0)).current
   const salaryProgress = useSharedValue(0)
@@ -743,12 +758,40 @@ export default function ShiftScreen({
     isSubmitting,
     error,
     notice,
+    noticeVariant,
     actions,
   } = useShiftFlow(session.user)
 
   const fullName = [session.user.name, session.user.lastName].filter(Boolean).join(' ')
   const displayName = fullName || session.user.email
   const todayShiftBadgeLabel = `Сегодня, ${formatTodayLabel(session.user.timezone)}`
+  const compactHeaderTranslateY = React.useMemo(
+    () =>
+      compactHeaderProgress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-14, 0],
+      }),
+    [compactHeaderProgress],
+  )
+
+  const updateCompactHeader = React.useCallback(
+    (scrollY: number) => {
+      const shouldShow = scrollY > 72
+      if (compactHeaderVisibleRef.current === shouldShow) {
+        return
+      }
+
+      compactHeaderVisibleRef.current = shouldShow
+      Animated.timing(compactHeaderProgress, {
+        toValue: shouldShow ? 1 : 0,
+        duration: shouldShow ? 180 : 140,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start()
+    },
+    [compactHeaderProgress],
+  )
+
   const openShopDropdown = React.useCallback(() => {
     pulseHaptic()
     setIsShopDropdownOpen(true)
@@ -756,6 +799,69 @@ export default function ShiftScreen({
   const closeShopDropdown = React.useCallback(() => {
     setIsShopDropdownOpen(false)
   }, [])
+
+  const handlePartnerLossSubmit = React.useCallback(async () => {
+    const reason = partnerLossReason.trim()
+
+    if (!status.openedShift) {
+      setPartnerLossError('Сообщить о потере партнёра можно только при открытой смене.')
+      setPartnerLossSuccess(null)
+      return
+    }
+
+    if (!reason) {
+      setPartnerLossError('Коротко укажи причину потери партнёра.')
+      setPartnerLossSuccess(null)
+      return
+    }
+
+    setIsPartnerLossSubmitting(true)
+    setPartnerLossError(null)
+    setPartnerLossSuccess(null)
+    androidRustleHaptic()
+
+    try {
+      await partnerLossApi.report(session.user.id, { reason })
+      setPartnerLossReason('')
+      setPartnerLossSuccess('Отчёт отправлен управляющему.')
+      androidSuccessHaptic()
+    } catch (error) {
+      setPartnerLossError(
+        error instanceof Error
+          ? error.message
+          : 'Не удалось отправить отчёт о потере партнёра',
+      )
+    } finally {
+      setIsPartnerLossSubmitting(false)
+    }
+  }, [partnerLossReason, session.user.id, status.openedShift])
+
+  const handleDovozAction = React.useCallback(async (action: 'start' | 'arrive' | 'finish') => {
+    setOpsNotice(null)
+    setOpsError(null)
+    setOpsActionLoading(action)
+    softPulseHaptic()
+
+    try {
+      const result =
+        action === 'start'
+          ? await dovozApi.start(session.user.id)
+          : action === 'arrive'
+          ? await dovozApi.arrive(session.user.id)
+          : await dovozApi.finish(session.user.id)
+
+      if (result.success) {
+        setOpsNotice(result.message)
+        androidSuccessHaptic()
+      } else {
+        setOpsError(result.message)
+      }
+    } catch (error) {
+      setOpsError(error instanceof Error ? error.message : 'Не удалось обновить статус довоза')
+    } finally {
+      setOpsActionLoading(null)
+    }
+  }, [session.user.id])
 
   React.useEffect(() => {
     if (isShopDropdownOpen) {
@@ -1139,10 +1245,47 @@ export default function ShiftScreen({
     })
   }, [hasSalaryAccruals, isSalaryExpanded, salaryProgress])
   const profileLetter = (session.user.email?.trim()?.charAt(0) || 'П').toUpperCase()
+  const roleNumber = Number(session.user.userRole ?? 3)
+  const isOpsDashboardRole = roleNumber === 4 || roleNumber === 8
   const shiftShopDisplay = status.openedShift?.shopName
   const shiftOpenedAtDisplay = status.openedShift
     ? formatDateTime(status.openedShift.openedAt)
     : null
+  const noticeVisual = React.useMemo(() => {
+    if (noticeVariant === 'warning') {
+      return {
+        containerStyle: styles.shiftFlashMessageWarning,
+        iconCircleStyle: styles.shiftFlashIconCircleWarning,
+        iconText: '!',
+        title: 'Депремирование',
+      }
+    }
+
+    if (noticeVariant === 'error') {
+      return {
+        containerStyle: styles.shiftFlashMessageError,
+        iconCircleStyle: styles.shiftFlashIconCircleError,
+        iconText: '!',
+        title: 'Ошибка',
+      }
+    }
+
+    if (noticeVariant === 'info') {
+      return {
+        containerStyle: styles.shiftFlashMessageSuccess,
+        iconCircleStyle: styles.shiftFlashIconCircleSuccess,
+        iconText: 'i',
+        title: 'Инфо',
+      }
+    }
+
+    return {
+      containerStyle: styles.shiftFlashMessageSuccess,
+      iconCircleStyle: styles.shiftFlashIconCircleSuccess,
+      iconText: '✓',
+      title: 'Подсказка',
+    }
+  }, [noticeVariant, styles])
 
   const switchTab = React.useCallback(
     (nextTab: TabKey) => {
@@ -1343,6 +1486,23 @@ export default function ShiftScreen({
       />
 
       <View style={styles.container}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.compactHeaderOverlay,
+          {
+            opacity: compactHeaderProgress,
+            transform: [{ translateY: compactHeaderTranslateY }],
+          },
+        ]}>
+        <View style={styles.compactHeaderCard}>
+          <Text style={styles.compactHeaderValue}>Баланс {balanceValue}</Text>
+          <View style={styles.compactHeaderDot} />
+          <Text style={styles.compactHeaderStatus}>
+            {status.openedShift ? 'Смена открыта' : 'Смена закрыта'}
+          </Text>
+        </View>
+      </Animated.View>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1365,6 +1525,7 @@ export default function ShiftScreen({
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           onScroll={event => {
             scrollOffsetYRef.current = event.nativeEvent.contentOffset.y
+            updateCompactHeader(event.nativeEvent.contentOffset.y)
           }}
           scrollEventThrottle={16}
           onScrollBeginDrag={Keyboard.dismiss}>
@@ -1378,18 +1539,28 @@ export default function ShiftScreen({
             onPress={toggleDcHistory}
             accessibilityRole="button"
             accessibilityLabel="Показать историю начислений Dℂ">
-            <View style={styles.balanceFlashHeader}>
-              <View style={styles.balanceFlashIconCircle}>
-                <Text style={styles.balanceFlashIconText}>Dℂ</Text>
+              <View style={styles.balanceFlashHeader}>
+                <View style={styles.balanceFlashIconCircle}>
+                  <Text style={styles.balanceFlashIconText}>Dℂ</Text>
+                </View>
+                <View style={styles.balanceFlashTextBlock}>
+                  <Text
+                    style={styles.balanceFlashCaption}
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                  >
+                    Ваш баланс
+                  </Text>
+                  <Text
+                    style={styles.balanceFlashValueInline}
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                  >
+                    {balanceValue}
+                  </Text>
+                </View>
+                <Text style={styles.balanceFlashChevron}>▾</Text>
               </View>
-              <View style={styles.balanceFlashTextBlock}>
-                <Text style={styles.balanceFlashCaption}>Ваш баланс</Text>
-                <Text style={styles.balanceFlashValue}>{balanceValue}</Text>
-              </View>
-              <Text style={styles.balanceFlashChevron}>
-                {isDcHistoryExpanded ? '▴' : '▾'}
-              </Text>
-            </View>
 
             <Animated.View style={[styles.balanceFlashHistoryWrap, historyAnimatedStyle]}>
               <View style={styles.balanceFlashHistory}>
@@ -1450,7 +1621,7 @@ export default function ShiftScreen({
           </AnimatedEntranceView>
         ) : null}
 
-        {!isScheduleLoading && scheduleItems.length > 0 ? (
+        {!isOpsDashboardRole && !isScheduleLoading && scheduleItems.length > 0 ? (
           <AnimatedEntranceView delay={36} distance={10} style={styles.scheduleSection}>
             <View style={styles.scheduleSectionHeader}>
               <Text style={styles.sectionTitle}>Ближайшие смены</Text>
@@ -1514,7 +1685,122 @@ export default function ShiftScreen({
         ) : null}
 
         <AnimatedEntranceView delay={72} distance={10} style={styles.card}>
-          {mode === 'idle' ? (
+          {isOpsDashboardRole ? (
+            <>
+              <Text style={styles.sectionTitle}>Оперативный центр</Text>
+
+              <View style={styles.opsCard}>
+                <Text style={styles.opsCardTitle}>Довозы</Text>
+                <Text style={styles.smallText}>
+                  Быстрое управление текущим рейсом экспедитора.
+                </Text>
+
+                <View style={styles.opsActionRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.shiftStatusPrimaryButton,
+                      styles.opsActionButton,
+                      opsActionLoading ? styles.buttonDisabled : null,
+                    ]}
+                    onPress={() => {
+                      androidMediumImpact()
+                      handleDovozAction('start').catch(() => {})
+                    }}
+                    disabled={Boolean(opsActionLoading)}>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        styles.shiftStatusButtonText,
+                        opsActionLoading ? styles.buttonTextDisabled : null,
+                      ]}>
+                      {opsActionLoading === 'start' ? 'Отправка…' : 'Выехал'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.shiftStatusSecondaryButton,
+                      styles.opsActionButton,
+                      opsActionLoading ? styles.buttonDisabled : null,
+                    ]}
+                    onPress={() => {
+                      androidLightImpact()
+                      handleDovozAction('arrive').catch(() => {})
+                    }}
+                    disabled={Boolean(opsActionLoading)}>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        styles.shiftStatusButtonText,
+                        opsActionLoading ? styles.buttonTextDisabled : null,
+                      ]}>
+                      {opsActionLoading === 'arrive' ? 'Отправка…' : 'Прибыл'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.shiftStatusSecondaryButton,
+                      styles.opsActionButton,
+                      opsActionLoading ? styles.buttonDisabled : null,
+                    ]}
+                    onPress={() => {
+                      androidSuccessHaptic()
+                      handleDovozAction('finish').catch(() => {})
+                    }}
+                    disabled={Boolean(opsActionLoading)}>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        styles.shiftStatusButtonText,
+                        opsActionLoading ? styles.buttonTextDisabled : null,
+                      ]}>
+                      {opsActionLoading === 'finish' ? 'Отправка…' : 'Завершил'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {opsError ? (
+                  <View style={[styles.partnerLossFeedback, styles.partnerLossErrorCard]}>
+                    <Text style={styles.partnerLossFeedbackTitle}>Ошибка</Text>
+                    <Text style={styles.partnerLossFeedbackText}>{opsError}</Text>
+                  </View>
+                ) : null}
+
+                {opsNotice ? (
+                  <View style={[styles.partnerLossFeedback, styles.partnerLossSuccessCard]}>
+                    <Text style={styles.partnerLossFeedbackTitle}>Готово</Text>
+                    <Text style={styles.partnerLossFeedbackText}>{opsNotice}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.opsCard}>
+                <Text style={styles.opsCardTitle}>Работа с заявками</Text>
+                <Text style={styles.smallText}>
+                  Заказы хозтоваров и размена в одном разделе.
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.button, styles.shiftStatusPrimaryButton, styles.opsPrimaryButton]}
+                  onPress={() => {
+                    androidMediumImpact()
+                    if (onOpenHouseholdOrders) {
+                      onOpenHouseholdOrders()
+                      return
+                    }
+                    onGoProfile?.()
+                  }}>
+                  <Text style={[styles.buttonText, styles.shiftStatusButtonText]}>
+                    Открыть заявки
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : mode === 'idle' ? (
             <>
               <Text style={styles.sectionTitle}>Информация о смене</Text>
 
@@ -1573,6 +1859,7 @@ export default function ShiftScreen({
                   style={[
                     styles.button,
                     styles.shiftStatusSecondaryButton,
+                    { marginTop: 22 },
                     !canStartClosing && styles.buttonDisabled,
                   ]}
                   onPress={() => {
@@ -1589,6 +1876,123 @@ export default function ShiftScreen({
                     Закрыть смену
                   </Text>
                 </TouchableOpacity>
+              </View>
+
+              <View style={styles.partnerLossCard}>
+                <View style={styles.partnerLossHeader}>
+                  <Text style={styles.partnerLossKicker}>Инструменты</Text>
+                  <Text style={styles.partnerLossTitle}>Потеря партнёра</Text>
+                  <Text style={styles.smallText}>
+                    {status.openedShift
+                      ? 'Короткий отчёт управляющему по магазину текущей смены.'
+                      : 'Форма станет доступна после открытия смены.'}
+                  </Text>
+                </View>
+
+                <TextInput
+                  value={partnerLossReason}
+                  onChangeText={text => {
+                    setPartnerLossReason(text)
+                    setPartnerLossError(null)
+                    setPartnerLossSuccess(null)
+                  }}
+                  editable={Boolean(status.openedShift) && !isPartnerLossSubmitting}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Например: нет нужного товара, конкретный товар дорогой и т.д."
+                  placeholderTextColor="#7D879A"
+                  style={[
+                    styles.input,
+                    styles.partnerLossInput,
+                    focusedField === 'partner-loss' ? styles.inputFocused : null,
+                    !status.openedShift ? styles.partnerLossInputDisabled : null,
+                  ]}
+                  onFocus={() => setFocusedField('partner-loss')}
+                  onBlur={() =>
+                    setFocusedField(current =>
+                      current === 'partner-loss' ? null : current,
+                    )
+                  }
+                />
+
+                {partnerLossError ? (
+                  <View
+                    style={[
+                      styles.partnerLossFeedback,
+                      styles.partnerLossErrorCard,
+                    ]}
+                  >
+                    <Text style={styles.partnerLossFeedbackTitle}>Ошибка</Text>
+                    <Text style={styles.partnerLossFeedbackText}>
+                      {partnerLossError}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {partnerLossSuccess ? (
+                  <View
+                    style={[
+                      styles.partnerLossFeedback,
+                      styles.partnerLossSuccessCard,
+                    ]}
+                  >
+                    <Text style={styles.partnerLossFeedbackTitle}>
+                      Отправлено
+                    </Text>
+                    <Text style={styles.partnerLossFeedbackText}>
+                      {partnerLossSuccess}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    styles.shiftStatusPrimaryButton,
+                    styles.partnerLossSubmitButton,
+                    (!status.openedShift || isPartnerLossSubmitting) &&
+                      styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    handlePartnerLossSubmit().catch(() => {})
+                  }}
+                  disabled={!status.openedShift || isPartnerLossSubmitting}
+                >
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      styles.shiftStatusButtonText,
+                      (!status.openedShift || isPartnerLossSubmitting) &&
+                        styles.buttonTextDisabled,
+                    ]}
+                  >
+                    {isPartnerLossSubmitting ? 'Отправляем…' : 'Отправить отчёт'}
+                  </Text>
+                </TouchableOpacity>
+
+                {onOpenCertificates ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.shiftStatusSecondaryButton,
+                      styles.certificatesBottomCapsule,
+                    ]}
+                    onPress={() => {
+                      androidLightImpact()
+                      onOpenCertificates()
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        styles.shiftStatusButtonText,
+                        styles.certificatesShortcutButtonText,
+                      ]}
+                    >
+                      Сертификаты
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </>
           ) : null}
@@ -1750,21 +2154,29 @@ export default function ShiftScreen({
                   </Text>
 
                   <View style={styles.closeDecisionGroup}>
-                    <TouchableOpacity style={styles.button} onPress={() => {
-                      androidHeavyImpact()
-                      actions.confirmCloseShop(true)
-                    }}>
-                      <Text style={styles.buttonText}>Подтверждаю</Text>
+                    <TouchableOpacity
+                      style={[styles.button, styles.closeDecisionPrimaryButton]}
+                      onPress={() => {
+                        androidHeavyImpact()
+                        actions.confirmCloseShop(true)
+                      }}>
+                      <Text style={[styles.buttonText, styles.closeDecisionButtonText]}>
+                        Подтверждаю
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.button, styles.buttonDanger]}
+                      style={[
+                        styles.button,
+                        styles.buttonDanger,
+                        styles.closeDecisionDangerButton,
+                      ]}
                       onPress={() => {
                         androidMediumImpact()
                         actions.resetWrongOpenedShop()
                       }}
                       disabled={isSubmitting}>
-                      <Text style={[styles.buttonText, styles.buttonTextDanger]}>
+                      <Text style={[styles.buttonText, styles.closeDecisionButtonText]}>
                         Неправильно открыл смену
                       </Text>
                     </TouchableOpacity>
@@ -2045,22 +2457,24 @@ export default function ShiftScreen({
               styles.shiftFlashMessageError,
               { opacity: shiftErrorOpacity },
             ]}>
-            <View style={styles.shiftFlashMessageLeft}>
-              <View style={[styles.shiftFlashIconCircle, styles.shiftFlashIconCircleError]}>
-                <Text style={styles.shiftFlashIconText}>!</Text>
-              </View>
-              <View style={styles.shiftFlashBody}>
+            <View style={styles.shiftFlashHeader}>
+              <View style={styles.shiftFlashTitleRow}>
+                <View style={[styles.shiftFlashBadge, styles.shiftFlashBadgeError]}>
+                  <Text style={styles.shiftFlashBadgeText}>!</Text>
+                </View>
                 <Text style={styles.shiftFlashTitle}>Ошибка</Text>
-                <Text style={styles.shiftFlashMessageText}>{error}</Text>
               </View>
+              <TouchableOpacity
+                style={styles.shiftFlashCloseButton}
+                onPress={actions.clearError}
+                accessibilityRole="button"
+                accessibilityLabel="Закрыть сообщение об ошибке">
+                <Text style={styles.shiftFlashCloseText}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.shiftFlashCloseButton}
-              onPress={actions.clearError}
-              accessibilityRole="button"
-              accessibilityLabel="Закрыть сообщение об ошибке">
-              <Text style={styles.shiftFlashCloseText}>✕</Text>
-            </TouchableOpacity>
+            <Text style={styles.shiftFlashMessageText} numberOfLines={3}>
+              {error}
+            </Text>
           </Animated.View>
         ) : null}
 
@@ -2068,28 +2482,29 @@ export default function ShiftScreen({
           <Animated.View
             style={[
               styles.shiftFlashMessage,
-              styles.shiftFlashMessageSuccess,
+              noticeVisual.containerStyle,
               { opacity: shiftNoticeOpacity },
             ]}>
-            <View style={styles.shiftFlashMessageLeft}>
-              <View style={[styles.shiftFlashIconCircle, styles.shiftFlashIconCircleSuccess]}>
-                <Text style={styles.shiftFlashIconText}>✓</Text>
+            <View style={styles.shiftFlashHeader}>
+              <View style={styles.shiftFlashTitleRow}>
+                <View style={[styles.shiftFlashBadge, noticeVisual.iconCircleStyle]}>
+                  <Text style={styles.shiftFlashBadgeText}>{noticeVisual.iconText}</Text>
+                </View>
+                <Text style={styles.shiftFlashTitle}>{noticeVisual.title}</Text>
               </View>
-              <View style={styles.shiftFlashBody}>
-                <Text style={styles.shiftFlashTitle}>Подсказка</Text>
-                <Text style={styles.shiftFlashMessageText}>{notice}</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.shiftFlashCloseButton}
+                onPress={actions.clearNotice}
+                accessibilityRole="button"
+                accessibilityLabel="Закрыть сообщение">
+                <Text style={styles.shiftFlashCloseText}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.shiftFlashCloseButton}
-              onPress={actions.clearNotice}
-              accessibilityRole="button"
-              accessibilityLabel="Закрыть сообщение">
-              <Text style={styles.shiftFlashCloseText}>✕</Text>
-            </TouchableOpacity>
+            <Text style={styles.shiftFlashMessageText}>{notice}</Text>
           </Animated.View>
         ) : null}
 
+        {!isOpsDashboardRole ? (
         <AnimatedEntranceView
           delay={108}
           distance={10}
@@ -2271,8 +2686,9 @@ export default function ShiftScreen({
             )}
           </View>
         </AnimatedEntranceView>
+        ) : null}
 
-        {!isTodayShiftsLoading ? (
+        {!isOpsDashboardRole && !isTodayShiftsLoading ? (
           <AnimatedEntranceView delay={144} distance={10} style={styles.todayShiftSection}>
             <View style={styles.scheduleSectionHeader}>
               <Text style={styles.sectionTitle}>Сегодня на смене</Text>

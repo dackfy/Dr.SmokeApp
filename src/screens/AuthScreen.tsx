@@ -46,6 +46,7 @@ import { styles } from './AuthScreen.styles';
 import { useAuth } from '../features/auth/useAuth';
 import MoreScreen from './MoreScreen';
 import CertificatesScreen from './CertificatesScreen';
+import TasksScreen from './TasksScreen';
 import HomeScreenRouter from './HomeScreenRouter';
 import ProductInfoScreen from './ProductInfoScreen';
 import { authApi } from '../features/auth/authApi';
@@ -82,14 +83,19 @@ const eyeOpenIcon: ImageSourcePropType = require('../assets/icons/eye-open.png')
 const eyeClosedIcon: ImageSourcePropType = require('../assets/icons/eye-closed.png');
 const homeIcon: ImageSourcePropType = require('../assets/icons/home.png');
 const profileIcon: ImageSourcePropType = require('../assets/icons/more.png');
-const mailIcon: ImageSourcePropType = require('../assets/icons/gift.png');
+const mailIcon: ImageSourcePropType = require('../assets/icons/clip.png');
 const trashIcon: ImageSourcePropType = require('../assets/icons/shop.png');
 const deleteIcon: ImageSourcePropType = require('../assets/icons/delete.png');
 const crossIcon: ImageSourcePropType = require('../assets/icons/cross.png');
 const lockIcon: ImageSourcePropType = require('../assets/icons/lock.png');
 
 type AuthTab = TabKey;
-type ProfileScreenRoute = 'root' | 'appearance' | 'portal' | 'notifications';
+type ProfileScreenRoute =
+  | 'root'
+  | 'appearance'
+  | 'portal'
+  | 'notifications'
+  | 'household-order';
 type ProfileSheetRoute = 'root' | 'notifications' | 'notification-detail';
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -655,6 +661,7 @@ export default function AuthScreen() {
     end: 0,
   });
   const [activeTab, setActiveTab] = useState<AuthTab>('home');
+  const [isCertificatesModalVisible, setIsCertificatesModalVisible] = useState(false);
   const [openedShift, setOpenedShift] = useState<OpenedShift | null>(null);
   const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -1536,6 +1543,7 @@ export default function AuthScreen() {
   }, [authKeyboardShift, isAndroid, session]);
 
   const openProfileSheet = React.useCallback(() => {
+    setProfileInitialRoute('root');
     setIsProfileSheetOpen(true);
     setProfileSheetRoute('root');
     setIsPasswordSectionOpen(false);
@@ -2685,8 +2693,13 @@ export default function AuthScreen() {
               setActiveTab('home');
             }}
             onGoMail={() => setActiveTab('mail')}
+            onOpenCertificates={() => setIsCertificatesModalVisible(true)}
             onGoTrash={() => setActiveTab('trash')}
             onGoProfile={openProfileSheet}
+            onOpenHouseholdOrders={() => {
+              setProfileInitialRoute('household-order');
+              setActiveTab('profile');
+            }}
             activeTab={activeTab === 'home' ? 'home' : activeTab}
             showHeaderActions={false}
             showTabBar={false}
@@ -2697,12 +2710,7 @@ export default function AuthScreen() {
           style={[styles.tabLayer, mailTabAnimatedStyle]}
           pointerEvents={showMail ? 'auto' : 'none'}
         >
-          <CertificatesScreen
-            employeeId={session.user.id}
-            isActive={showMail}
-            isShiftOpen={openedShift ? true : false}
-            currentShopName={openedShift?.shopName ?? null}
-          />
+          <TasksScreen employeeId={session.user.id} isActive={showMail} />
         </Animated.View>
 
         <Animated.View
@@ -3722,6 +3730,47 @@ export default function AuthScreen() {
             trashLabel="Товары"
           />
         </View>
+
+        <Modal
+          visible={isCertificatesModalVisible}
+          animationType="slide"
+          transparent={false}
+          presentationStyle="fullScreen"
+          onRequestClose={() => setIsCertificatesModalVisible(false)}
+        >
+          <SafeAreaView
+            style={[
+              styles.authenticatedScreen,
+              {
+                backgroundColor:
+                  isAndroid && androidPalette
+                    ? androidTheme.mode === 'company'
+                      ? '#000000'
+                      : androidPalette.background
+                    : '#000000',
+              },
+            ]}
+            edges={['top', 'bottom']}
+          >
+            <View style={styles.certificatesModalHeader}>
+              <TouchableOpacity
+                style={styles.certificatesModalBackButton}
+                onPress={() => setIsCertificatesModalVisible(false)}
+              >
+                <Text style={styles.certificatesModalBackText}>Назад</Text>
+              </TouchableOpacity>
+              <Text style={styles.certificatesModalTitle}>Сертификаты</Text>
+              <View style={styles.certificatesModalBackButtonPlaceholder} />
+            </View>
+
+            <CertificatesScreen
+              employeeId={session.user.id}
+              isActive={isCertificatesModalVisible}
+              isShiftOpen={openedShift ? true : false}
+              currentShopName={openedShift?.shopName ?? null}
+            />
+          </SafeAreaView>
+        </Modal>
       </Animated.View>
     );
   }

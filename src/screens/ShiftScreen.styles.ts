@@ -42,6 +42,43 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: isAndroid ? 2 : 4,
   },
+  compactHeaderOverlay: {
+    position: 'absolute',
+    top: isAndroid ? 6 : 4,
+    left: isAndroid ? 18 : 20,
+    right: isAndroid ? 18 : 20,
+    zIndex: 3,
+  },
+  compactHeaderCard: {
+    minHeight: isAndroid ? 34 : 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#2A2A2A',
+    backgroundColor: isAndroid ? 'rgba(20,30,45,0.92)' : 'rgba(17,17,17,0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  compactHeaderValue: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 12 : 11,
+    fontWeight: '800',
+    lineHeight: isAndroid ? 16 : 14,
+  },
+  compactHeaderDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: isAndroid ? '#7DB2FF' : '#FF6A00',
+  },
+  compactHeaderStatus: {
+    color: isAndroid ? '#C7D7F2' : '#D2D2D2',
+    fontSize: isAndroid ? 12 : 11,
+    fontWeight: '700',
+    lineHeight: isAndroid ? 16 : 14,
+  },
 
   tabHeaderContainer: {
     width: '100%',
@@ -127,8 +164,10 @@ export const styles = StyleSheet.create({
   },
 
   balanceFlashHeader: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: isAndroid ? 42 : 36,
   },
 
   balanceFlashIconCircle: {
@@ -152,21 +191,46 @@ export const styles = StyleSheet.create({
   balanceFlashTextBlock: {
     flex: 1,
     minWidth: 0,
-    marginLeft: 10,
+    marginLeft: 12,
+    justifyContent: 'center',
+    paddingRight: 34,
+    minHeight: isAndroid ? 42 : 36,
   },
-
-  balanceFlashCaption: {
+  balanceFlashInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceFlashCaptionInline: {
     color: isAndroid ? '#97A6C4' : '#B6B6B6',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 16,
+    includeFontPadding: false,
+  },
+
+  balanceFlashCaption: {
+    color: isAndroid ? '#97A6C4' : '#B6B6B6',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 14,
+    includeFontPadding: false,
   },
 
   balanceFlashValue: {
     color: '#FFFFFF',
-    fontSize: isAndroid ? 24 : 22,
+    fontSize: isAndroid ? 34 : 28,
     fontWeight: '800',
-    lineHeight: isAndroid ? 30 : 27,
+    lineHeight: isAndroid ? 36 : 31,
+  },
+  balanceFlashValueInline: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 22 : 20,
+    lineHeight: isAndroid ? 24 : 22,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+    marginTop: 2,
   },
 
   balanceFlashChevron: {
@@ -174,7 +238,10 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 22,
-    marginLeft: 8,
+    position: 'absolute',
+    right: 0,
+    top: '50%',
+    marginTop: -11,
   },
 
   balanceFlashHistory: {
@@ -1051,6 +1118,112 @@ export const styles = StyleSheet.create({
 
   shiftStatusActionGroup: {
     marginTop: 14,
+    gap: 0,
+  },
+
+  shiftProgressContainer: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#35435F' : '#2C2C2C',
+    backgroundColor: isAndroid ? '#1A2437' : '#151515',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+
+  shiftProgressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  shiftProgressLabel: {
+    color: isAndroid ? '#97A6C4' : '#8E8E8E',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  shiftProgressValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+
+  shiftProgressTrack: {
+    marginTop: 2,
+    height: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#3A4864' : '#303030',
+    backgroundColor: isAndroid ? '#121A28' : '#0E0E0E',
+    overflow: 'hidden',
+  },
+
+  shiftProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: isAndroid ? '#8BB7FF' : '#FF8A3D',
+  },
+
+  shiftProgressMeta: {
+    color: isAndroid ? '#B6C5E3' : '#AFAFAF',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+
+  partnerLossCard: {
+    marginTop: 18,
+    gap: 12,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: isAndroid ? '#343945' : '#2D2D2D',
+  },
+
+  partnerLossHeader: {
+    gap: 6,
+  },
+
+  certificatesShortcutButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#5B3418' : '#4A2A15',
+    backgroundColor: isAndroid ? '#26170C' : '#1D130C',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 2,
+  },
+  certificatesShortcutButtonText: {
+    color: '#FFB26B',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 17,
+    letterSpacing: 0.2,
+  },
+  certificatesBottomCapsule: {
+    marginTop: 8,
+  },
+
+  partnerLossKicker: {
+    color: '#FF8A3D',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+
+  partnerLossTitle: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 17 : 16,
+    fontWeight: '800',
+    lineHeight: isAndroid ? 22 : 20,
   },
 
   shiftStatusPrimaryButton: {
@@ -1059,13 +1232,12 @@ export const styles = StyleSheet.create({
     paddingVertical: isAndroid ? 12 : 12,
     borderRadius: isAndroid ? 20 : 50,
   },
-
   shiftStatusSecondaryButton: {
     width: '100%',
     minHeight: isAndroid ? 50 : undefined,
     paddingVertical: isAndroid ? 12 : 12,
     borderRadius: isAndroid ? 20 : 50,
-    marginTop: 16,
+    marginTop: 0,
     backgroundColor: isAndroid ? '#2E2E31' : '#232323',
     borderWidth: 1,
     borderColor: isAndroid ? '#45474D' : '#2D2D2D',
@@ -1077,12 +1249,49 @@ export const styles = StyleSheet.create({
   },
 
   flowPrimaryButton: {
-    marginTop: 6,
+    marginTop: 12,
+  },
+  opsCard: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: isAndroid ? '#33405A' : '#262626',
+    borderRadius: isAndroid ? 20 : 14,
+    backgroundColor: isAndroid ? '#192335' : '#0D0D0D',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  opsCardTitle: {
+    color: '#FFFFFF',
+    fontSize: isAndroid ? 20 : 17,
+    fontWeight: '800',
+    lineHeight: isAndroid ? 24 : 22,
+  },
+  opsActionRow: {
+    gap: 10,
+  },
+  opsActionButton: {
+    marginTop: 0,
+  },
+  opsPrimaryButton: {
+    marginTop: 4,
   },
 
   closeDecisionGroup: {
-    gap: 16,
     marginTop: 12,
+  },
+  closeDecisionPrimaryButton: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  closeDecisionDangerButton: {
+    marginTop: 0,
+    backgroundColor: isAndroid ? '#3A3030' : '#442828',
+    borderWidth: 1,
+    borderColor: isAndroid ? '#6C5555' : '#7F4A4A',
+  },
+  closeDecisionButtonText: {
+    color: '#FFFFFF',
   },
 
   flowCancelButton: {
@@ -1107,6 +1316,55 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
     elevation: 4,
+  },
+
+  partnerLossInput: {
+    minHeight: 104,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+
+  partnerLossInputDisabled: {
+    opacity: 0.72,
+  },
+
+  partnerLossFeedback: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+
+  partnerLossErrorCard: {
+    backgroundColor: '#551E1E',
+    borderColor: '#8D3838',
+  },
+
+  partnerLossSuccessCard: {
+    backgroundColor: '#1E3A2B',
+    borderColor: '#35674B',
+  },
+
+  partnerLossFeedbackTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  partnerLossFeedbackText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+
+  partnerLossSubmitButton: {
+    marginTop: 2,
   },
 
   sealNumberBox: {
@@ -1252,16 +1510,17 @@ export const styles = StyleSheet.create({
   },
 
   shiftFlashMessage: {
-    minHeight: 78,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     marginBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 3,
   },
 
   shiftFlashMessageSuccess: {
@@ -1274,19 +1533,40 @@ export const styles = StyleSheet.create({
     borderColor: '#8A3A2F',
   },
 
-  shiftFlashMessageLeft: {
-    flex: 1,
+  shiftFlashMessageWarning: {
+    backgroundColor: '#33240F',
+    borderColor: '#A66A24',
+  },
+
+  shiftFlashHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
 
-  shiftFlashIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  shiftFlashTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+
+  shiftFlashBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.26)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+
+  shiftFlashBadgeError: {
+    backgroundColor: '#BE3A2B',
+    borderColor: 'rgba(255,255,255,0.3)',
   },
 
   shiftFlashIconCircleSuccess: {
@@ -1297,43 +1577,45 @@ export const styles = StyleSheet.create({
     backgroundColor: '#BE3A2B',
   },
 
-  shiftFlashIconText: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-
-  shiftFlashBody: {
-    flex: 1,
-    gap: 4,
+  shiftFlashIconCircleWarning: {
+    backgroundColor: '#C57A1F',
   },
 
   shiftFlashTitle: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 18,
+    lineHeight: 20,
     letterSpacing: 0.2,
+    flex: 1,
+  },
+
+  shiftFlashBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    lineHeight: 14,
+    textAlign: 'center',
   },
 
   shiftFlashMessageText: {
-    flex: 1,
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     lineHeight: 20,
+    paddingLeft: 2,
   },
 
   shiftFlashCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginTop: 0,
   },
 
   shiftFlashCloseText: {

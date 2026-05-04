@@ -97,7 +97,7 @@ export default function LiquidTabBarAndroid({
       mailIcon && trashIcon
         ? [
             { key: 'home', icon: homeIcon, label: homeLabel },
-            { key: 'mail', icon: mailIcon, label: 'Сертификаты' },
+            { key: 'mail', icon: mailIcon, label: 'Задачи' },
             { key: 'trash', icon: trashIcon, label: trashLabel },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ]

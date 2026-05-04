@@ -25,7 +25,7 @@ export default function HomeScreenRouter({
 }: HomeScreenRouterProps) {
   const role = Number(session.user.userRole ?? 3)
 
-  if (role === 3) {
+  if (role === 3 || role === 4 || role === 8) {
     return (
       <EmployeeHomeScreen
         session={session}

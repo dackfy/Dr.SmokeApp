@@ -186,6 +186,30 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  rootMenuSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  rootMenuTab: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+
+  rootMenuTabText: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+
   segmentRow: {
     flexDirection: 'row',
     gap: 8,
@@ -216,12 +240,12 @@ export const styles = StyleSheet.create({
   },
 
   heroCard: {
-    gap: 10,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 8,
   },
 
   rootLinksCard: {
-    marginTop: 14,
+    marginTop: 8,
   },
 
   heroAccentBar: {
@@ -248,6 +272,89 @@ export const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
+  },
+
+  guideHeader: {
+    gap: 8,
+  },
+
+  guideTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '800',
+  },
+
+  guideSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  guideTopicGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  guideTopicChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+
+  guideTopicChipText: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+
+  guideBodyCard: {
+    borderWidth: 1,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 8,
+  },
+
+  guideBodyTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+  },
+
+  guideBodySubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+
+  guideSteps: {
+    gap: 7,
+    paddingTop: 2,
+  },
+
+  guideStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+
+  guideStepIndex: {
+    minWidth: 16,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+
+  guideStepText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
   },
 
   rowList: {
@@ -292,6 +399,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
+  },
+
+  navRowCompact: {
+    minHeight: 72,
+    paddingVertical: 14,
   },
 
   navRowTextWrap: {
@@ -522,6 +634,36 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.15,
   },
 
+  feedbackCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
+  },
+
+  feedbackTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  feedbackText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  blackBoxInput: {
+    minHeight: 140,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -748,5 +890,124 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
+  },
+
+  householdChip: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+
+  householdCatalogWrap: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 10,
+  },
+
+  householdCatalogContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  householdInput: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  householdCustomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  householdCustomNameInput: {
+    flex: 1,
+  },
+
+  householdCustomQtyInput: {
+    width: 72,
+    textAlign: 'center',
+  },
+
+  householdItemCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  householdItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  householdItemName: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+
+  householdItemRemove: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+
+  householdQtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+
+  householdQtyButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  householdQtyButtonText: {
+    fontSize: 19,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+
+  householdQtyValue: {
+    minWidth: 74,
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
+  householdCommentInput: {
+    minHeight: 96,
+  },
+
+  householdPayloadText: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
   },
 })

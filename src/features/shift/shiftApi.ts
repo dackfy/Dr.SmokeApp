@@ -10,9 +10,16 @@ import { buildApiUrl } from '../../config/api'
 export interface ShiftApi {
   getShiftStatus(userId: string): Promise<ShiftStatus>
   getAvailableShops(userId: string, regionId?: number): Promise<ShopOption[]>
+  getRegionShops(userId: string): Promise<ShopOption[]>
+  getShiftEndPushPayload(userId: string): Promise<{
+    shopName?: string
+    progress?: number
+    remainingMs?: number
+  } | null>
   openShift(userId: string, payload: OpenShiftPayload): Promise<ShiftStatus>
   closeShift(userId: string, payload: CloseShiftPayload): Promise<ShiftStatus>
   resetOpenedShift(userId: string): Promise<ShiftStatus>
+  ensureShiftEndPush(userId: string): Promise<void>
 }
 
 const openShiftByUser = new Map<string, OpenedShift>()
@@ -35,6 +42,10 @@ type ShiftStatusResponse = {
   report_date?: string | null
   open_time?: string | null
   cash_at_opening?: number | null
+  opening_time?: string | null
+  closing_time?: string | null
+  region_timezone?: string | null
+  timezone?: string | null
 }
 
 type OpenShiftResponse = {
@@ -43,6 +54,15 @@ type OpenShiftResponse = {
   shop_name?: string
   report_date?: string
   open_time?: string
+  late_minutes?: number
+  penalty_points?: number
+  penalty_amount_rub?: number
+  penalty_message?: string
+  late_penalty_message?: string
+  on_time_streak?: number
+  dc_bonus_points?: number
+  bonus_reason?: string
+  bonus_message?: string
 }
 
 type CloseShiftResponse = {
@@ -93,6 +113,11 @@ function normalizeOpenTime(value?: string | null) {
   return ''
 }
 
+function normalizeClockTime(value?: string | null) {
+  const t = normalizeOpenTime(value)
+  return t || undefined
+}
+
 function composeOpenedAt(reportDate?: string | null, openTime?: string | null) {
   const datePart = normalizeReportDate(reportDate)
   const timePart = normalizeOpenTime(openTime)
@@ -114,12 +139,23 @@ export const mockShiftApi: ShiftApi = {
 
     return {
       openedShift: openShiftByUser.get(userId) ?? null,
+      notice: null,
+      noticeVariant: null,
     }
   },
 
   async getAvailableShops(_userId) {
     await wait(220)
     return []
+  },
+
+  async getRegionShops(_userId) {
+    await wait(220)
+    return []
+  },
+  async getShiftEndPushPayload(_userId) {
+    await wait(100)
+    return null
   },
 
   async openShift(userId, payload) {
@@ -138,6 +174,8 @@ export const mockShiftApi: ShiftApi = {
 
     return {
       openedShift: openShiftByUser.get(userId) ?? null,
+      notice: null,
+      noticeVariant: null,
     }
   },
 
@@ -162,6 +200,8 @@ export const mockShiftApi: ShiftApi = {
 
     return {
       openedShift: null,
+      notice: null,
+      noticeVariant: null,
     }
   },
 
@@ -171,8 +211,90 @@ export const mockShiftApi: ShiftApi = {
 
     return {
       openedShift: null,
+      notice: null,
+      noticeVariant: null,
     }
   },
+  async ensureShiftEndPush(_userId) {
+    await wait(100)
+  },
+}
+
+type ResolvedOpenShiftNotice = {
+  message: string | null
+  variant: 'success' | 'warning' | 'error' | 'info'
+}
+
+function resolveOpenShiftNotice(data: OpenShiftResponse | null): ResolvedOpenShiftNotice {
+  if (!data) {
+    return { message: null, variant: 'info' }
+  }
+
+  const explicitPenaltyMessage =
+    typeof data.penalty_message === 'string' && data.penalty_message.trim()
+      ? data.penalty_message.trim()
+      : typeof data.late_penalty_message === 'string' && data.late_penalty_message.trim()
+        ? data.late_penalty_message.trim()
+        : null
+
+  if (explicitPenaltyMessage) {
+    return {
+      message: explicitPenaltyMessage,
+      variant: 'warning',
+    }
+  }
+
+  const lateMinutes = Number(data.late_minutes ?? 0)
+  const penaltyPoints = Number(data.penalty_points ?? 0)
+  const penaltyAmount = Number(data.penalty_amount_rub ?? 0)
+  const hasPenaltySignals =
+    (Number.isFinite(lateMinutes) && lateMinutes > 0) ||
+    (Number.isFinite(penaltyPoints) && penaltyPoints < 0) ||
+    (Number.isFinite(penaltyAmount) && penaltyAmount < 0)
+
+  if (hasPenaltySignals) {
+    const latePart = Number.isFinite(lateMinutes) && lateMinutes > 0
+      ? `Опоздание: ${lateMinutes} мин.`
+      : null
+    const amountPart = Number.isFinite(penaltyAmount) && Math.abs(Math.round(penaltyAmount)) > 0
+      ? `Депремирование: ${Math.abs(Math.round(penaltyAmount))} ₽.`
+      : null
+    const pointsPart = Number.isFinite(penaltyPoints) && Math.abs(Math.round(penaltyPoints)) > 0
+      ? `Списано: ${Math.abs(Math.round(penaltyPoints))} баллов.`
+      : null
+
+    return {
+      message:
+        [latePart, amountPart, pointsPart].filter(Boolean).join(' ')
+        || 'Зафиксировано опоздание при открытии смены.',
+      variant: 'warning',
+    }
+  }
+
+  const explicitMessage =
+    typeof data.bonus_message === 'string' && data.bonus_message.trim()
+      ? data.bonus_message.trim()
+      : typeof data.message === 'string' && data.message.trim()
+        ? data.message.trim()
+        : null
+
+  if (explicitMessage) {
+    return {
+      message: explicitMessage,
+      variant: 'success',
+    }
+  }
+
+  const points = Number(data.dc_bonus_points ?? 0)
+  const streak = Number(data.on_time_streak ?? 0)
+  if (Number.isFinite(points) && points > 0 && Number.isFinite(streak) && streak > 0) {
+    return {
+      message: `Вам начислено ${points} Dℂ за ${streak}-ю смену подряд без опозданий.`,
+      variant: 'success',
+    }
+  }
+
+  return { message: null, variant: 'info' }
 }
 
 export const shiftApi: ShiftApi = {
@@ -189,7 +311,7 @@ export const shiftApi: ShiftApi = {
 
     if (!isOpen) {
       openShiftByUser.delete(userId)
-      return { openedShift: null }
+      return { openedShift: null, notice: null, noticeVariant: null }
     }
 
     const openedAtFromServer = composeOpenedAt(data.report_date, data.open_time) || null
@@ -201,10 +323,13 @@ export const shiftApi: ShiftApi = {
       shopName: data.shop_name?.trim() || 'Магазин не указан',
       openedAt,
       cashAtOpening: Number(data.cash_at_opening ?? 0),
+      shopOpeningTime: normalizeClockTime(data.opening_time),
+      shopClosingTime: normalizeClockTime(data.closing_time),
+      regionTimezone: data.region_timezone?.trim() || data.timezone?.trim() || undefined,
     }
 
     openShiftByUser.set(userId, openedShift)
-    return { openedShift }
+    return { openedShift, notice: null, noticeVariant: null }
   },
   async getAvailableShops(userId) {
     try {
@@ -243,6 +368,135 @@ export const shiftApi: ShiftApi = {
     } catch {
       return []
     }
+  },
+  async getRegionShops(userId) {
+    try {
+      const endpoints = [
+        buildApiUrl(`/employees/${encodeURIComponent(userId)}/shops`),
+        buildApiUrl(`/employees/${encodeURIComponent(userId)}/shops/all`),
+        buildApiUrl(`/employees/${encodeURIComponent(userId)}/shops/region`),
+      ]
+
+      let lastStatus = 0
+      for (const url of endpoints) {
+        const res = await fetch(url)
+        lastStatus = res.status
+        if (!res.ok) {
+          if (res.status === 404) {
+            continue
+          }
+          throw new Error(`HTTP ${res.status}`)
+        }
+
+        const data = (await res.json()) as EmployeeShopsResponse
+        const shops = (data.shops ?? [])
+          .map(shop => ({
+            id: Number(shop.id),
+            name: (shop.shop_name ?? shop.name ?? '').trim(),
+          }))
+          .filter(shop => Number.isFinite(shop.id) && shop.id > 0 && shop.name.length > 0)
+
+        return shops
+      }
+
+      if (lastStatus === 404) {
+        return []
+      }
+      return []
+    } catch {
+      return []
+    }
+  },
+  async getShiftEndPushPayload(userId) {
+    const endpoints = [
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end-push-payload`),
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end-notification`),
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end_push_payload`),
+    ]
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) {
+          if (res.status === 404) {
+            continue
+          }
+          return null
+        }
+
+        const data = (await res.json()) as {
+          payload?: Record<string, unknown>
+          shop_name?: string | null
+          progress?: number | string
+          remaining_ms?: number | string
+          start_at_utc?: string
+          end_at_utc?: string
+          now_at_utc?: string
+        }
+
+        const payload = (data?.payload ?? data) as Record<string, unknown> | undefined
+        if (!payload) {
+          return null
+        }
+
+        const progressRaw = Number(
+          payload.progress
+          ?? payload.progress_percent
+          ?? payload.completion
+          ?? data?.progress,
+        )
+        const progress = Number.isFinite(progressRaw)
+          ? Math.max(0, Math.min(100, Math.round(progressRaw <= 1 ? progressRaw * 100 : progressRaw)))
+          : undefined
+
+        let remainingMs: number | undefined
+        const remainingMsRaw = Number(
+          payload.remaining_ms
+          ?? payload.remainingMs
+          ?? data?.remaining_ms,
+        )
+        if (Number.isFinite(remainingMsRaw) && remainingMsRaw >= 0) {
+          remainingMs = remainingMsRaw
+        } else {
+          const remainingMinutesRaw = Number(payload.remaining_minutes)
+          if (Number.isFinite(remainingMinutesRaw) && remainingMinutesRaw >= 0) {
+            remainingMs = remainingMinutesRaw * 60_000
+          } else {
+            const endRaw = String(payload.end_at_utc ?? data?.end_at_utc ?? '').trim()
+            const nowRaw = String(payload.now_at_utc ?? data?.now_at_utc ?? '').trim()
+            const endMs = Date.parse(endRaw)
+            const nowMs = Date.parse(nowRaw) || Date.now()
+            if (Number.isFinite(endMs)) {
+              remainingMs = Math.max(0, endMs - nowMs)
+            }
+          }
+        }
+
+        let normalizedProgress = progress
+        if (normalizedProgress === undefined) {
+          const startRaw = String(payload.start_at_utc ?? data?.start_at_utc ?? '').trim()
+          const endRaw = String(payload.end_at_utc ?? data?.end_at_utc ?? '').trim()
+          const nowRaw = String(payload.now_at_utc ?? data?.now_at_utc ?? '').trim()
+          const startMs = Date.parse(startRaw)
+          const endMs = Date.parse(endRaw)
+          const nowMs = Date.parse(nowRaw) || Date.now()
+          if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+            const ratio = Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)))
+            normalizedProgress = Math.round(ratio * 100)
+          }
+        }
+
+        return {
+          shopName: String(payload.shop_name ?? data?.shop_name ?? '').trim() || undefined,
+          progress: normalizedProgress,
+          remainingMs,
+        }
+      } catch {
+        // try next fallback
+      }
+    }
+
+    return null
   },
   async openShift(userId, payload) {
     const employeeId = Number(userId)
@@ -349,11 +603,19 @@ export const shiftApi: ShiftApi = {
       shopName: data?.shop_name ?? payload.shopName,
       openedAt,
       cashAtOpening: payload.cashAtOpening,
+      shopOpeningTime: openShiftByUser.get(userId)?.shopOpeningTime,
+      shopClosingTime: openShiftByUser.get(userId)?.shopClosingTime,
+      regionTimezone: openShiftByUser.get(userId)?.regionTimezone,
     }
 
     openShiftByUser.set(userId, openedShift)
+    const resolvedNotice = resolveOpenShiftNotice(data)
 
-    return { openedShift }
+    return {
+      openedShift,
+      notice: resolvedNotice.message,
+      noticeVariant: resolvedNotice.message ? resolvedNotice.variant : null,
+    }
   },
   async closeShift(userId, payload) {
     const employeeId = Number(userId)
@@ -435,7 +697,7 @@ export const shiftApi: ShiftApi = {
     }
 
     openShiftByUser.delete(userId)
-    return { openedShift: null }
+    return { openedShift: null, notice: null, noticeVariant: null }
   },
   async resetOpenedShift(userId) {
     const employeeId = Number(userId)
@@ -470,6 +732,41 @@ export const shiftApi: ShiftApi = {
     }
 
     openShiftByUser.delete(userId)
-    return { openedShift: null }
+    return { openedShift: null, notice: null, noticeVariant: null }
+  },
+  async ensureShiftEndPush(userId) {
+    const employeeId = Number(userId)
+    if (!Number.isFinite(employeeId) || employeeId <= 0) {
+      return
+    }
+
+    const endpoints = [
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end-push/send`),
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end-notification/send`),
+      buildApiUrl(`/employees/${encodeURIComponent(userId)}/shift/end_push/send`),
+    ]
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employee_id: employeeId }),
+        })
+
+        if (res.ok) {
+          return
+        }
+
+        if (res.status === 404) {
+          continue
+        }
+
+        // Нефатально для клиента: планирование пуша не должно ломать основной сценарий смены.
+        return
+      } catch {
+        // Пробуем следующий fallback-эндпоинт.
+      }
+    }
   },
 }

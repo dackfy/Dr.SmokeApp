@@ -1401,6 +1401,41 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  certificatesModalHeader: {
+    minHeight: 56,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#202020',
+    backgroundColor: '#000000',
+  },
+  certificatesModalBackButton: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
+    backgroundColor: '#141414',
+  },
+  certificatesModalBackButtonPlaceholder: {
+    width: 72,
+    height: 34,
+  },
+  certificatesModalBackText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  certificatesModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+
   iosFloatingHeaderWrap: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2,

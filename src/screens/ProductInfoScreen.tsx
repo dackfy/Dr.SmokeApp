@@ -44,6 +44,7 @@ type ProductInfoScreenProps = {
 }
 
 const RESULTS_BATCH_SIZE = 20
+const SEARCH_SUGGESTIONS_LIMIT = 3
 
 const iosPalette: AndroidThemePalette = {
   background: '#000000',
@@ -124,6 +125,37 @@ function hasMeaningfulProductData(product: ProductInfo | null) {
   return hasUsablePrice(product.price) || product.parameters.length > 0 || product.remains.length > 0
 }
 
+function buildSearchSuggestions(rawQuery: string) {
+  const cleaned = rawQuery
+    .toLowerCase()
+    .replace(/[^a-zа-яё0-9\s-]/giu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!cleaned) {
+    return []
+  }
+
+  const words = cleaned
+    .split(' ')
+    .map(word => word.trim())
+    .filter(word => word.length > 1)
+
+  if (!words.length) {
+    return []
+  }
+
+  const suggestions = new Set<string>()
+  suggestions.add(words.slice(0, 2).join(' ').trim())
+  suggestions.add(words.slice(0, 3).join(' ').trim())
+  suggestions.add(words[0])
+
+  return Array.from(suggestions)
+    .map(item => item.trim())
+    .filter(item => item.length > 1 && item !== cleaned)
+    .slice(0, SEARCH_SUGGESTIONS_LIMIT)
+}
+
 export default function ProductInfoScreen({
   session,
   isRefreshing = false,
@@ -189,87 +221,114 @@ export default function ProductInfoScreen({
   const [lastResultsScrollY, setLastResultsScrollY] = React.useState(0)
   const [visibleResultsCount, setVisibleResultsCount] = React.useState(RESULTS_BATCH_SIZE)
   const [product, setProduct] = React.useState<ProductInfo | null>(null)
+  const [emptySuggestions, setEmptySuggestions] = React.useState<string[]>([])
 
   const regionLabel = session.user.regionName?.trim() || session.user.city?.trim() || 'Регион не указан'
 
-  const handleSearch = React.useCallback(async () => {
-    const value = query.trim()
-    if (!value) {
-      setError('Введите штрихкод или название товара')
+  const performSearch = React.useCallback(
+    async (rawValue: string) => {
+      const value = rawValue.trim()
+      if (!value) {
+        setError('Введите штрихкод или название товара')
+        setResults([])
+        setLastResults([])
+        setProduct(null)
+        setEmptySuggestions([])
+        return
+      }
+
+      setIsLoading(true)
+      setError(null)
       setResults([])
       setLastResults([])
+      setVisibleResultsCount(RESULTS_BATCH_SIZE)
       setProduct(null)
-      return
-    }
+      setEmptySuggestions([])
+      androidMediumImpact()
 
-    setIsLoading(true)
-    setError(null)
-    setResults([])
-    setLastResults([])
-    setVisibleResultsCount(RESULTS_BATCH_SIZE)
-    setProduct(null)
-    androidMediumImpact()
-
-    try {
-      if (/^\d+$/.test(value)) {
-        const nextProduct = await fetchProductByBarcode(
-          value,
-          session.user.regionName,
-          session.user.city,
-        )
-
-        if (!nextProduct) {
-          setError('Товар не найден в базе 1С')
-          return
-        }
-
-        setLastResults([])
-        setProduct(nextProduct)
-        androidSuccessHaptic()
-        return
-      }
-
-      const nextResults = await searchProductsByName(value)
-      if (!nextResults.length) {
-        setError('Ничего не найдено. Попробуйте другое название или штрихкод.')
-        return
-      }
-
-      if (nextResults.length === 1) {
-        try {
-          const nextProduct = await fetchProductByGuid(
-            nextResults[0].id,
+      try {
+        if (/^\d+$/.test(value)) {
+          const nextProduct = await fetchProductByBarcode(
+            value,
             session.user.regionName,
             session.user.city,
           )
 
-          if (hasMeaningfulProductData(nextProduct) || nextProduct) {
-            setLastResults([])
-            setProduct(nextProduct)
-            androidSuccessHaptic()
+          if (!nextProduct) {
+            setEmptySuggestions(['Проверьте штрихкод и попробуйте ещё раз'])
             return
           }
-        } catch {
-          // Fall back to the found results list if the exact-match card
-          // cannot be loaded from 1C.
-        }
-      }
 
-      setLastResults(nextResults)
-      setResults(nextResults)
-      setVisibleResultsCount(Math.min(RESULTS_BATCH_SIZE, nextResults.length))
-      androidRustleHaptic()
-    } catch {
-      setError('Не удалось получить данные о товаре. Попробуйте позже.')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [query, session.user.city, session.user.regionName])
+          setLastResults([])
+          setProduct(nextProduct)
+          androidSuccessHaptic()
+          return
+        }
+
+        const nextResults = await searchProductsByName(value)
+        if (!nextResults.length) {
+          const suggestions = buildSearchSuggestions(value)
+          setEmptySuggestions(
+            suggestions.length ? suggestions : ['Попробуйте короче или по ключевому слову'],
+          )
+          return
+        }
+
+        if (nextResults.length === 1) {
+          try {
+            const nextProduct = await fetchProductByGuid(
+              nextResults[0].id,
+              session.user.regionName,
+              session.user.city,
+            )
+
+            if (hasMeaningfulProductData(nextProduct) || nextProduct) {
+              setLastResults([])
+              setProduct(nextProduct)
+              androidSuccessHaptic()
+              return
+            }
+          } catch {
+            // Fall back to the found results list if the exact-match card
+            // cannot be loaded from 1C.
+          }
+        }
+
+        setLastResults(nextResults)
+        setResults(nextResults)
+        setVisibleResultsCount(Math.min(RESULTS_BATCH_SIZE, nextResults.length))
+        androidRustleHaptic()
+      } catch {
+        setError('Не удалось получить данные о товаре. Попробуйте позже.')
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [session.user.city, session.user.regionName],
+  )
+
+  const handleSearch = React.useCallback(async () => {
+    await performSearch(query)
+  }, [performSearch, query])
+
+  const handleResetSearch = React.useCallback(() => {
+    androidLightImpact()
+    shouldRestoreResultsScrollRef.current = false
+    setQuery('')
+    setError(null)
+    setResults([])
+    setLastResults([])
+    setLastResultsScrollY(0)
+    setVisibleResultsCount(RESULTS_BATCH_SIZE)
+    setProduct(null)
+    setEmptySuggestions([])
+  }, [])
 
   const handleSelectCandidate = React.useCallback(
     async (candidate: ProductSearchCandidate) => {
       setIsLoading(true)
       setError(null)
+      setEmptySuggestions([])
       androidLightImpact()
 
       try {
@@ -304,6 +363,7 @@ export default function ProductInfoScreen({
     androidLightImpact()
     shouldRestoreResultsScrollRef.current = true
     setError(null)
+    setEmptySuggestions([])
     setProduct(null)
     setResults(lastResults)
     setVisibleResultsCount(current =>
@@ -371,7 +431,19 @@ export default function ProductInfoScreen({
           ]}>
           <View style={[styles.heroAccent, { backgroundColor: palette.primary }]} />
           <Text style={[styles.kicker, { color: heroAccentTextColor }]}>Информация о товаре</Text>
-          <Text style={[styles.title, { color: palette.onSurface }]}>Проверка по 1С</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: palette.onSurface }]}>Проверка по 1С</Text>
+            <View
+              style={[
+                styles.betaPill,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: innerBorderColor,
+                },
+              ]}>
+              <Text style={[styles.betaPillText, { color: heroAccentTextColor }]}>beta</Text>
+            </View>
+          </View>
           <Text style={[styles.subtitle, { color: palette.onSurfaceMuted }]}>
             Введи штрихкод или название товара, чтобы получить цену, характеристики и остатки по магазинам.
           </Text>
@@ -403,6 +475,7 @@ export default function ProductInfoScreen({
             onChangeText={text => {
               setQuery(text)
               setError(null)
+              setEmptySuggestions([])
             }}
             placeholder="Штрихкод или название товара"
             placeholderTextColor={palette.onSurfaceMuted}
@@ -433,6 +506,22 @@ export default function ProductInfoScreen({
               {isLoading ? 'Ищем товар…' : 'Найти товар'}
             </Text>
           </TouchableOpacity>
+          {query || error || results.length || product ? (
+            <TouchableOpacity
+              style={[
+                styles.secondaryButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: innerBorderColor,
+                },
+              ]}
+              onPress={handleResetSearch}
+              disabled={isLoading}>
+              <Text style={[styles.secondaryButtonText, { color: palette.onSurfaceMuted }]}>
+                Сбросить поиск
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </AnimatedEntranceView>
 
         {error ? (
@@ -447,6 +536,54 @@ export default function ProductInfoScreen({
             ]}>
             <Text style={[styles.feedbackTitle, { color: palette.error }]}>Ошибка</Text>
             <Text style={[styles.feedbackText, { color: palette.onSurface }]}>{error}</Text>
+          </AnimatedEntranceView>
+        ) : null}
+
+        {!error && !results.length && !product && emptySuggestions.length ? (
+          <AnimatedEntranceView
+            delay={108}
+            style={[
+              styles.feedbackCard,
+              {
+                backgroundColor: palette.surfaceRaised,
+                borderColor: cardBorderColor,
+              },
+            ]}>
+            <Text style={[styles.feedbackTitle, { color: palette.primaryStrong }]}>
+              Ничего не найдено
+            </Text>
+            <Text style={[styles.feedbackText, { color: palette.onSurfaceMuted }]}>
+              Попробуйте более короткий или уточнённый вариант запроса.
+            </Text>
+            <View style={styles.suggestionList}>
+              {emptySuggestions.map(item => {
+                const isHint = item === 'Проверьте штрихкод и попробуйте ещё раз'
+                return (
+                  <TouchableOpacity
+                    key={item}
+                    disabled={isHint || isLoading}
+                    style={[
+                      styles.suggestionChip,
+                      {
+                        backgroundColor: palette.surface,
+                        borderColor: innerBorderColor,
+                        opacity: isHint ? 0.85 : 1,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (isHint) {
+                        return
+                      }
+                      setQuery(item)
+                      performSearch(item).catch(() => {})
+                    }}>
+                    <Text style={[styles.suggestionChipText, { color: palette.onSurface }]}>
+                      {isHint ? item : `Искать: ${item}`}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
           </AnimatedEntranceView>
         ) : null}
 
@@ -689,6 +826,27 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: '900',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  betaPill: {
+    minHeight: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  betaPillText: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
@@ -743,6 +901,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '900',
   },
+  secondaryButton: {
+    minHeight: 46,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
   feedbackCard: {
     borderWidth: 1,
     borderRadius: 22,
@@ -757,6 +927,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '600',
+  },
+  suggestionList: {
+    marginTop: 10,
+    gap: 8,
+  },
+  suggestionChip: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestionChipText: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   resultList: {
     gap: 10,

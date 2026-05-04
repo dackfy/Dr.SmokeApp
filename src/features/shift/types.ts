@@ -3,10 +3,15 @@ export type OpenedShift = {
   shopName: string
   openedAt: string
   cashAtOpening: number
+  shopOpeningTime?: string
+  shopClosingTime?: string
+  regionTimezone?: string
 }
 
 export type ShiftStatus = {
   openedShift: OpenedShift | null
+  notice?: string | null
+  noticeVariant?: 'success' | 'warning' | 'error' | 'info' | null
 }
 
 export type OpenShiftPayload = {

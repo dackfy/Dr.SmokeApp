@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Platform } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthUser } from '../auth/types'
 import { shiftApi, type ShiftApi } from './shiftApi'
+import {
+  cancelShiftProgressNotification,
+  showOrUpdateShiftProgressNotification,
+} from '../push/shiftProgressNotification'
 import type {
   CloseFlowStep,
   OpenFlowStep,
@@ -40,6 +45,8 @@ type RefreshOptions = {
 type CloseEditTarget = 'none' | 'revenue' | 'checksCount' | 'cashlessPayment' | 'cashDenomination'
 
 const generatedSealNumbers = new Set<string>()
+const DAY_SECONDS = 24 * 60 * 60
+const formatterByTimezone = new Map<string, Intl.DateTimeFormat>()
 
 function generateUniqueSealNumber() {
   for (let i = 0; i < 20; i += 1) {
@@ -54,8 +61,116 @@ function generateUniqueSealNumber() {
   return fallback
 }
 
+function parseClockTimeToSeconds(value?: string | null) {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  const seconds = Number(match[3] || '0')
+  if (
+    !Number.isFinite(hours)
+    || !Number.isFinite(minutes)
+    || !Number.isFinite(seconds)
+    || hours < 0
+    || hours > 23
+    || minutes < 0
+    || minutes > 59
+    || seconds < 0
+    || seconds > 59
+  ) {
+    return null
+  }
+  return hours * 3600 + minutes * 60 + seconds
+}
+
+function getNowSecondsInTimezone(timezone: string) {
+  try {
+    let formatter = formatterByTimezone.get(timezone)
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+      formatterByTimezone.set(timezone, formatter)
+    }
+
+    const parts = formatter.formatToParts(new Date())
+    const hour = Number(parts.find(part => part.type === 'hour')?.value ?? '0')
+    const minute = Number(parts.find(part => part.type === 'minute')?.value ?? '0')
+    const second = Number(parts.find(part => part.type === 'second')?.value ?? '0')
+
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || !Number.isFinite(second)) {
+      return null
+    }
+
+    return hour * 3600 + minute * 60 + second
+  } catch {
+    return null
+  }
+}
+
+function formatDuration(totalSeconds: number) {
+  const normalized = Math.max(0, Math.floor(totalSeconds))
+  const hours = Math.floor(normalized / 3600)
+  const minutes = Math.floor((normalized % 3600) / 60)
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function buildShiftProgressPayload(args: {
+  shopName?: string
+  shopOpeningTime?: string
+  shopClosingTime?: string
+  regionTimezone?: string
+}) {
+  const openSec = parseClockTimeToSeconds(args.shopOpeningTime)
+  const closeSec = parseClockTimeToSeconds(args.shopClosingTime)
+  const timezone = String(args.regionTimezone || '').trim()
+
+  if (openSec === null || closeSec === null || !timezone) {
+    return null
+  }
+
+  let duration = closeSec - openSec
+  if (duration <= 0) {
+    duration += DAY_SECONDS
+  }
+  if (duration <= 0) {
+    return null
+  }
+
+  const nowSec = getNowSecondsInTimezone(timezone)
+  if (nowSec === null) {
+    return null
+  }
+
+  let normalizedNow = nowSec
+  if (closeSec <= openSec && nowSec < openSec) {
+    normalizedNow += DAY_SECONDS
+  }
+
+  const elapsed = Math.max(0, Math.min(duration, normalizedNow - openSec))
+  const progress = (elapsed / duration) * 100
+  const remaining = Math.max(0, duration - elapsed)
+  const title = args.shopName ? `Смена • ${args.shopName}` : 'Смена'
+  const body =
+    remaining > 0
+      ? `До конца смены: ${formatDuration(remaining)}`
+      : 'Смена близка к завершению'
+
+  return {
+    title,
+    body,
+    progress,
+  }
+}
+
 export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) {
   const api = options.api ?? shiftApi
+  const shiftEndPushKeyRef = useRef<string | null>(null)
 
   const [status, setStatus] = useState<ShiftStatus>({ openedShift: null })
   const [availableShops, setAvailableShops] = useState<ShopOption[]>([])
@@ -70,6 +185,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [noticeVariant, setNoticeVariant] = useState<'success' | 'warning' | 'error' | 'info' | null>(null)
 
   const canStartOpening = mode === 'idle' && !status.openedShift
   const canStartClosing = mode === 'idle' && !!status.openedShift
@@ -103,6 +219,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
     resetCloseFlow()
     setError(null)
     setNotice(null)
+    setNoticeVariant(null)
   }, [closeDraftBeforeEdit, closeEditTarget, mode, resetCloseFlow, resetOpenFlow])
 
   const refresh = useCallback(async (refreshOptions: RefreshOptions = {}) => {
@@ -136,6 +253,88 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
     refresh()
   }, [refresh])
 
+  useEffect(() => {
+    const openedShift = status.openedShift
+
+    if (!openedShift) {
+      shiftEndPushKeyRef.current = null
+      return
+    }
+
+    const key = `${openedShift.shopId ?? 'shop'}:${openedShift.openedAt || 'opened'}`
+    if (shiftEndPushKeyRef.current === key) {
+      return
+    }
+
+    shiftEndPushKeyRef.current = key
+    void api.ensureShiftEndPush(user.id)
+  }, [api, status.openedShift, user.id])
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return
+    }
+
+    const openedShift = status.openedShift
+    if (!openedShift) {
+      cancelShiftProgressNotification()
+      return
+    }
+
+    let isActive = true
+
+    const updateProgressNotification = async () => {
+      const payload = buildShiftProgressPayload({
+        shopName: openedShift.shopName,
+        shopOpeningTime: openedShift.shopOpeningTime,
+        shopClosingTime: openedShift.shopClosingTime,
+        regionTimezone: openedShift.regionTimezone,
+      })
+
+      if (payload) {
+        if (!isActive) return
+        showOrUpdateShiftProgressNotification(payload.title, payload.body, payload.progress)
+        return
+      }
+
+      const remotePayload = await api.getShiftEndPushPayload(user.id)
+      if (!isActive) return
+
+      if (!remotePayload || typeof remotePayload.progress !== 'number') {
+        showOrUpdateShiftProgressNotification(
+          openedShift.shopName ? `Смена • ${openedShift.shopName}` : 'Смена',
+          'Идет смена',
+          1,
+          false,
+        )
+        return
+      }
+
+      const remainingMs = Number(remotePayload.remainingMs ?? 0)
+      const remainingSec = remainingMs > 0 ? Math.floor(remainingMs / 1000) : 0
+      const body =
+        remainingSec > 0
+          ? `До конца смены: ${formatDuration(remainingSec)}`
+          : 'Смена близка к завершению'
+
+      showOrUpdateShiftProgressNotification(
+        remotePayload.shopName ? `Смена • ${remotePayload.shopName}` : 'Смена',
+        body,
+        remotePayload.progress,
+      )
+    }
+
+    void updateProgressNotification()
+    const intervalId = setInterval(() => {
+      void updateProgressNotification()
+    }, 30_000)
+
+    return () => {
+      isActive = false
+      clearInterval(intervalId)
+    }
+  }, [api, status.openedShift, user.id])
+
   const actions = useMemo(
     () => ({
       async startOpening() {
@@ -144,6 +343,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
         setMode('opening')
         setOpenStep('shop')
         setNotice(null)
+        setNoticeVariant(null)
         setError(null)
 
         try {
@@ -163,6 +363,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
         setCloseDraftBeforeEdit(null)
         setCloseDraft(prev => ({ ...prev, sealNumber: nextSeal }))
         setNotice(null)
+        setNoticeVariant(null)
         setError(null)
       },
 
@@ -265,7 +466,8 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
           setStatus(nextStatus)
           setMode('idle')
           resetOpenFlow()
-          setNotice(null)
+          setNotice(nextStatus.notice ?? null)
+          setNoticeVariant(nextStatus.noticeVariant ?? null)
         } catch (requestError) {
           const message =
             requestError instanceof Error ? requestError.message : 'Не удалось открыть смену'
@@ -295,6 +497,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
           setMode('idle')
           resetCloseFlow()
           setNotice('Откройте смену в правильном магазине и повторите попытку.')
+          setNoticeVariant('warning')
         } catch (requestError) {
           const message =
             requestError instanceof Error ? requestError.message : 'Не удалось сбросить открытую смену'
@@ -544,6 +747,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
           setMode('idle')
           resetCloseFlow()
           setNotice('Смена успешно закрыта.')
+          setNoticeVariant('success')
         } catch (requestError) {
           const message =
             requestError instanceof Error ? requestError.message : 'Не удалось закрыть смену'
@@ -555,6 +759,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
 
       clearNotice() {
         setNotice(null)
+        setNoticeVariant(null)
       },
 
       clearError() {
@@ -598,6 +803,7 @@ export function useShiftFlow(user: AuthUser, options: UseShiftFlowOptions = {}) 
     isSubmitting,
     error,
     notice,
+    noticeVariant,
     actions,
   }
 }

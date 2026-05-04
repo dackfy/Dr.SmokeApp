@@ -99,7 +99,7 @@ function SharedLiquidTabBar({
       hasExtraTabs
         ? [
             { key: 'home', icon: homeIcon, label: homeLabel },
-            { key: 'mail', icon: mailIcon as ImageSourcePropType, label: 'Сертификаты' },
+            { key: 'mail', icon: mailIcon as ImageSourcePropType, label: 'Задачи' },
             { key: 'trash', icon: trashIcon as ImageSourcePropType, label: trashLabel },
             { key: 'profile', icon: profileIcon, label: profileLabel },
           ]
